@@ -49,7 +49,7 @@ public class BusinessDateComponent {
     public boolean updateBusinessDate(LocalDate localDate) {
         if (!checkStillProcessingWithRetry())
             return false;
-        return openAccount(localDate);
+        return attemptPostBusinessDate(localDate);
     }
 
     private Optional<Boolean> checkStillProcessing() {
@@ -90,7 +90,7 @@ public class BusinessDateComponent {
     }
 
     // Open Account
-    private boolean openAccount(LocalDate localDate) {
+    private boolean attemptPostBusinessDate(LocalDate localDate) {
         int requestCount = 0;
         boolean loop = true;
         do {
