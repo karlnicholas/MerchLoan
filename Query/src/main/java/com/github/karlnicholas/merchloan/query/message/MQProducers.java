@@ -3,12 +3,10 @@ package com.github.karlnicholas.merchloan.query.message;
 import com.github.karlnicholas.merchloan.jms.MQConsumerUtils;
 import com.github.karlnicholas.merchloan.jms.ReplyWaitingHandler;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.activemq.artemis.jms.client.ActiveMQDestination;
-import org.apache.activemq.artemis.jms.client.ActiveMQQueue;
+import org.apache.activemq.command.ActiveMQQueue;
 import org.springframework.stereotype.Service;
 
-import jakarta.jms.*;
-
+import javax.jms.*;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.UUID;

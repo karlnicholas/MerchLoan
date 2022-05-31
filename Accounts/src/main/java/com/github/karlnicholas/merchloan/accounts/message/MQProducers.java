@@ -5,18 +5,11 @@ import com.github.karlnicholas.merchloan.jms.ReplyWaitingHandler;
 import com.github.karlnicholas.merchloan.jmsmessage.ServiceRequestResponse;
 import com.github.karlnicholas.merchloan.jmsmessage.StatementHeader;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.activemq.artemis.jms.client.ActiveMQQueue;
 import org.apache.activemq.command.ActiveMQQueue;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.jms.JmsProperties;
 import org.springframework.stereotype.Service;
 
-import jakarta.jms.*;
-
-import javax.jms.ConnectionFactory;
-import javax.jms.JMSException;
-import javax.jms.Queue;
-import javax.jms.Session;
+import javax.jms.*;
 import java.util.UUID;
 
 @Service
@@ -48,14 +41,18 @@ public class MQProducers {
     public void serviceRequestServiceRequest(ServiceRequestResponse serviceRequest) throws JMSException {
         log.debug("serviceRequestServiceRequest: {}", serviceRequest);
         try ( Session session = connectionFactory.createConnection().createSession(false, Session.AUTO_ACKNOWLEDGE)) {
-            session.createProducer().send(servicerequestQueue, session.createObjectMessage(serviceRequest));
+            MessageProducer producer = session.createProducer(servicerequestQueue);
+            producer.setDeliveryMode(DeliveryMode.NON_PERSISTENT);
+            producer.send(session.createObjectMessage(serviceRequest));
         }
     }
 
-    public void statementCloseStatement(StatementHeader statementHeader) {
+    public void statementCloseStatement(StatementHeader statementHeader) throws JMSException {
         log.debug("statementCloseStatement: {}", statementHeader);
         try ( Session session = connectionFactory.createConnection().createSession(false, Session.AUTO_ACKNOWLEDGE)) {
-            session.createProducer().send(statementCloseStatementQueue, session.createObjectMessage(statementHeader));
+            MessageProducer producer = session.createProducer(statementCloseStatementQueue);
+            producer.setDeliveryMode(DeliveryMode.NON_PERSISTENT);
+            producer.send(session.createObjectMessage(statementHeader));
         }
     }
 
@@ -67,7 +64,9 @@ public class MQProducers {
             Message message = session.createObjectMessage(loanId);
             message.setJMSCorrelationID(responseKey);
             message.setJMSReplyTo(accountsReplyQueue);
-            session.createProducer().send(statementQueryMostRecentStatementQueue, message);
+            MessageProducer producer = session.createProducer(statementQueryMostRecentStatementQueue);
+            producer.setDeliveryMode(DeliveryMode.NON_PERSISTENT);
+            producer.send(message);
             return replyWaitingHandler.getReply(responseKey);
         }
     }

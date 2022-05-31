@@ -11,11 +11,9 @@ import com.github.karlnicholas.merchloan.dto.LoanDto;
 import com.github.karlnicholas.merchloan.jms.MQConsumerUtils;
 import com.github.karlnicholas.merchloan.jmsmessage.*;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.activemq.artemis.jms.client.ActiveMQDestination;
 import org.springframework.stereotype.Component;
 
-import jakarta.jms.*;
-
+import javax.jms.*;
 import java.io.Serializable;
 import java.time.LocalDate;
 import java.util.Optional;

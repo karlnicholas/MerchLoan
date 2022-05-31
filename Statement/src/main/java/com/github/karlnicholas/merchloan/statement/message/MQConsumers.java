@@ -201,7 +201,9 @@ public class MQConsumers {
         try (Session session = connectionFactory.createConnection().createSession(false, Session.AUTO_ACKNOWLEDGE)) {
             Message message = session.createObjectMessage(data);
             message.setJMSCorrelationID(consumerMessage.getJMSCorrelationID());
-            session.createProducer().send(consumerMessage.getJMSReplyTo(), message);
+            MessageProducer producer = session.createProducer(consumerMessage.getJMSReplyTo());
+            producer.setDeliveryMode(DeliveryMode.NON_PERSISTENT);
+            producer.send(message);
         }
     }
 }

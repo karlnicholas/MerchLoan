@@ -4,12 +4,11 @@ import com.github.karlnicholas.merchloan.jms.MQConsumerUtils;
 import com.github.karlnicholas.merchloan.jms.ReplyWaitingHandler;
 import com.github.karlnicholas.merchloan.jmsmessage.BillingCycle;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.activemq.artemis.jms.client.ActiveMQQueue;
+import org.apache.activemq.command.ActiveMQQueue;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import jakarta.jms.*;
-
+import javax.jms.*;
 import java.time.LocalDate;
 import java.util.UUID;
 
@@ -25,7 +24,7 @@ public class MQProducers {
     private final Queue businessDateReplyQueue;
 
     @Autowired
-    public MQProducers(ConnectionFactory connectionFactory, MQConsumerUtils mqConsumerUtils) {
+    public MQProducers(ConnectionFactory connectionFactory, MQConsumerUtils mqConsumerUtils) throws JMSException {
         this.connectionFactory = connectionFactory;
         serviceRequestCheckRequestQueue = new ActiveMQQueue(mqConsumerUtils.getServiceRequestCheckRequestQueue());
         accountQueryLoansToCycleQueue = new ActiveMQQueue(mqConsumerUtils.getAccountQueryLoansToCycleQueue());
