@@ -47,11 +47,11 @@ public class MQProducers {
         Instant start = Instant.now();
         String responseKey = UUID.randomUUID().toString();
         replyWaitingHandler.put(responseKey);
-        try {
-            Message message = connectionFactory.createContext().createObjectMessage(id);
+        try (JMSContext jmsContext = connectionFactory.createContext() ) {
+            Message message = jmsContext.createObjectMessage(id);
             message.setJMSCorrelationID(responseKey);
             message.setJMSReplyTo(queryReplyQueue);
-            connectionFactory.createContext().createProducer().send(servicerequestQueryIdQueue, message);
+            jmsContext.createProducer().send(servicerequestQueryIdQueue, message);
             Object r = replyWaitingHandler.getReply(responseKey);
             log.debug("queryServiceRequest {}", Duration.between(Instant.now(), start));
             return r;

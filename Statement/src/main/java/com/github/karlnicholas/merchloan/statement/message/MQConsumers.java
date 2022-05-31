@@ -199,7 +199,7 @@ public class MQConsumers {
     }
 
     public void reply(Message consumerMessage, Serializable data) throws JMSException {
-        try(JMSContext context = connectionFactory.createContext()) {
+        try (JMSContext context = connectionFactory.createContext()) {
             Message message = context.createObjectMessage(data);
             message.setJMSCorrelationID(consumerMessage.getJMSCorrelationID());
             context.createProducer().send(consumerMessage.getJMSReplyTo(), message);
