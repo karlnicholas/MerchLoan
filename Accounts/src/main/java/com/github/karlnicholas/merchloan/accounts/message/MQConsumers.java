@@ -40,25 +40,25 @@ public class MQConsumers {
         this.objectMapper = new ObjectMapper().findAndRegisterModules()
                 .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
 
-        connectionFactory.createContext().createConsumer(ActiveMQDestination.createDestination(mqConsumerUtils.getAccountCreateAccountQueue(), ActiveMQDestination.TYPE.QUEUE)).setMessageListener(this::receivedCreateAccountMessage);
+        connectionFactory.createConnection().createSession(false, Session.AUTO_ACKNOWLEDGE).createConsumer(ActiveMQDestination.createDestination(mqConsumerUtils.getAccountCreateAccountQueue(), ActiveMQDestination.TYPE.QUEUE)).setMessageListener(this::receivedCreateAccountMessage);
 
-        connectionFactory.createContext().createConsumer(ActiveMQDestination.createDestination(mqConsumerUtils.getAccountFundingQueue(), ActiveMQDestination.TYPE.QUEUE)).setMessageListener(this::receivedFundingMessage);
+        connectionFactory.createConnection().createSession(false, Session.AUTO_ACKNOWLEDGE).createConsumer(ActiveMQDestination.createDestination(mqConsumerUtils.getAccountFundingQueue(), ActiveMQDestination.TYPE.QUEUE)).setMessageListener(this::receivedFundingMessage);
 
-        connectionFactory.createContext().createConsumer(ActiveMQDestination.createDestination(mqConsumerUtils.getAccountValidateCreditQueue(), ActiveMQDestination.TYPE.QUEUE)).setMessageListener(this::receivedValidateCreditMessage);
+        connectionFactory.createConnection().createSession(false, Session.AUTO_ACKNOWLEDGE).createConsumer(ActiveMQDestination.createDestination(mqConsumerUtils.getAccountValidateCreditQueue(), ActiveMQDestination.TYPE.QUEUE)).setMessageListener(this::receivedValidateCreditMessage);
 
-        connectionFactory.createContext().createConsumer(ActiveMQDestination.createDestination(mqConsumerUtils.getAccountValidateDebitQueue(), ActiveMQDestination.TYPE.QUEUE)).setMessageListener(this::receivedValidateDebitMessage);
+        connectionFactory.createConnection().createSession(false, Session.AUTO_ACKNOWLEDGE).createConsumer(ActiveMQDestination.createDestination(mqConsumerUtils.getAccountValidateDebitQueue(), ActiveMQDestination.TYPE.QUEUE)).setMessageListener(this::receivedValidateDebitMessage);
 
-        connectionFactory.createContext().createConsumer(ActiveMQDestination.createDestination(mqConsumerUtils.getAccountLoanClosedQueue(), ActiveMQDestination.TYPE.QUEUE)).setMessageListener(this::receivedLoanClosedMessage);
+        connectionFactory.createConnection().createSession(false, Session.AUTO_ACKNOWLEDGE).createConsumer(ActiveMQDestination.createDestination(mqConsumerUtils.getAccountLoanClosedQueue(), ActiveMQDestination.TYPE.QUEUE)).setMessageListener(this::receivedLoanClosedMessage);
 
-        connectionFactory.createContext().createConsumer(ActiveMQDestination.createDestination(mqConsumerUtils.getAccountQueryStatementHeaderQueue(), ActiveMQDestination.TYPE.QUEUE)).setMessageListener(this::receivedStatementHeaderMessage);
+        connectionFactory.createConnection().createSession(false, Session.AUTO_ACKNOWLEDGE).createConsumer(ActiveMQDestination.createDestination(mqConsumerUtils.getAccountQueryStatementHeaderQueue(), ActiveMQDestination.TYPE.QUEUE)).setMessageListener(this::receivedStatementHeaderMessage);
 
-        connectionFactory.createContext().createConsumer(ActiveMQDestination.createDestination(mqConsumerUtils.getAccountBillingCycleChargeQueue(), ActiveMQDestination.TYPE.QUEUE)).setMessageListener(this::receivedBillingCycleChargeMessage);
+        connectionFactory.createConnection().createSession(false, Session.AUTO_ACKNOWLEDGE).createConsumer(ActiveMQDestination.createDestination(mqConsumerUtils.getAccountBillingCycleChargeQueue(), ActiveMQDestination.TYPE.QUEUE)).setMessageListener(this::receivedBillingCycleChargeMessage);
 
-        connectionFactory.createContext().createConsumer(ActiveMQDestination.createDestination(mqConsumerUtils.getAccountQueryLoansToCycleQueue(), ActiveMQDestination.TYPE.QUEUE)).setMessageListener(this::receivedLoansToCycleMessage);
+        connectionFactory.createConnection().createSession(false, Session.AUTO_ACKNOWLEDGE).createConsumer(ActiveMQDestination.createDestination(mqConsumerUtils.getAccountQueryLoansToCycleQueue(), ActiveMQDestination.TYPE.QUEUE)).setMessageListener(this::receivedLoansToCycleMessage);
 
-        connectionFactory.createContext().createConsumer(ActiveMQDestination.createDestination(mqConsumerUtils.getAccountQueryAccountIdQueue(), ActiveMQDestination.TYPE.QUEUE)).setMessageListener(this::receivedQueryAccountIdMessage);
+        connectionFactory.createConnection().createSession(false, Session.AUTO_ACKNOWLEDGE).createConsumer(ActiveMQDestination.createDestination(mqConsumerUtils.getAccountQueryAccountIdQueue(), ActiveMQDestination.TYPE.QUEUE)).setMessageListener(this::receivedQueryAccountIdMessage);
 
-        connectionFactory.createContext().createConsumer(ActiveMQDestination.createDestination(mqConsumerUtils.getAccountQueryLoanIdQueue(), ActiveMQDestination.TYPE.QUEUE)).setMessageListener(this::receivedQueryLoanIdMessage);
+        connectionFactory.createConnection().createSession(false, Session.AUTO_ACKNOWLEDGE).createConsumer(ActiveMQDestination.createDestination(mqConsumerUtils.getAccountQueryLoanIdQueue(), ActiveMQDestination.TYPE.QUEUE)).setMessageListener(this::receivedQueryLoanIdMessage);
     }
 
     public void receivedStatementHeaderMessage(Message message) {
@@ -134,10 +134,10 @@ public class MQConsumers {
     }
 
     public void reply(Message consumerMessage, Serializable data) throws JMSException {
-        try (JMSContext jmsContext = connectionFactory.createContext()) {
-            Message message = jmsContext.createObjectMessage(data);
+        try (Session session = connectionFactory.createConnection().createSession(false, Session.AUTO_ACKNOWLEDGE)) {
+            Message message = session.createObjectMessage(data);
             message.setJMSCorrelationID(consumerMessage.getJMSCorrelationID());
-            jmsContext.createProducer().send(consumerMessage.getJMSReplyTo(), message);
+            session.createProducer().send(consumerMessage.getJMSReplyTo(), message);
         }
     }
 

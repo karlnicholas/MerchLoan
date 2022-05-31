@@ -38,11 +38,11 @@ public class MQConsumers {
         this.objectMapper = new ObjectMapper().findAndRegisterModules()
                 .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
 
-        connectionFactory.createContext().createConsumer(ActiveMQDestination.createDestination(mqConsumerUtils.getServicerequestQueue(), ActiveMQDestination.TYPE.QUEUE)).setMessageListener(this::receivedServiceRequestMessage);
-        connectionFactory.createContext().createConsumer(ActiveMQDestination.createDestination(mqConsumerUtils.getServicerequestQueryIdQueue(), ActiveMQDestination.TYPE.QUEUE)).setMessageListener(this::receivedServiceRequestQueryIdMessage);
-        connectionFactory.createContext().createConsumer(ActiveMQDestination.createDestination(mqConsumerUtils.getServiceRequestCheckRequestQueue(), ActiveMQDestination.TYPE.QUEUE)).setMessageListener(this::receivedCheckRequestMessage);
-        connectionFactory.createContext().createConsumer(ActiveMQDestination.createDestination(mqConsumerUtils.getServiceRequestBillLoanQueue(), ActiveMQDestination.TYPE.QUEUE)).setMessageListener(this::receivedServiceRequestBillloanMessage);
-        connectionFactory.createContext().createConsumer(ActiveMQDestination.createDestination(mqConsumerUtils.getServiceRequestStatementCompleteQueue(), ActiveMQDestination.TYPE.QUEUE)).setMessageListener(this::receivedServiceStatementCompleteMessage);
+        connectionFactory.createConnection().createSession(false, Session.AUTO_ACKNOWLEDGE).createConsumer(ActiveMQDestination.createDestination(mqConsumerUtils.getServicerequestQueue(), ActiveMQDestination.TYPE.QUEUE)).setMessageListener(this::receivedServiceRequestMessage);
+        connectionFactory.createConnection().createSession(false, Session.AUTO_ACKNOWLEDGE).createConsumer(ActiveMQDestination.createDestination(mqConsumerUtils.getServicerequestQueryIdQueue(), ActiveMQDestination.TYPE.QUEUE)).setMessageListener(this::receivedServiceRequestQueryIdMessage);
+        connectionFactory.createConnection().createSession(false, Session.AUTO_ACKNOWLEDGE).createConsumer(ActiveMQDestination.createDestination(mqConsumerUtils.getServiceRequestCheckRequestQueue(), ActiveMQDestination.TYPE.QUEUE)).setMessageListener(this::receivedCheckRequestMessage);
+        connectionFactory.createConnection().createSession(false, Session.AUTO_ACKNOWLEDGE).createConsumer(ActiveMQDestination.createDestination(mqConsumerUtils.getServiceRequestBillLoanQueue(), ActiveMQDestination.TYPE.QUEUE)).setMessageListener(this::receivedServiceRequestBillloanMessage);
+        connectionFactory.createConnection().createSession(false, Session.AUTO_ACKNOWLEDGE).createConsumer(ActiveMQDestination.createDestination(mqConsumerUtils.getServiceRequestStatementCompleteQueue(), ActiveMQDestination.TYPE.QUEUE)).setMessageListener(this::receivedServiceStatementCompleteMessage);
 
     }
 
@@ -80,10 +80,10 @@ public class MQConsumers {
     }
 
     public void reply(Message consumerMessage, Serializable data) throws JMSException {
-        try ( JMSContext jmsContext = connectionFactory.createContext()) {
-            Message message = jmsContext.createObjectMessage(data);
+        try ( Session session = connectionFactory.createConnection().createSession(false, Session.AUTO_ACKNOWLEDGE)) {
+            Message message = session.createObjectMessage(data);
             message.setJMSCorrelationID(consumerMessage.getJMSCorrelationID());
-            jmsContext.createProducer().send(consumerMessage.getJMSReplyTo(), message);
+            session.createProducer().send(consumerMessage.getJMSReplyTo(), message);
         }
     }
 

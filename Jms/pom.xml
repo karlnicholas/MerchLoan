@@ -24,8 +24,8 @@
         </dependency>
         <dependency>
             <groupId>org.apache.activemq</groupId>
-            <artifactId>artemis-jakarta-client-all</artifactId>
-            <version>2.22.0</version>
+            <artifactId>activemq-client</artifactId>
+            <version>5.17.1</version>
         </dependency>
         <dependency>
             <groupId>org.messaginghub</groupId>

@@ -28,18 +28,18 @@ public class MQProducers {
 
     public MQProducers(ConnectionFactory connectionFactory, MQConsumerUtils mqConsumerUtils) {
         this.connectionFactory = connectionFactory;
-        servicerequestQueryIdQueue = ActiveMQQueue.createQueue(mqConsumerUtils.getServicerequestQueryIdQueue());
-        accountQueryAccountIdQueue = ActiveMQQueue.createQueue(mqConsumerUtils.getAccountQueryAccountIdQueue());
-        accountQueryLoanIdQueue = ActiveMQQueue.createQueue(mqConsumerUtils.getAccountQueryLoanIdQueue());
-        statementQueryStatementQueue = ActiveMQQueue.createQueue(mqConsumerUtils.getStatementQueryStatementQueue());
-        statementQueryStatementsQueue = ActiveMQQueue.createQueue(mqConsumerUtils.getStatementQueryStatementsQueue());
-        serviceRequestCheckRequestQueue = ActiveMQQueue.createQueue(mqConsumerUtils.getServiceRequestCheckRequestQueue());
+        servicerequestQueryIdQueue = new ActiveMQQueue(mqConsumerUtils.getServicerequestQueryIdQueue());
+        accountQueryAccountIdQueue = new ActiveMQQueue(mqConsumerUtils.getAccountQueryAccountIdQueue());
+        accountQueryLoanIdQueue = new ActiveMQQueue(mqConsumerUtils.getAccountQueryLoanIdQueue());
+        statementQueryStatementQueue = new ActiveMQQueue(mqConsumerUtils.getStatementQueryStatementQueue());
+        statementQueryStatementsQueue = new ActiveMQQueue(mqConsumerUtils.getStatementQueryStatementsQueue());
+        serviceRequestCheckRequestQueue = new ActiveMQQueue(mqConsumerUtils.getServiceRequestCheckRequestQueue());
 
         replyWaitingHandler = new ReplyWaitingHandler();
-        JMSContext queueReplyContext = connectionFactory.createContext();
-        queueReplyContext.setClientID("Query::queueReplyContext");
-        queryReplyQueue = queueReplyContext.createTemporaryQueue();
-        JMSConsumer replyConsumer = queueReplyContext.createConsumer(queryReplyQueue);
+        JMSContext queueReplyContext = connectionFactory.createConnection().createSession(false, Session.AUTO_ACKNOWLEDGE);
+        queueReplysession.setClientID("Query::queueReplyContext");
+        queryReplyQueue = queueReplysession.createTemporaryQueue();
+        JMSConsumer replyConsumer = queueReplysession.createConsumer(queryReplyQueue);
         replyConsumer.setMessageListener(replyWaitingHandler);
     }
 
@@ -47,11 +47,11 @@ public class MQProducers {
         Instant start = Instant.now();
         String responseKey = UUID.randomUUID().toString();
         replyWaitingHandler.put(responseKey);
-        try (JMSContext jmsContext = connectionFactory.createContext() ) {
-            Message message = jmsContext.createObjectMessage(id);
+        try (Session session = connectionFactory.createConnection().createSession(false, Session.AUTO_ACKNOWLEDGE) ) {
+            Message message = session.createObjectMessage(id);
             message.setJMSCorrelationID(responseKey);
             message.setJMSReplyTo(queryReplyQueue);
-            jmsContext.createProducer().send(servicerequestQueryIdQueue, message);
+            session.createProducer().send(servicerequestQueryIdQueue, message);
             Object r = replyWaitingHandler.getReply(responseKey);
             log.debug("queryServiceRequest {}", Duration.between(Instant.now(), start));
             return r;
@@ -66,11 +66,11 @@ public class MQProducers {
         Instant start = Instant.now();
         String responseKey = UUID.randomUUID().toString();
         replyWaitingHandler.put(responseKey);
-        try (JMSContext jmsContext = connectionFactory.createContext()) {
-            Message message = jmsContext.createObjectMessage(id);
+        try (Session session = connectionFactory.createConnection().createSession(false, Session.AUTO_ACKNOWLEDGE)) {
+            Message message = session.createObjectMessage(id);
             message.setJMSCorrelationID(responseKey);
             message.setJMSReplyTo(queryReplyQueue);
-            jmsContext.createProducer().send(accountQueryAccountIdQueue, message);
+            session.createProducer().send(accountQueryAccountIdQueue, message);
             Object r = replyWaitingHandler.getReply(responseKey);
             log.debug("queryAccount {}", Duration.between(Instant.now(), start));
             return r;
@@ -85,11 +85,11 @@ public class MQProducers {
         Instant start = Instant.now();
         String responseKey = UUID.randomUUID().toString();
         replyWaitingHandler.put(responseKey);
-        try (JMSContext jmsContext = connectionFactory.createContext()) {
-            Message message = jmsContext.createObjectMessage(id);
+        try (Session session = connectionFactory.createConnection().createSession(false, Session.AUTO_ACKNOWLEDGE)) {
+            Message message = session.createObjectMessage(id);
             message.setJMSCorrelationID(responseKey);
             message.setJMSReplyTo(queryReplyQueue);
-            jmsContext.createProducer().send(accountQueryLoanIdQueue, message);
+            session.createProducer().send(accountQueryLoanIdQueue, message);
             Object r = replyWaitingHandler.getReply(responseKey);
             log.debug("queryLoan {}", Duration.between(Instant.now(), start));
             return r;
@@ -104,11 +104,11 @@ public class MQProducers {
         Instant start = Instant.now();
         String responseKey = UUID.randomUUID().toString();
         replyWaitingHandler.put(responseKey);
-        try (JMSContext jmsContext = connectionFactory.createContext()) {
-            Message message = jmsContext.createObjectMessage(id);
+        try (Session session = connectionFactory.createConnection().createSession(false, Session.AUTO_ACKNOWLEDGE)) {
+            Message message = session.createObjectMessage(id);
             message.setJMSCorrelationID(responseKey);
             message.setJMSReplyTo(queryReplyQueue);
-            jmsContext.createProducer().send(statementQueryStatementQueue, message);
+            session.createProducer().send(statementQueryStatementQueue, message);
             Object r = replyWaitingHandler.getReply(responseKey);
             log.debug("queryStatement {}", Duration.between(Instant.now(), start));
             return r;
@@ -123,11 +123,11 @@ public class MQProducers {
         Instant start = Instant.now();
         String responseKey = UUID.randomUUID().toString();
         replyWaitingHandler.put(responseKey);
-        try (JMSContext jmsContext = connectionFactory.createContext()) {
-            Message message = jmsContext.createObjectMessage(id);
+        try (Session session = connectionFactory.createConnection().createSession(false, Session.AUTO_ACKNOWLEDGE)) {
+            Message message = session.createObjectMessage(id);
             message.setJMSCorrelationID(responseKey);
             message.setJMSReplyTo(queryReplyQueue);
-            jmsContext.createProducer().send(statementQueryStatementsQueue, message);
+            session.createProducer().send(statementQueryStatementsQueue, message);
             Object r = replyWaitingHandler.getReply(responseKey);
             log.debug("queryStatements {}", Duration.between(Instant.now(), start));
             return r;
@@ -142,11 +142,11 @@ public class MQProducers {
         Instant start = Instant.now();
         String responseKey = UUID.randomUUID().toString();
         replyWaitingHandler.put(responseKey);
-        try (JMSContext jmsContext = connectionFactory.createContext()) {
-            Message message = jmsContext.createObjectMessage(new byte[0]);
+        try (Session session = connectionFactory.createConnection().createSession(false, Session.AUTO_ACKNOWLEDGE)) {
+            Message message = session.createObjectMessage(new byte[0]);
             message.setJMSCorrelationID(responseKey);
             message.setJMSReplyTo(queryReplyQueue);
-            jmsContext.createProducer().send(serviceRequestCheckRequestQueue, message);
+            session.createProducer().send(serviceRequestCheckRequestQueue, message);
             Object r = replyWaitingHandler.getReply(responseKey);
             log.debug("queryCheckRequest {}", Duration.between(Instant.now(), start));
             return r;

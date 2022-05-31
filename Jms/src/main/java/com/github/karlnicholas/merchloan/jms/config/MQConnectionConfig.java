@@ -1,12 +1,13 @@
 package com.github.karlnicholas.merchloan.jms.config;
 
-import jakarta.jms.ConnectionFactory;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.activemq.artemis.jms.client.ActiveMQConnectionFactory;
+import org.apache.activemq.ActiveMQConnectionFactory;
 import org.messaginghub.pooled.jms.JmsPoolConnectionFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+
+import javax.jms.ConnectionFactory;
 
 
 @Configuration
@@ -21,11 +22,11 @@ public class MQConnectionConfig {
 
     @Bean
     public ConnectionFactory getConnectionFactory() {
-        JmsPoolConnectionFactory poolingFactory = new JmsPoolConnectionFactory();
-        ActiveMQConnectionFactory connectionFactory = new ActiveMQConnectionFactory("tcp://" + host + ":" + port);
-        poolingFactory.setConnectionFactory(connectionFactory);
-        return poolingFactory;
-//        return new ActiveMQConnectionFactory("tcp://" + host + ":" + port);
+//        JmsPoolConnectionFactory poolingFactory = new JmsPoolConnectionFactory();
+//        ActiveMQConnectionFactory connectionFactory = new ActiveMQConnectionFactory("tcp://" + host + ":" + port);
+//        poolingFactory.setConnectionFactory(connectionFactory);
+//        return poolingFactory;
+        return new ActiveMQConnectionFactory("tcp://" + host + ":" + port);
     }
 
 //    @Bean

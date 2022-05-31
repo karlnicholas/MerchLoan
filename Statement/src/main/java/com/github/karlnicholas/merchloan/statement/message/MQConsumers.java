@@ -9,11 +9,10 @@ import com.github.karlnicholas.merchloan.statement.model.Statement;
 import com.github.karlnicholas.merchloan.statement.service.QueryService;
 import com.github.karlnicholas.merchloan.statement.service.StatementService;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.activemq.artemis.jms.client.ActiveMQQueue;
+import org.apache.activemq.command.ActiveMQQueue;
 import org.springframework.stereotype.Component;
 
-import jakarta.jms.*;
-
+import javax.jms.*;
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -34,7 +33,7 @@ public class MQConsumers {
 
     public MQConsumers(ConnectionFactory connectionFactory, MQConsumerUtils mqConsumerUtils, StatementService statementService, MQProducers mqProducers, QueryService queryService) throws JMSException {
 //        this.connection = connection;
-//        session = connection.createSession();
+//        session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
         this.connectionFactory = connectionFactory;
         this.statementService = statementService;
         this.mqProducers = mqProducers;
@@ -43,15 +42,15 @@ public class MQConsumers {
         objectMapper = new ObjectMapper().findAndRegisterModules()
                 .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
 
-        connectionFactory.createContext().createConsumer(ActiveMQQueue.createQueue(mqConsumerUtils.getStatementStatementQueue())).setMessageListener(this::onStatementMessage);
+        connectionFactory.createConnection().createSession(false, Session.AUTO_ACKNOWLEDGE).createConsumer(new ActiveMQQueue(mqConsumerUtils.getStatementStatementQueue())).setMessageListener(this::onStatementMessage);
 
-        connectionFactory.createContext().createConsumer(ActiveMQQueue.createQueue(mqConsumerUtils.getStatementCloseStatementQueue())).setMessageListener(this::onCloseStatementMessage);
+        connectionFactory.createConnection().createSession(false, Session.AUTO_ACKNOWLEDGE).createConsumer(new ActiveMQQueue(mqConsumerUtils.getStatementCloseStatementQueue())).setMessageListener(this::onCloseStatementMessage);
 
-        connectionFactory.createContext().createConsumer(ActiveMQQueue.createQueue(mqConsumerUtils.getStatementQueryStatementQueue())).setMessageListener(this::onQueryStatementMessage);
+        connectionFactory.createConnection().createSession(false, Session.AUTO_ACKNOWLEDGE).createConsumer(new ActiveMQQueue(mqConsumerUtils.getStatementQueryStatementQueue())).setMessageListener(this::onQueryStatementMessage);
 
-        connectionFactory.createContext().createConsumer(ActiveMQQueue.createQueue(mqConsumerUtils.getStatementQueryStatementsQueue())).setMessageListener(this::onQueryStatementsMessage);
+        connectionFactory.createConnection().createSession(false, Session.AUTO_ACKNOWLEDGE).createConsumer(new ActiveMQQueue(mqConsumerUtils.getStatementQueryStatementsQueue())).setMessageListener(this::onQueryStatementsMessage);
 
-        connectionFactory.createContext().createConsumer(ActiveMQQueue.createQueue(mqConsumerUtils.getStatementQueryMostRecentStatementQueue())).setMessageListener(this::onQueryMostRecentStatementMessage);
+        connectionFactory.createConnection().createSession(false, Session.AUTO_ACKNOWLEDGE).createConsumer(new ActiveMQQueue(mqConsumerUtils.getStatementQueryMostRecentStatementQueue())).setMessageListener(this::onQueryMostRecentStatementMessage);
 
     }
 
@@ -199,10 +198,10 @@ public class MQConsumers {
     }
 
     public void reply(Message consumerMessage, Serializable data) throws JMSException {
-        try (JMSContext context = connectionFactory.createContext()) {
-            Message message = context.createObjectMessage(data);
+        try (Session session = connectionFactory.createConnection().createSession(false, Session.AUTO_ACKNOWLEDGE)) {
+            Message message = session.createObjectMessage(data);
             message.setJMSCorrelationID(consumerMessage.getJMSCorrelationID());
-            context.createProducer().send(consumerMessage.getJMSReplyTo(), message);
+            session.createProducer().send(consumerMessage.getJMSReplyTo(), message);
         }
     }
 }

@@ -6,8 +6,6 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.PropertySource;
 
-import jakarta.jms.*;
-
 @Configuration
 @ConfigurationProperties(prefix = "rabbitmq")
 @PropertySource(value = "classpath:rabbitmq-config.properties")

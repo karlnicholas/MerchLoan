@@ -25,54 +25,54 @@ public class MQProducers {
     public MQProducers(ConnectionFactory connectionFactory, MQConsumerUtils mqConsumerUtils) throws JMSException {
         this.connectionFactory = connectionFactory;
 
-        accountCreateAccountQueue = ActiveMQQueue.createQueue(mqConsumerUtils.getAccountCreateAccountQueue());
-        accountFundingQueue = ActiveMQQueue.createQueue(mqConsumerUtils.getAccountFundingQueue());
-        accountValidateCreditQueue = ActiveMQQueue.createQueue(mqConsumerUtils.getAccountValidateCreditQueue());
-        accountValidateDebitQueue = ActiveMQQueue.createQueue(mqConsumerUtils.getAccountValidateDebitQueue());
-        statementStatementQueue = ActiveMQQueue.createQueue(mqConsumerUtils.getStatementStatementQueue());
-        accountCloseLoanQueue = ActiveMQQueue.createQueue(mqConsumerUtils.getAccountCloseLoanQueue());
+        accountCreateAccountQueue = new ActiveMQQueue(mqConsumerUtils.getAccountCreateAccountQueue());
+        accountFundingQueue = new ActiveMQQueue(mqConsumerUtils.getAccountFundingQueue());
+        accountValidateCreditQueue = new ActiveMQQueue(mqConsumerUtils.getAccountValidateCreditQueue());
+        accountValidateDebitQueue = new ActiveMQQueue(mqConsumerUtils.getAccountValidateDebitQueue());
+        statementStatementQueue = new ActiveMQQueue(mqConsumerUtils.getStatementStatementQueue());
+        accountCloseLoanQueue = new ActiveMQQueue(mqConsumerUtils.getAccountCloseLoanQueue());
     }
 
     public void accountCreateAccount(CreateAccount createAccount) throws JMSException {
         log.debug("accountCreateAccount: {}", createAccount);
-        try (JMSContext jmsContext = connectionFactory.createContext()) {
-            jmsContext.createProducer().send(accountCreateAccountQueue, jmsContext.createObjectMessage(createAccount));
+        try (Session session = connectionFactory.createConnection().createSession(false, Session.AUTO_ACKNOWLEDGE)) {
+            session.createProducer().send(accountCreateAccountQueue, session.createObjectMessage(createAccount));
         }
     }
 
     public void accountFundLoan(FundLoan fundLoan) throws JMSException {
         log.debug("accountFundLoan: {}", fundLoan);
-        try (JMSContext jmsContext = connectionFactory.createContext()) {
-            jmsContext.createProducer().send(accountFundingQueue, jmsContext.createObjectMessage(fundLoan));
+        try (Session session = connectionFactory.createConnection().createSession(false, Session.AUTO_ACKNOWLEDGE)) {
+            session.createProducer().send(accountFundingQueue, session.createObjectMessage(fundLoan));
         }
     }
 
     public void accountValidateCredit(CreditLoan creditLoan) throws JMSException {
         log.debug("accountValidateCredit: {}", creditLoan);
-        try (JMSContext jmsContext = connectionFactory.createContext()) {
-            jmsContext.createProducer().send(accountValidateCreditQueue, jmsContext.createObjectMessage(creditLoan));
+        try (Session session = connectionFactory.createConnection().createSession(false, Session.AUTO_ACKNOWLEDGE)) {
+            session.createProducer().send(accountValidateCreditQueue, session.createObjectMessage(creditLoan));
 
         }
     }
 
     public void accountValidateDebit(DebitLoan debitLoan) throws JMSException {
         log.debug("accountValidateDebit: {}", debitLoan);
-        try (JMSContext jmsContext = connectionFactory.createContext()) {
-            jmsContext.createProducer().send(accountValidateDebitQueue, jmsContext.createObjectMessage(debitLoan));
+        try (Session session = connectionFactory.createConnection().createSession(false, Session.AUTO_ACKNOWLEDGE)) {
+            session.createProducer().send(accountValidateDebitQueue, session.createObjectMessage(debitLoan));
         }
     }
 
     public void statementStatement(StatementHeader statementHeader) throws JMSException {
         log.debug("statementStatement: {}", statementHeader);
-        try (JMSContext jmsContext = connectionFactory.createContext()) {
-            jmsContext.createProducer().send(statementStatementQueue, jmsContext.createObjectMessage(statementHeader));
+        try (Session session = connectionFactory.createConnection().createSession(false, Session.AUTO_ACKNOWLEDGE)) {
+            session.createProducer().send(statementStatementQueue, session.createObjectMessage(statementHeader));
         }
     }
 
     public void accountCloseLoan(CloseLoan closeLoan) throws JMSException {
         log.debug("accountCloseLoan: {}", closeLoan);
-        try (JMSContext jmsContext = connectionFactory.createContext()) {
-            jmsContext.createProducer().send(accountCloseLoanQueue, jmsContext.createObjectMessage(closeLoan));
+        try (Session session = connectionFactory.createConnection().createSession(false, Session.AUTO_ACKNOWLEDGE)) {
+            session.createProducer().send(accountCloseLoanQueue, session.createObjectMessage(closeLoan));
         }
     }
 

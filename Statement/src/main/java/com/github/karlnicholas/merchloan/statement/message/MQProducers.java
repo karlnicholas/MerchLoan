@@ -7,12 +7,11 @@ import com.github.karlnicholas.merchloan.jmsmessage.ServiceRequestResponse;
 import com.github.karlnicholas.merchloan.jmsmessage.StatementCompleteResponse;
 import com.github.karlnicholas.merchloan.jmsmessage.StatementHeader;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.activemq.artemis.jms.client.ActiveMQQueue;
+import org.apache.activemq.command.ActiveMQQueue;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import jakarta.jms.*;
-
+import javax.jms.*;
 import java.util.UUID;
 
 @Component
@@ -31,27 +30,27 @@ public class MQProducers {
     public MQProducers(ConnectionFactory connectionFactory, MQConsumerUtils mqConsumerUtils) {
         this.connectionFactory = connectionFactory;
 
-        accountBillingCycleChargeQueue = ActiveMQQueue.createQueue(mqConsumerUtils.getAccountBillingCycleChargeQueue());
-        accountQueryStatementHeaderQueue = ActiveMQQueue.createQueue(mqConsumerUtils.getAccountQueryStatementHeaderQueue());
-        servicerequestQueue = ActiveMQQueue.createQueue(mqConsumerUtils.getServicerequestQueue());
-        accountLoanClosedQueue = ActiveMQQueue.createQueue(mqConsumerUtils.getAccountLoanClosedQueue());
-        serviceRequestStatementCompleteQueue = ActiveMQQueue.createQueue(mqConsumerUtils.getServiceRequestStatementCompleteQueue());
+        accountBillingCycleChargeQueue = new ActiveMQQueue(mqConsumerUtils.getAccountBillingCycleChargeQueue());
+        accountQueryStatementHeaderQueue = new ActiveMQQueue(mqConsumerUtils.getAccountQueryStatementHeaderQueue());
+        servicerequestQueue = new ActiveMQQueue(mqConsumerUtils.getServicerequestQueue());
+        accountLoanClosedQueue = new ActiveMQQueue(mqConsumerUtils.getAccountLoanClosedQueue());
+        serviceRequestStatementCompleteQueue = new ActiveMQQueue(mqConsumerUtils.getServiceRequestStatementCompleteQueue());
 
         replyWaitingHandler = new ReplyWaitingHandler();
-        JMSContext consumerContext = connectionFactory.createContext();
-        statementReplyQueue = consumerContext.createTemporaryQueue();
-        consumerContext.createConsumer(statementReplyQueue).setMessageListener(replyWaitingHandler::onMessage);
+        Session session = connectionFactory.createConnection().createSession(false, Session.AUTO_ACKNOWLEDGE);
+        statementReplyQueue = consumersession.createTemporaryQueue();
+        consumersession.createConsumer(statementReplyQueue).setMessageListener(replyWaitingHandler::onMessage);
     }
 
     public Object accountBillingCycleCharge(BillingCycleCharge billingCycleCharge) throws InterruptedException, JMSException {
         log.debug("accountBillingCycleCharge: {}", billingCycleCharge);
         String responseKey = UUID.randomUUID().toString();
         replyWaitingHandler.put(responseKey);
-        try ( JMSContext jmsContext = connectionFactory.createContext()) {
-            Message message = jmsContext.createObjectMessage(billingCycleCharge);
+        try ( Session session = connectionFactory.createConnection().createSession(false, Session.AUTO_ACKNOWLEDGE)) {
+            Message message = session.createObjectMessage(billingCycleCharge);
             message.setJMSCorrelationID(responseKey);
             message.setJMSReplyTo(statementReplyQueue);
-            jmsContext.createProducer().send(accountBillingCycleChargeQueue, message);
+            session.createProducer(accountBillingCycleChargeQueue).send(message);
             return replyWaitingHandler.getReply(responseKey);
         }
     }
@@ -60,33 +59,33 @@ public class MQProducers {
         log.debug("accountQueryStatementHeader: {}", statementHeader);
         String responseKey = UUID.randomUUID().toString();
         replyWaitingHandler.put(responseKey);
-        try ( JMSContext jmsContext = connectionFactory.createContext()) {
-            Message message = jmsContext.createObjectMessage(statementHeader);
+        try ( Session session = connectionFactory.createConnection().createSession(false, Session.AUTO_ACKNOWLEDGE)) {
+            Message message = session.createObjectMessage(statementHeader);
             message.setJMSCorrelationID(responseKey);
             message.setJMSReplyTo(statementReplyQueue);
-            jmsContext.createProducer().send(accountQueryStatementHeaderQueue, message);
+            session.createProducer().send(accountQueryStatementHeaderQueue, message);
             return replyWaitingHandler.getReply(responseKey);
         }
     }
 
     public void serviceRequestServiceRequest(ServiceRequestResponse serviceRequest) {
         log.debug("serviceRequestServiceRequest: {}", serviceRequest);
-        try ( JMSContext jmsContext = connectionFactory.createContext()) {
-            jmsContext.createProducer().send(servicerequestQueue, jmsContext.createObjectMessage(serviceRequest));
+        try ( Session session = connectionFactory.createConnection().createSession(false, Session.AUTO_ACKNOWLEDGE)) {
+            session.createProducer().send(servicerequestQueue, session.createObjectMessage(serviceRequest));
         }
     }
 
     public void accountLoanClosed(StatementHeader statementHeader) throws JMSException {
         log.debug("accountLoanClosed: {}", statementHeader);
-        try ( JMSContext jmsContext = connectionFactory.createContext()) {
-            jmsContext.createProducer().send(accountLoanClosedQueue, jmsContext.createObjectMessage(statementHeader));
+        try ( Session session = connectionFactory.createConnection().createSession(false, Session.AUTO_ACKNOWLEDGE)) {
+            session.createProducer().send(accountLoanClosedQueue, session.createObjectMessage(statementHeader));
         }
     }
 
     public void serviceRequestStatementComplete(StatementCompleteResponse requestResponse) throws JMSException {
         log.debug("serviceRequestStatementComplete: {}", requestResponse);
-        try ( JMSContext jmsContext = connectionFactory.createContext()) {
-            jmsContext.createProducer().send(serviceRequestStatementCompleteQueue, jmsContext.createObjectMessage(requestResponse));
+        try ( Session session = connectionFactory.createConnection().createSession(false, Session.AUTO_ACKNOWLEDGE)) {
+            session.createProducer().send(serviceRequestStatementCompleteQueue, session.createObjectMessage(requestResponse));
         }
     }
 
