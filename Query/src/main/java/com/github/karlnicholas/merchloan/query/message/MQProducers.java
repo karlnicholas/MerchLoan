@@ -51,7 +51,7 @@ public class MQProducers {
             Message message = jmsContext.createObjectMessage(id);
             message.setJMSCorrelationID(responseKey);
             message.setJMSReplyTo(queryReplyQueue);
-            jmsContext.createProducer().send(servicerequestQueryIdQueue, message);
+            jmsContext.createProducer().setDeliveryMode(DeliveryMode.NON_PERSISTENT).send(servicerequestQueryIdQueue, message);
             Object r = replyWaitingHandler.getReply(responseKey);
             log.debug("queryServiceRequest {}", Duration.between(Instant.now(), start));
             return r;
@@ -70,7 +70,7 @@ public class MQProducers {
             Message message = jmsContext.createObjectMessage(id);
             message.setJMSCorrelationID(responseKey);
             message.setJMSReplyTo(queryReplyQueue);
-            jmsContext.createProducer().send(accountQueryAccountIdQueue, message);
+            jmsContext.createProducer().setDeliveryMode(DeliveryMode.NON_PERSISTENT).send(accountQueryAccountIdQueue, message);
             Object r = replyWaitingHandler.getReply(responseKey);
             log.debug("queryAccount {}", Duration.between(Instant.now(), start));
             return r;
@@ -89,7 +89,7 @@ public class MQProducers {
             Message message = jmsContext.createObjectMessage(id);
             message.setJMSCorrelationID(responseKey);
             message.setJMSReplyTo(queryReplyQueue);
-            jmsContext.createProducer().send(accountQueryLoanIdQueue, message);
+            jmsContext.createProducer().setDeliveryMode(DeliveryMode.NON_PERSISTENT).send(accountQueryLoanIdQueue, message);
             Object r = replyWaitingHandler.getReply(responseKey);
             log.debug("queryLoan {}", Duration.between(Instant.now(), start));
             return r;
@@ -108,7 +108,7 @@ public class MQProducers {
             Message message = jmsContext.createObjectMessage(id);
             message.setJMSCorrelationID(responseKey);
             message.setJMSReplyTo(queryReplyQueue);
-            jmsContext.createProducer().send(statementQueryStatementQueue, message);
+            jmsContext.createProducer().setDeliveryMode(DeliveryMode.NON_PERSISTENT).send(statementQueryStatementQueue, message);
             Object r = replyWaitingHandler.getReply(responseKey);
             log.debug("queryStatement {}", Duration.between(Instant.now(), start));
             return r;
@@ -127,7 +127,7 @@ public class MQProducers {
             Message message = jmsContext.createObjectMessage(id);
             message.setJMSCorrelationID(responseKey);
             message.setJMSReplyTo(queryReplyQueue);
-            jmsContext.createProducer().send(statementQueryStatementsQueue, message);
+            jmsContext.createProducer().setDeliveryMode(DeliveryMode.NON_PERSISTENT).send(statementQueryStatementsQueue, message);
             Object r = replyWaitingHandler.getReply(responseKey);
             log.debug("queryStatements {}", Duration.between(Instant.now(), start));
             return r;
@@ -146,7 +146,7 @@ public class MQProducers {
             Message message = jmsContext.createObjectMessage(new byte[0]);
             message.setJMSCorrelationID(responseKey);
             message.setJMSReplyTo(queryReplyQueue);
-            jmsContext.createProducer().send(serviceRequestCheckRequestQueue, message);
+            jmsContext.createProducer().setDeliveryMode(DeliveryMode.NON_PERSISTENT).send(serviceRequestCheckRequestQueue, message);
             Object r = replyWaitingHandler.getReply(responseKey);
             log.debug("queryCheckRequest {}", Duration.between(Instant.now(), start));
             return r;

@@ -42,14 +42,14 @@ public class MQProducers {
     public void serviceRequestServiceRequest(ServiceRequestResponse serviceRequest) throws JMSException {
         log.debug("serviceRequestServiceRequest: {}", serviceRequest);
         try ( JMSContext jmsContext = connectionFactory.createContext()) {
-            jmsContext.createProducer().send(servicerequestQueue, jmsContext.createObjectMessage(serviceRequest));
+            jmsContext.createProducer().setDeliveryMode(DeliveryMode.NON_PERSISTENT).send(servicerequestQueue, jmsContext.createObjectMessage(serviceRequest));
         }
     }
 
     public void statementCloseStatement(StatementHeader statementHeader) {
         log.debug("statementCloseStatement: {}", statementHeader);
         try ( JMSContext jmsContext = connectionFactory.createContext()) {
-            jmsContext.createProducer().send(statementCloseStatementQueue, jmsContext.createObjectMessage(statementHeader));
+            jmsContext.createProducer().setDeliveryMode(DeliveryMode.NON_PERSISTENT).send(statementCloseStatementQueue, jmsContext.createObjectMessage(statementHeader));
         }
     }
 
@@ -61,7 +61,7 @@ public class MQProducers {
             Message message = jmsContext.createObjectMessage(loanId);
             message.setJMSCorrelationID(responseKey);
             message.setJMSReplyTo(accountsReplyQueue);
-            jmsContext.createProducer().send(statementQueryMostRecentStatementQueue, message);
+            jmsContext.createProducer().setDeliveryMode(DeliveryMode.NON_PERSISTENT).send(statementQueryMostRecentStatementQueue, message);
             return replyWaitingHandler.getReply(responseKey);
         }
     }

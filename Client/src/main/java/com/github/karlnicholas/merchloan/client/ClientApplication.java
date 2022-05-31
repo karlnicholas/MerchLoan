@@ -51,7 +51,7 @@ public class ClientApplication {
 
     private void createLoanListeners() {
         loans = new ArrayList<>();
-        for ( int i =0; i < 100; ++i ) {
+        for ( int i =0; i < 10000; ++i ) {
             int plusDays = ThreadLocalRandom.current().nextInt(30);
 //             int plusDays = 0;
             loans.add(new LoanCycle(creditComponent, accountComponent, loanComponent, loanStateComponent, requestStatusComponent, LocalDate.now().plusDays(plusDays), "Client " + i));
@@ -97,7 +97,7 @@ public class ClientApplication {
                                 .forEach(r->log.info("route stats {} {}", r, pcm.getStats(r)));
                     }
                     currentDate = currentDate.plusDays(1);
-                    Thread.sleep(250);
+                    Thread.sleep(500);
                 }
                 log.info("DATES FINISHED AT {}", currentDate);
                 int[] first = new int[1];

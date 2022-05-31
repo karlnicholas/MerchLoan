@@ -44,7 +44,7 @@ public class MQProducers {
             Message message = jmsContext.createObjectMessage(new byte[0]);
             message.setJMSCorrelationID(responseKey);
             message.setJMSReplyTo(businessDateReplyQueue);
-            jmsContext.createProducer().send(serviceRequestCheckRequestQueue, message);
+            jmsContext.createProducer().setDeliveryMode(DeliveryMode.NON_PERSISTENT).send(serviceRequestCheckRequestQueue, message);
             return replyWaitingHandler.getReply(responseKey);
         }
     }
@@ -56,14 +56,14 @@ public class MQProducers {
             Message message = jmsContext.createObjectMessage(businessDate);
             message.setJMSCorrelationID(responseKey);
             message.setJMSReplyTo(businessDateReplyQueue);
-            jmsContext.createProducer().send(accountQueryLoansToCycleQueue, message);
+            jmsContext.createProducer().setDeliveryMode(DeliveryMode.NON_PERSISTENT).send(accountQueryLoansToCycleQueue, message);
             return replyWaitingHandler.getReply(responseKey);
         }
     }
 
     public void serviceRequestBillLoan(BillingCycle billingCycle) {
         try (JMSContext jmsContext = connectionFactory.createContext()) {
-            jmsContext.createProducer().send(serviceRequestBillLoanQueue, jmsContext.createObjectMessage(billingCycle));
+            jmsContext.createProducer().setDeliveryMode(DeliveryMode.NON_PERSISTENT).send(serviceRequestBillLoanQueue, jmsContext.createObjectMessage(billingCycle));
         }
     }
 

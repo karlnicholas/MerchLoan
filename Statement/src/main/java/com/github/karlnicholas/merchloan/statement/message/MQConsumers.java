@@ -202,7 +202,7 @@ public class MQConsumers {
         try (JMSContext context = connectionFactory.createContext()) {
             Message message = context.createObjectMessage(data);
             message.setJMSCorrelationID(consumerMessage.getJMSCorrelationID());
-            context.createProducer().send(consumerMessage.getJMSReplyTo(), message);
+            context.createProducer().setDeliveryMode(DeliveryMode.NON_PERSISTENT).send(consumerMessage.getJMSReplyTo(), message);
         }
     }
 }

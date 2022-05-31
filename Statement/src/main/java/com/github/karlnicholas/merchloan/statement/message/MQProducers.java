@@ -51,7 +51,7 @@ public class MQProducers {
             Message message = jmsContext.createObjectMessage(billingCycleCharge);
             message.setJMSCorrelationID(responseKey);
             message.setJMSReplyTo(statementReplyQueue);
-            jmsContext.createProducer().send(accountBillingCycleChargeQueue, message);
+            jmsContext.createProducer().setDeliveryMode(DeliveryMode.NON_PERSISTENT).send(accountBillingCycleChargeQueue, message);
             return replyWaitingHandler.getReply(responseKey);
         }
     }
@@ -64,7 +64,7 @@ public class MQProducers {
             Message message = jmsContext.createObjectMessage(statementHeader);
             message.setJMSCorrelationID(responseKey);
             message.setJMSReplyTo(statementReplyQueue);
-            jmsContext.createProducer().send(accountQueryStatementHeaderQueue, message);
+            jmsContext.createProducer().setDeliveryMode(DeliveryMode.NON_PERSISTENT).send(accountQueryStatementHeaderQueue, message);
             return replyWaitingHandler.getReply(responseKey);
         }
     }
@@ -72,21 +72,21 @@ public class MQProducers {
     public void serviceRequestServiceRequest(ServiceRequestResponse serviceRequest) {
         log.debug("serviceRequestServiceRequest: {}", serviceRequest);
         try ( JMSContext jmsContext = connectionFactory.createContext()) {
-            jmsContext.createProducer().send(servicerequestQueue, jmsContext.createObjectMessage(serviceRequest));
+            jmsContext.createProducer().setDeliveryMode(DeliveryMode.NON_PERSISTENT).send(servicerequestQueue, jmsContext.createObjectMessage(serviceRequest));
         }
     }
 
     public void accountLoanClosed(StatementHeader statementHeader) throws JMSException {
         log.debug("accountLoanClosed: {}", statementHeader);
         try ( JMSContext jmsContext = connectionFactory.createContext()) {
-            jmsContext.createProducer().send(accountLoanClosedQueue, jmsContext.createObjectMessage(statementHeader));
+            jmsContext.createProducer().setDeliveryMode(DeliveryMode.NON_PERSISTENT).send(accountLoanClosedQueue, jmsContext.createObjectMessage(statementHeader));
         }
     }
 
     public void serviceRequestStatementComplete(StatementCompleteResponse requestResponse) throws JMSException {
         log.debug("serviceRequestStatementComplete: {}", requestResponse);
         try ( JMSContext jmsContext = connectionFactory.createContext()) {
-            jmsContext.createProducer().send(serviceRequestStatementCompleteQueue, jmsContext.createObjectMessage(requestResponse));
+            jmsContext.createProducer().setDeliveryMode(DeliveryMode.NON_PERSISTENT).send(serviceRequestStatementCompleteQueue, jmsContext.createObjectMessage(requestResponse));
         }
     }
 
