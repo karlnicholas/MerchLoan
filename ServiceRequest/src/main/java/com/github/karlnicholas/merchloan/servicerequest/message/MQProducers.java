@@ -25,7 +25,7 @@ public class MQProducers {
 
     public void accountCreateAccount(CreateAccount createAccount) throws IOException {
         log.debug("accountCreateAccount: {}", createAccount);
-        serviceRequestSenderChannel.basicPublish(mqConsumerUtils.getExchange(), mqConsumerUtils.getAccountCreateaccountQueue(), null, SerializationUtils.serialize(createAccount));
+        serviceRequestSenderChannel.basicPublish(mqConsumerUtils.getExchange(), mqConsumerUtils.getAccountCreateAccountQueue(), null, SerializationUtils.serialize(createAccount));
     }
 
     public void accountFundLoan(FundLoan fundLoan) throws IOException {

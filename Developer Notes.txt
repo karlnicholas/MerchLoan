@@ -1,0 +1,145 @@
+
+MDBs
+
+rabbitmq.accountCreateAccountQueue=account.createaccount.queue
+rabbitmq.accountFundingQueue=account.funding.queue
+rabbitmq.accountValidateCreditQueue=account.validate.credit.queue
+rabbitmq.accountValidateDebitQueue=account.validate.debit.queue
+rabbitmq.accountCloseLoanQueue=account.closeloan.queue
+rabbitmq.accountLoanClosedQueue=account.loanclosed.queue
+rabbitmq.accountQueryStatementHeaderQueue=account.query.statementheader.queue
+rabbitmq.accountQueryLoansToCycleQueue=account.query.loanstocycle.queue
+rabbitmq.accountQueryAccountIdQueue=account.query.accountid.queue
+rabbitmq.accountQueryLoanIdQueue=account.query.loanid.queue
+rabbitmq.accountBillingCycleChargeQueue=account.billingcyclecharge.queue
+
+rabbitmq.serviceRequestQueue=servicerequest.queue
+rabbitmq.serviceRequestQueryIdQueue=servicerequest.querybyid.queue
+rabbitmq.serviceRequestCheckRequestQueue=servicerequest.checkrequest.queue
+rabbitmq.serviceRequestBillLoanQueue=servicerequest.billloan.queue
+rabbitmq.serviceRequestStatementCompleteQueue=servicerequest.statementcomplete.queue
+
+rabbitmq.statementStatementQueue=statement.statement.queue
+rabbitmq.statementCloseStatementQueue=statement.closestatement.queue
+rabbitmq.statementQueryStatementQueue=statement.query.statement.queue
+rabbitmq.statementQueryStatementsQueue=statement.query.statements.queue
+rabbitmq.statementQueryMostRecentStatementQueue=statement.query.mostrecentstatement.queue
+
+
+Client Functions:
+	New Loan:
+		Create Account
+		Check Request
+		Fund Loan
+		Check Request
+		Loan Status
+
+	Loan Payment:
+		Make Payment
+
+	Loan Statement:
+		Check Request
+		Loan State
+
+	Update BusinessDate:
+		Check Still Processing
+		BusinessDate
+
+
+Application Functions:
+	Create Account
+	Check Request
+	Fund Loan
+	Loan Status
+	Make Payment
+	Check Still Processing
+	BusinessDate
+
+Application API Endpoints:
+	ServiceRequest:
+		HTTP POST:
+		    accountRequest
+			fundingRequest
+			creditRequest
+			debitRequest
+			statementRequest
+			closeRequest
+			
+	Query:
+		HTTP GET
+			request/{id}
+			account/{id}
+			loan/{id}
+			statement/{id}
+			statements/{id}
+			checkrequest
+			
+	BusinessDate:
+		HTTP POST:
+			businessdate
+
+
+Function Sequences:
+	Create Account:
+	ServiceRequest:
+		HTTP POST:
+			accountRequest:
+			-> accountCreateAccountQueue
+				-> serviceRequestQueue
+
+	Check Request:
+	Query:
+		HTTP GET
+			request/{id}
+			-> serviceRequestQueryIdQueue
+				-> ReplyTo
+					
+	Fund Loan:
+	ServiceRequest:
+		HTTP POST:
+			fundingRequest
+			-> accountFundingQueue
+				-> serviceRequestQueue
+
+	Loan Status:
+	Query:
+		HTTP GET
+			loan/{id}
+			-> accountQueryLoanIdQueue
+				-> statementQueryMostRecentStatementQueue
+					-> ReplyTo
+				-> ReplyTo
+	
+	Make Payment:
+	ServiceRequest:
+		HTTP POST:
+			creditRequest:
+			-> accountValidateCreditQueue
+				-> serviceRequestQueue
+		
+	Check Still Processing:
+	Query:
+		HTTP GET
+			checkrequest:
+			-> serviceRequestCheckRequestQueue
+				-> ReplyTo
+	
+	BusinessDate:
+	BusinessDate:
+		HTTP POST:
+			businessdate
+			-> serviceRequestCheckRequestQueue
+				-> ReplyTo
+			-> accountQueryLoansToCycleQueue
+				-> ReplyTo
+			==> serviceRequestBillLoanQueue
+				-> accountQueryStatementHeaderQueue
+					-> statementStatementQueue
+						!=> accountBillingCycleChargeQueue
+							-> ReplyTo
+					[-> accountCloseLoanQueue
+						-> serviceRequestQueue
+					]-> serviceRequestQueue
+						
+
+					

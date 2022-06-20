@@ -44,7 +44,7 @@ public class MQConsumers {
                 .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
         this.mqConsumerUtils = mqConsumerUtils;
 
-        mqConsumerUtils.bindConsumer(connection, mqConsumerUtils.getExchange(), mqConsumerUtils.getAccountCreateaccountQueue(), false, this::receivedCreateAccountMessage);
+        mqConsumerUtils.bindConsumer(connection, mqConsumerUtils.getExchange(), mqConsumerUtils.getAccountCreateAccountQueue(), false, this::receivedCreateAccountMessage);
         mqConsumerUtils.bindConsumer(connection, mqConsumerUtils.getExchange(), mqConsumerUtils.getAccountFundingQueue(), false, this::receivedFundingMessage);
         mqConsumerUtils.bindConsumer(connection, mqConsumerUtils.getExchange(), mqConsumerUtils.getAccountValidateCreditQueue(), false, this::receivedValidateCreditMessage);
         mqConsumerUtils.bindConsumer(connection, mqConsumerUtils.getExchange(), mqConsumerUtils.getAccountValidateDebitQueue(), false, this::receivedValidateDebitMessage);

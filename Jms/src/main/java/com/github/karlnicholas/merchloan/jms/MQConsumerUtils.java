@@ -28,7 +28,7 @@ public class MQConsumerUtils {
 
     private String exchange;
 
-    private String accountCreateaccountQueue;
+    private String accountCreateAccountQueue;
     private String accountFundingQueue;
     private String accountValidateCreditQueue;
     private String accountValidateDebitQueue;
