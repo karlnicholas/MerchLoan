@@ -1,14 +1,13 @@
 package com.github.karlnicholas.merchloan.jms.config;
 
-import com.rabbitmq.client.Connection;
-import com.rabbitmq.client.ConnectionFactory;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.activemq.artemis.api.core.client.ActiveMQClient;
+import org.apache.activemq.artemis.api.core.client.ClientSession;
+import org.apache.activemq.artemis.api.core.client.ClientSessionFactory;
+import org.apache.activemq.artemis.api.core.client.ServerLocator;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-
-import java.io.IOException;
-import java.util.concurrent.TimeoutException;
 
 @Configuration
 @Slf4j
@@ -25,32 +24,36 @@ public class MDConnectionConfig {
     private String virtualHost;
 
     @Bean
-    public ConnectionFactory getConnectionFactory() {
-        ConnectionFactory factory = new ConnectionFactory();
-        factory.setPassword(password);
-        factory.setUsername(username);
-        factory.setVirtualHost(virtualHost);
-        factory.setHost(host);
-        factory.setPort(port);
-        return factory;
+    public ClientSession getConnectionFactory() throws Exception {
+        ServerLocator locator = ActiveMQClient.createServerLocator("tcp://localhost:61617");
+        ClientSessionFactory factory =  locator.createSessionFactory();
+        ClientSession clientSession = factory.createSession();
+        return clientSession;
+//        ConnectionFactory factory = new ConnectionFactory();
+//        factory.setPassword(password);
+//        factory.setUsername(username);
+//        factory.setVirtualHost(virtualHost);
+//        factory.setHost(host);
+//        factory.setPort(port);
+//        return factory;
     }
-
-    @Bean
-    public Connection getConnection(ConnectionFactory connectionFactory) throws IOException, TimeoutException, InterruptedException {
-        int retryCount = 0;
-        while (retryCount < 3) {
-            try {
-                return connectionFactory.newConnection();
-            } catch (java.net.ConnectException e) {
-                Thread.sleep(5000);
-                // apply retry logic
-                retryCount++;
-                if (retryCount >= 3) {
-                    throw e;
-                }
-            }
-        }
-        return null;
-    }
+//
+//    @Bean
+//    public Connection getConnection(ConnectionFactory connectionFactory) throws IOException, TimeoutException, InterruptedException {
+//        int retryCount = 0;
+//        while (retryCount < 3) {
+//            try {
+//                return connectionFactory.newConnection();
+//            } catch (java.net.ConnectException e) {
+//                Thread.sleep(5000);
+//                // apply retry logic
+//                retryCount++;
+//                if (retryCount >= 3) {
+//                    throw e;
+//                }
+//            }
+//        }
+//        return null;
+//    }
 
 }

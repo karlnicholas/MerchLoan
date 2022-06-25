@@ -6,10 +6,10 @@ import com.github.karlnicholas.merchloan.businessdate.businessdate.model.Busines
 import com.github.karlnicholas.merchloan.jmsmessage.BillingCycle;
 import com.github.karlnicholas.merchloan.redis.component.RedisComponent;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.activemq.artemis.api.core.ActiveMQException;
 import org.springframework.stereotype.Service;
 
 import javax.sql.DataSource;
-import java.io.IOException;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.time.Duration;
@@ -33,7 +33,7 @@ public class BusinessDateService {
         this.mqProducers = mqProducers;
     }
 
-    public BusinessDate updateBusinessDate(LocalDate businessDate) throws IOException, InterruptedException, SQLException {
+    public BusinessDate updateBusinessDate(LocalDate businessDate) throws InterruptedException, SQLException, ActiveMQException {
         try (Connection con = dataSource.getConnection()) {
             Optional<BusinessDate> existingBusinessDate = businessDateDao.findById(con, 1L);
             if (existingBusinessDate.isPresent()) {
@@ -67,7 +67,7 @@ public class BusinessDateService {
         }
     }
 
-    public void startBillingCycle(LocalDate priorBusinessDate) throws IOException, InterruptedException {
+    public void startBillingCycle(LocalDate priorBusinessDate) throws InterruptedException, ActiveMQException {
         List<BillingCycle> loansToCycle = (List<BillingCycle>) mqProducers.acccountQueryLoansToCycle(priorBusinessDate);
         for( BillingCycle billingCycle: loansToCycle) {
             mqProducers.serviceRequestBillLoan(billingCycle);

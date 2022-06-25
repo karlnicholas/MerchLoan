@@ -3,10 +3,12 @@ package com.github.karlnicholas.merchloan.businessdate.businessdate.message;
 import com.github.karlnicholas.merchloan.jms.MQConsumerUtils;
 import com.github.karlnicholas.merchloan.jms.ReplyWaitingHandler;
 import com.github.karlnicholas.merchloan.jmsmessage.BillingCycle;
-import com.rabbitmq.client.AMQP;
-import com.rabbitmq.client.Channel;
-import com.rabbitmq.client.Connection;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.activemq.artemis.api.core.ActiveMQException;
+import org.apache.activemq.artemis.api.core.SimpleString;
+import org.apache.activemq.artemis.api.core.client.ClientMessage;
+import org.apache.activemq.artemis.api.core.client.ClientProducer;
+import org.apache.activemq.artemis.api.core.client.ClientSession;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.SerializationUtils;
@@ -18,39 +20,51 @@ import java.util.UUID;
 @Service
 @Slf4j
 public class MQProducers {
+    private final ClientSession clientSession;
     private final MQConsumerUtils mqConsumerUtils;
-    private final Channel businessDateSendChannel;
+    private final ClientProducer serviceRequestBillLoanProducer;
+    private final ClientProducer businessDateSendProducer;
     private final ReplyWaitingHandler replyWaitingHandler;
     private final String businessDateReplyQueue;
     @Autowired
-    public MQProducers(Connection connection, MQConsumerUtils mqConsumerUtils) throws IOException {
+    public MQProducers(ClientSession clientSession, MQConsumerUtils mqConsumerUtils) throws ActiveMQException {
+        this.clientSession = clientSession;
         this.mqConsumerUtils = mqConsumerUtils;
         replyWaitingHandler = new ReplyWaitingHandler();
+        serviceRequestBillLoanProducer = clientSession.createProducer(mqConsumerUtils.getServiceRequestBillLoanQueue());
         businessDateReplyQueue = "businessdate-reply-"+UUID.randomUUID();
-        businessDateSendChannel = connection.createChannel();
-        mqConsumerUtils.bindConsumer(connection, mqConsumerUtils.getExchange(), businessDateReplyQueue, true, replyWaitingHandler::handleReplies);
+        businessDateSendProducer = clientSession.createProducer();
+        mqConsumerUtils.bindConsumer(clientSession, businessDateReplyQueue, replyWaitingHandler::handleReplies);
     }
 
-    public Object servicerequestCheckRequest() throws IOException, InterruptedException {
+    public Object servicerequestCheckRequest() throws InterruptedException, ActiveMQException {
         log.debug("servicerequestCheckRequest:");
-        String responseKey = UUID.randomUUID().toString();
+        UUID responseKey = UUID.randomUUID();
         replyWaitingHandler.put(responseKey);
-        AMQP.BasicProperties props = new AMQP.BasicProperties.Builder().correlationId(responseKey).replyTo(businessDateReplyQueue).build();
-        businessDateSendChannel.basicPublish(mqConsumerUtils.getExchange(), mqConsumerUtils.getServiceRequestCheckRequestQueue(), props, SerializationUtils.serialize(new byte[0]));
+        ClientMessage message = clientSession.createMessage(false);
+        message.setCorrelationID(responseKey);
+        message.setReplyTo(SimpleString.toSimpleString(businessDateReplyQueue));
+        message.getBodyBuffer().writeBytes(SerializationUtils.serialize(new byte[0]));
+        businessDateSendProducer.send(mqConsumerUtils.getServiceRequestCheckRequestQueue(), message);
         return replyWaitingHandler.getReply(responseKey);
     }
 
-    public Object acccountQueryLoansToCycle(LocalDate businessDate) throws IOException, InterruptedException {
+    public Object acccountQueryLoansToCycle(LocalDate businessDate) throws InterruptedException, ActiveMQException {
         log.debug("acccountQueryLoansToCycle: {}", businessDate);
-        String responseKey = UUID.randomUUID().toString();
+        UUID responseKey = UUID.randomUUID();
         replyWaitingHandler.put(responseKey);
-        AMQP.BasicProperties props = new AMQP.BasicProperties.Builder().correlationId(responseKey).replyTo(businessDateReplyQueue).build();
-        businessDateSendChannel.basicPublish(mqConsumerUtils.getExchange(), mqConsumerUtils.getAccountQueryLoansToCycleQueue(), props, SerializationUtils.serialize(businessDate));
+        ClientMessage message = clientSession.createMessage(false);
+        message.setCorrelationID(responseKey);
+        message.setReplyTo(SimpleString.toSimpleString(businessDateReplyQueue));
+        message.getBodyBuffer().writeBytes(SerializationUtils.serialize(businessDate));
+        businessDateSendProducer.send(mqConsumerUtils.getAccountQueryLoansToCycleQueue(), message);
         return replyWaitingHandler.getReply(responseKey);
     }
 
-    public void serviceRequestBillLoan(BillingCycle billingCycle) throws IOException {
-        businessDateSendChannel.basicPublish(mqConsumerUtils.getExchange(), mqConsumerUtils.getServiceRequestBillLoanQueue(), null, SerializationUtils.serialize(billingCycle));
+    public void serviceRequestBillLoan(BillingCycle billingCycle) throws ActiveMQException {
+        ClientMessage message = clientSession.createMessage(false);
+        message.getBodyBuffer().writeBytes(SerializationUtils.serialize(billingCycle));
+        serviceRequestBillLoanProducer.send(message);
     }
 
 }

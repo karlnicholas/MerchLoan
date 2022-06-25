@@ -8,11 +8,11 @@ import com.github.karlnicholas.merchloan.jmsmessage.*;
 import com.github.karlnicholas.merchloan.statement.model.Statement;
 import com.github.karlnicholas.merchloan.statement.service.QueryService;
 import com.github.karlnicholas.merchloan.statement.service.StatementService;
-import com.rabbitmq.client.AMQP;
-import com.rabbitmq.client.Channel;
-import com.rabbitmq.client.Connection;
-import com.rabbitmq.client.Delivery;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.activemq.artemis.api.core.ActiveMQException;
+import org.apache.activemq.artemis.api.core.client.ClientMessage;
+import org.apache.activemq.artemis.api.core.client.ClientProducer;
+import org.apache.activemq.artemis.api.core.client.ClientSession;
 import org.springframework.stereotype.Component;
 import org.springframework.util.SerializationUtils;
 
@@ -25,9 +25,9 @@ import java.util.UUID;
 @Component
 @Slf4j
 public class MQConsumers {
-    private final MQConsumerUtils mqConsumerUtils;
+    private final ClientSession clientSession;
     private final QueryService queryService;
-    private Channel responseChannel;
+    private ClientProducer responseProducer;
     private final ObjectMapper objectMapper;
     private final StatementService statementService;
     private final MQProducers mqProducers;
@@ -36,37 +36,37 @@ public class MQConsumers {
     private static final String LOG_STRING = "receivedStatementMessage {}";
 
 
-    public MQConsumers(Connection connection, MQConsumerUtils mqConsumerUtils, MQProducers mqProducers, StatementService statementService, QueryService queryService) throws IOException {
+    public MQConsumers(ClientSession clientSession, MQConsumerUtils mqConsumerUtils, MQProducers mqProducers, StatementService statementService, QueryService queryService) throws IOException, ActiveMQException {
+        this.clientSession = clientSession;
         this.statementService = statementService;
         this.mqProducers = mqProducers;
-        this.mqConsumerUtils = mqConsumerUtils;
         this.queryService = queryService;
         objectMapper = new ObjectMapper().findAndRegisterModules()
                 .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
 
-        mqConsumerUtils.bindConsumer(connection, mqConsumerUtils.getExchange(), mqConsumerUtils.getStatementStatementQueue(), false, this::receivedStatementMessage);
-        mqConsumerUtils.bindConsumer(connection, mqConsumerUtils.getExchange(), mqConsumerUtils.getStatementCloseStatementQueue(), false, this::receivedCloseStatementMessage);
-        mqConsumerUtils.bindConsumer(connection, mqConsumerUtils.getExchange(), mqConsumerUtils.getStatementQueryStatementQueue(), false, this::receivedQueryStatementMessage);
-        mqConsumerUtils.bindConsumer(connection, mqConsumerUtils.getExchange(), mqConsumerUtils.getStatementQueryStatementsQueue(), false, this::receivedQueryStatementsMessage);
-        mqConsumerUtils.bindConsumer(connection, mqConsumerUtils.getExchange(), mqConsumerUtils.getStatementQueryMostRecentStatementQueue(), false, this::receivedQueryMostRecentStatementMessage);
+        mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getStatementStatementQueue(), this::receivedStatementMessage);
+        mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getStatementCloseStatementQueue(), this::receivedCloseStatementMessage);
+        mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getStatementQueryStatementQueue(), this::receivedQueryStatementMessage);
+        mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getStatementQueryStatementsQueue(), this::receivedQueryStatementsMessage);
+        mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getStatementQueryMostRecentStatementQueue(), this::receivedQueryMostRecentStatementMessage);
 
-        responseChannel = connection.createChannel();
+        responseProducer = clientSession.createProducer();
     }
 
-    public void receivedQueryStatementMessage(String consumerTag, Delivery delivery) {
+    public void receivedQueryStatementMessage(ClientMessage message) {
         try {
-            UUID loanId = (UUID) SerializationUtils.deserialize(delivery.getBody());
+            UUID loanId = (UUID) SerializationUtils.deserialize(message.getBodyBuffer().toByteBuffer().array());
             log.debug("receivedQueryStatementMessage {}", loanId);
             String result = queryService.findById(loanId).map(Statement::getStatementDoc).orElse("ERROR: No statement found for id " + loanId);
-            reply(delivery, result);
+            reply(message, result);
         } catch (Exception ex) {
             log.error("receivedQueryStatementMessage exception {}", ex.getMessage());
         }
     }
 
-    public void receivedQueryMostRecentStatementMessage(String consumerTag, Delivery delivery) throws IOException {
+    public void receivedQueryMostRecentStatementMessage(ClientMessage message) {
         try {
-            UUID loanId = (UUID) SerializationUtils.deserialize(delivery.getBody());
+            UUID loanId = (UUID) SerializationUtils.deserialize(message.getBodyBuffer().toByteBuffer().array());
             log.debug("receivedQueryMostRecentStatementMessage {}", loanId);
             MostRecentStatement mostRecentStatement = queryService.findMostRecentStatement(loanId).map(statement -> MostRecentStatement.builder()
                             .id(statement.getId())
@@ -76,32 +76,31 @@ public class MQConsumers {
                             .startingBalance(statement.getStartingBalance())
                             .build())
                     .orElse(MostRecentStatement.builder().loanId(loanId).build());
-            reply(delivery, mostRecentStatement);
+            reply(message, mostRecentStatement);
         } catch (Exception ex) {
             log.error("receivedQueryMostRecentStatementMessage exception {}", ex.getMessage());
         }
     }
 
-    public void receivedQueryStatementsMessage(String consumerTag, Delivery delivery) {
+    public void receivedQueryStatementsMessage(ClientMessage message) {
         try {
-            UUID id = (UUID) SerializationUtils.deserialize(delivery.getBody());
+            UUID id = (UUID) SerializationUtils.deserialize(message.getBodyBuffer().toByteBuffer().array());
             log.debug("receivedQueryStatementsMessage Received {}", id);
-            reply(delivery, objectMapper.writeValueAsString(queryService.findByLoanId(id)));
+            reply(message, objectMapper.writeValueAsString(queryService.findByLoanId(id)));
         } catch (Exception ex) {
             log.error("receivedQueryStatementsMessage exception {}", ex.getMessage());
         }
     }
 
-    private void reply(Delivery delivery, Object data) throws IOException {
-        AMQP.BasicProperties replyProps = new AMQP.BasicProperties
-                .Builder()
-                .correlationId(delivery.getProperties().getCorrelationId())
-                .build();
-        responseChannel.basicPublish(mqConsumerUtils.getExchange(), delivery.getProperties().getReplyTo(), replyProps, SerializationUtils.serialize(data));
+    private void reply(ClientMessage origMessage, Object data) throws ActiveMQException {
+        ClientMessage message = clientSession.createMessage(false);
+        message.setCorrelationID(origMessage.getCorrelationID());
+        message.getBodyBuffer().writeBytes(SerializationUtils.serialize(data));
+        responseProducer.send(origMessage.getReplyTo(), message);
     }
 
-    public void receivedStatementMessage(String consumerTag, Delivery delivery) {
-        StatementHeader statementHeader = (StatementHeader) SerializationUtils.deserialize(delivery.getBody());
+    public void receivedStatementMessage(ClientMessage message) {
+        StatementHeader statementHeader = (StatementHeader) SerializationUtils.deserialize(message.getBodyBuffer().toByteBuffer().array());
         if (statementHeader == null) {
             throw new IllegalStateException("Message body null");
         }
@@ -180,15 +179,15 @@ public class MQConsumers {
             if (!loanClosed) {
                 try {
                     mqProducers.serviceRequestStatementComplete(requestResponse);
-                } catch (IOException innerEx) {
+                } catch (ActiveMQException innerEx) {
                     log.error("ERROR SENDING ERROR", innerEx);
                 }
             }
         }
     }
 
-    public void receivedCloseStatementMessage(String consumerTag, Delivery delivery) {
-        StatementHeader statementHeader = (StatementHeader) SerializationUtils.deserialize(delivery.getBody());
+    public void receivedCloseStatementMessage(ClientMessage message) {
+        StatementHeader statementHeader = (StatementHeader) SerializationUtils.deserialize(message.getBodyBuffer().toByteBuffer().array());
         try {
             log.debug("receivedCloseStatementMessage {}", statementHeader);
             Optional<Statement> statementExistsOpt = statementService.findStatement(statementHeader.getLoanId(), statementHeader.getStatementDate());

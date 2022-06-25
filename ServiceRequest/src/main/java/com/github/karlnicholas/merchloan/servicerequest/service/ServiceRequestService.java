@@ -10,6 +10,7 @@ import com.github.karlnicholas.merchloan.servicerequest.dao.ServiceRequestDao;
 import com.github.karlnicholas.merchloan.servicerequest.message.MQProducers;
 import com.github.karlnicholas.merchloan.servicerequest.model.ServiceRequest;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.activemq.artemis.api.core.ActiveMQException;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 
@@ -49,7 +50,7 @@ public class ServiceRequestService {
                     .retry(retry)
                     .build());
             return id;
-        } catch (SQLException | IOException ex) {
+        } catch (SQLException | IOException | ActiveMQException ex) {
             throw new ServiceRequestException(ex);
         }
     }
@@ -70,7 +71,7 @@ public class ServiceRequestService {
                             .build()
             );
             return id;
-        } catch (SQLException | IOException ex) {
+        } catch (SQLException | IOException | ActiveMQException ex) {
             throw new ServiceRequestException(ex);
         }
     }
@@ -90,7 +91,7 @@ public class ServiceRequestService {
                             .build()
             );
             return id;
-        } catch (SQLException | IOException ex) {
+        } catch (SQLException | IOException | ActiveMQException ex) {
             throw new ServiceRequestException(ex);
         }
     }
@@ -112,7 +113,7 @@ public class ServiceRequestService {
                             .build()
             );
             return id;
-        } catch (SQLException | IOException ex) {
+        } catch (SQLException | IOException | ActiveMQException ex) {
             throw new ServiceRequestException(ex);
         }
     }
@@ -134,7 +135,7 @@ public class ServiceRequestService {
                             .build()
             );
             return id;
-        } catch (SQLException | IOException ex) {
+        } catch (SQLException | IOException | ActiveMQException ex) {
             throw new ServiceRequestException(ex);
         }
     }
@@ -154,7 +155,7 @@ public class ServiceRequestService {
                             .build()
             );
             return id;
-        } catch (SQLException | IOException ex) {
+        } catch (SQLException | IOException | ActiveMQException ex) {
             throw new ServiceRequestException(ex);
         }
     }

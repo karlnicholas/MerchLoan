@@ -1,9 +1,10 @@
 package com.github.karlnicholas.merchloan.jms;
 
-import com.rabbitmq.client.Delivery;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.activemq.artemis.api.core.client.ClientMessage;
 import org.springframework.util.SerializationUtils;
 
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -11,17 +12,17 @@ import java.util.concurrent.ConcurrentMap;
 public class ReplyWaitingHandler {
     public static final int RESPONSE_TIMEOUT = 3000;
     public static final long TIMEOUT_MAX = 9_000_000_000L;
-    private final ConcurrentMap<String, ReplyWaiting> repliesWaiting;
+    private final ConcurrentMap<UUID, ReplyWaiting> repliesWaiting;
 
     public ReplyWaitingHandler() {
         repliesWaiting = new ConcurrentHashMap<>();
     }
 
-    public void put(String responseKey) {
+    public void put(UUID responseKey) {
         repliesWaiting.put(responseKey, ReplyWaiting.builder().nanoTime(System.nanoTime()).reply(null).build());
     }
 
-    public Object getReply(String responseKey) throws InterruptedException {
+    public Object getReply(UUID responseKey) throws InterruptedException {
         synchronized (repliesWaiting) {
             while (repliesWaiting.containsKey(responseKey) && repliesWaiting.get(responseKey).checkReply().isEmpty()) {
                 repliesWaiting.wait(RESPONSE_TIMEOUT);
@@ -34,10 +35,10 @@ public class ReplyWaitingHandler {
         return repliesWaiting.remove(responseKey).getReply();
     }
 
-    public void handleReplies(String consumerTag, Delivery delivery) {
+    public void handleReplies(ClientMessage message) {
         synchronized (repliesWaiting) {
-            String corrId = delivery.getProperties().getCorrelationId();
-            repliesWaiting.get(corrId).setReply(SerializationUtils.deserialize(delivery.getBody()));
+            UUID corrId = (UUID)message.getCorrelationID();
+            repliesWaiting.get(corrId).setReply(SerializationUtils.deserialize(message.getBodyBuffer().toByteBuffer().array()));
             repliesWaiting.notifyAll();
         }
     }

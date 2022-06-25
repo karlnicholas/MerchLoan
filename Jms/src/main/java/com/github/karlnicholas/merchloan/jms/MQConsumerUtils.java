@@ -1,11 +1,11 @@
 package com.github.karlnicholas.merchloan.jms;
 
 
-import com.rabbitmq.client.BuiltinExchangeType;
-import com.rabbitmq.client.Channel;
-import com.rabbitmq.client.Connection;
-import com.rabbitmq.client.DeliverCallback;
 import lombok.Data;
+import org.apache.activemq.artemis.api.core.ActiveMQException;
+import org.apache.activemq.artemis.api.core.client.ClientConsumer;
+import org.apache.activemq.artemis.api.core.client.ClientSession;
+import org.apache.activemq.artemis.api.core.client.MessageHandler;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.PropertySource;
@@ -18,12 +18,14 @@ import java.io.IOException;
 @Data
 public class MQConsumerUtils {
 
-    public void bindConsumer(Connection connection, String exchange, String queueName, boolean exclusive, DeliverCallback deliverCallback) throws IOException {
-        Channel channel = connection.createChannel();
-        channel.exchangeDeclare(exchange, BuiltinExchangeType.DIRECT, false, true, null);
-        channel.queueDeclare(queueName, false, exclusive, true, null);
-        channel.queueBind(queueName, exchange, queueName);
-        channel.basicConsume(queueName, true, deliverCallback, consumerTag -> {});
+    public void bindConsumer(ClientSession clientSession, String queueName, MessageHandler messageHandler) throws ActiveMQException {
+        ClientConsumer clientConsumer = clientSession.createConsumer(queueName);
+        clientConsumer.setMessageHandler(messageHandler);
+//        Channel channel = connection.createChannel();
+//        channel.exchangeDeclare(exchange, BuiltinExchangeType.DIRECT, false, true, null);
+//        channel.queueDeclare(queueName, false, exclusive, true, null);
+//        channel.queueBind(queueName, exchange, queueName);
+//        channel.basicConsume(queueName, true, deliverCallback, consumerTag -> {});
     }
 
     private String exchange;

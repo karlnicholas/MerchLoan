@@ -2,10 +2,12 @@ package com.github.karlnicholas.merchloan.query.message;
 
 import com.github.karlnicholas.merchloan.jms.MQConsumerUtils;
 import com.github.karlnicholas.merchloan.jms.ReplyWaitingHandler;
-import com.rabbitmq.client.AMQP;
-import com.rabbitmq.client.Channel;
-import com.rabbitmq.client.Connection;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.activemq.artemis.api.core.ActiveMQException;
+import org.apache.activemq.artemis.api.core.SimpleString;
+import org.apache.activemq.artemis.api.core.client.ClientMessage;
+import org.apache.activemq.artemis.api.core.client.ClientProducer;
+import org.apache.activemq.artemis.api.core.client.ClientSession;
 import org.springframework.stereotype.Service;
 import org.springframework.util.SerializationUtils;
 
@@ -15,29 +17,34 @@ import java.util.UUID;
 @Service
 @Slf4j
 public class MQProducers {
+    private final ClientSession clientSession;
     private final MQConsumerUtils mqConsumerUtils;
-    private final Channel querySendQueue;
+    private final ClientProducer querySendProducer;
     private final ReplyWaitingHandler replyWaitingHandler;
     private final String queryReplyQueue;
 
-    public MQProducers(Connection connection, MQConsumerUtils mqConsumerUtils) throws IOException {
+    public MQProducers(ClientSession clientSession, MQConsumerUtils mqConsumerUtils) throws ActiveMQException {
+        this.clientSession = clientSession;
         this.mqConsumerUtils = mqConsumerUtils;
         replyWaitingHandler = new ReplyWaitingHandler();
-        querySendQueue = connection.createChannel();
+        querySendProducer = clientSession.createProducer();
         queryReplyQueue = "query-reply-"+UUID.randomUUID();
 
-        mqConsumerUtils.bindConsumer(connection, mqConsumerUtils.getExchange(), queryReplyQueue, true, replyWaitingHandler::handleReplies);
+        mqConsumerUtils.bindConsumer(clientSession, queryReplyQueue, replyWaitingHandler::handleReplies);
     }
 
     public Object queryServiceRequest(UUID id) {
         log.debug("queryServiceRequest: {}", id);
-        String responseKey = UUID.randomUUID().toString();
+        UUID responseKey = UUID.randomUUID();
         replyWaitingHandler.put(responseKey);
-        AMQP.BasicProperties props = new AMQP.BasicProperties.Builder().correlationId(responseKey).replyTo(queryReplyQueue).build();
+        ClientMessage message = clientSession.createMessage(false);
+        message.setCorrelationID(responseKey);
+        message.setReplyTo(SimpleString.toSimpleString(queryReplyQueue));
+        message.getBodyBuffer().writeBytes(SerializationUtils.serialize(id));
         try {
-            querySendQueue.basicPublish(mqConsumerUtils.getExchange(), mqConsumerUtils.getServicerequestQueryIdQueue(), props, SerializationUtils.serialize(id));
+            querySendProducer.send(message);
             return replyWaitingHandler.getReply(responseKey);
-        } catch (IOException | InterruptedException e) {
+        } catch (InterruptedException | ActiveMQException e) {
             log.error("queryServiceRequest", e);
             Thread.currentThread().interrupt();
             return null;
@@ -46,13 +53,16 @@ public class MQProducers {
 
     public Object queryAccount(UUID id) {
         log.debug("queryAccount: {}", id);
-        String responseKey = UUID.randomUUID().toString();
+        UUID responseKey = UUID.randomUUID();
         replyWaitingHandler.put(responseKey);
-        AMQP.BasicProperties props = new AMQP.BasicProperties.Builder().correlationId(responseKey).replyTo(queryReplyQueue).build();
+        ClientMessage message = clientSession.createMessage(false);
+        message.setCorrelationID(responseKey);
+        message.setReplyTo(SimpleString.toSimpleString(queryReplyQueue));
+        message.getBodyBuffer().writeBytes(SerializationUtils.serialize(id));
         try {
-            querySendQueue.basicPublish(mqConsumerUtils.getExchange(), mqConsumerUtils.getAccountQueryAccountIdQueue(), props, SerializationUtils.serialize(id));
+            querySendProducer.send(mqConsumerUtils.getAccountQueryAccountIdQueue(), message);
             return replyWaitingHandler.getReply(responseKey);
-        } catch (IOException | InterruptedException e) {
+        } catch (InterruptedException | ActiveMQException e) {
             log.error("queryAccount", e);
             Thread.currentThread().interrupt();
             return null;
@@ -61,13 +71,16 @@ public class MQProducers {
 
     public Object queryLoan(UUID id) {
         log.debug("queryLoan: {}", id);
-        String responseKey = UUID.randomUUID().toString();
+        UUID responseKey = UUID.randomUUID();
         replyWaitingHandler.put(responseKey);
-        AMQP.BasicProperties props = new AMQP.BasicProperties.Builder().correlationId(responseKey).replyTo(queryReplyQueue).build();
+        ClientMessage message = clientSession.createMessage(false);
+        message.setCorrelationID(responseKey);
+        message.setReplyTo(SimpleString.toSimpleString(queryReplyQueue));
+        message.getBodyBuffer().writeBytes(SerializationUtils.serialize(id));
         try {
-            querySendQueue.basicPublish(mqConsumerUtils.getExchange(), mqConsumerUtils.getAccountQueryLoanIdQueue(), props, SerializationUtils.serialize(id));
+            querySendProducer.send(mqConsumerUtils.getAccountQueryLoanIdQueue(), message);
             return replyWaitingHandler.getReply(responseKey);
-        } catch (IOException | InterruptedException e) {
+        } catch (InterruptedException | ActiveMQException e) {
             log.error("queryLoan", e);
             Thread.currentThread().interrupt();
             return null;
@@ -76,13 +89,16 @@ public class MQProducers {
 
     public Object queryStatement(UUID id) {
         log.debug("queryStatement: {}", id);
-        String responseKey = UUID.randomUUID().toString();
+        UUID responseKey = UUID.randomUUID();
         replyWaitingHandler.put(responseKey);
-        AMQP.BasicProperties props = new AMQP.BasicProperties.Builder().correlationId(responseKey).replyTo(queryReplyQueue).build();
+        ClientMessage message = clientSession.createMessage(false);
+        message.setCorrelationID(responseKey);
+        message.setReplyTo(SimpleString.toSimpleString(queryReplyQueue));
+        message.getBodyBuffer().writeBytes(SerializationUtils.serialize(id));
         try {
-            querySendQueue.basicPublish(mqConsumerUtils.getExchange(), mqConsumerUtils.getStatementQueryStatementQueue(), props, SerializationUtils.serialize(id));
+            querySendProducer.send(mqConsumerUtils.getStatementQueryStatementQueue(), message);
             return replyWaitingHandler.getReply(responseKey);
-        } catch (IOException | InterruptedException e) {
+        } catch (InterruptedException | ActiveMQException e) {
             log.error("queryStatement", e);
             Thread.currentThread().interrupt();
             return null;
@@ -91,13 +107,16 @@ public class MQProducers {
 
     public Object queryStatements(UUID id) {
         log.debug("queryStatements: {}", id);
-        String responseKey = UUID.randomUUID().toString();
+        UUID responseKey = UUID.randomUUID();
         replyWaitingHandler.put(responseKey);
-        AMQP.BasicProperties props = new AMQP.BasicProperties.Builder().correlationId(responseKey).replyTo(queryReplyQueue).build();
+        ClientMessage message = clientSession.createMessage(false);
+        message.setCorrelationID(responseKey);
+        message.setReplyTo(SimpleString.toSimpleString(queryReplyQueue));
+        message.getBodyBuffer().writeBytes(SerializationUtils.serialize(id));
         try {
-            querySendQueue.basicPublish(mqConsumerUtils.getExchange(), mqConsumerUtils.getStatementQueryStatementsQueue(), props, SerializationUtils.serialize(id));
+            querySendProducer.send(mqConsumerUtils.getStatementQueryStatementsQueue(), message);
             return replyWaitingHandler.getReply(responseKey);
-        } catch (IOException | InterruptedException e) {
+        } catch (InterruptedException | ActiveMQException e) {
             log.error("queryStatements", e);
             Thread.currentThread().interrupt();
             return null;
@@ -106,13 +125,16 @@ public class MQProducers {
 
     public Object queryCheckRequest() {
         log.debug("queryCheckRequest:");
-        String responseKey = UUID.randomUUID().toString();
+        UUID responseKey = UUID.randomUUID();
         replyWaitingHandler.put(responseKey);
-        AMQP.BasicProperties props = new AMQP.BasicProperties.Builder().correlationId(responseKey).replyTo(queryReplyQueue).build();
+        ClientMessage message = clientSession.createMessage(false);
+        message.setCorrelationID(responseKey);
+        message.setReplyTo(SimpleString.toSimpleString(queryReplyQueue));
+        message.getBodyBuffer().writeBytes(SerializationUtils.serialize(new byte[0]));
         try {
-            querySendQueue.basicPublish(mqConsumerUtils.getExchange(), mqConsumerUtils.getServiceRequestCheckRequestQueue(), props, SerializationUtils.serialize(new byte[0]));
+            querySendProducer.send(mqConsumerUtils.getServiceRequestCheckRequestQueue(), message);
             return replyWaitingHandler.getReply(responseKey);
-        } catch (IOException | InterruptedException e) {
+        } catch (InterruptedException | ActiveMQException e) {
             log.error("queryCheckRequest", e);
             Thread.currentThread().interrupt();
             return null;

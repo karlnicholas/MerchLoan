@@ -11,11 +11,11 @@ import com.github.karlnicholas.merchloan.dto.LoanDto;
 import com.github.karlnicholas.merchloan.jmsmessage.MostRecentStatement;
 import com.github.karlnicholas.merchloan.jmsmessage.StatementHeader;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.activemq.artemis.api.core.ActiveMQException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import javax.sql.DataSource;
-import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.sql.Connection;
@@ -49,7 +49,7 @@ public class QueryService {
         }
     }
 
-    public Optional<LoanDto> queryLoanId(UUID loanId) throws IOException, InterruptedException, SQLException {
+    public Optional<LoanDto> queryLoanId(UUID loanId) throws InterruptedException, SQLException, ActiveMQException {
         // get last statement
         // get register entries
         // return last statement date
@@ -90,7 +90,7 @@ public class QueryService {
         }
     }
 
-    private void computeLoanValues(UUID loanId, Loan loan, LoanDto loanDto) throws IOException, InterruptedException, SQLException {
+    private void computeLoanValues(UUID loanId, Loan loan, LoanDto loanDto) throws InterruptedException, SQLException, ActiveMQException {
         try (Connection con = dataSource.getConnection()) {
             // get most recent statement
             MostRecentStatement mostRecentStatement = (MostRecentStatement) rabbitMqSender.queryMostRecentStatement(loanId);
