@@ -4,7 +4,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.activemq.artemis.api.core.client.ClientMessage;
 import org.springframework.util.SerializationUtils;
 
-import java.util.UUID;
+import java.io.IOException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -12,17 +12,17 @@ import java.util.concurrent.ConcurrentMap;
 public class ReplyWaitingHandler {
     public static final int RESPONSE_TIMEOUT = 3000;
     public static final long TIMEOUT_MAX = 9_000_000_000L;
-    private final ConcurrentMap<UUID, ReplyWaiting> repliesWaiting;
+    private final ConcurrentMap<String, ReplyWaiting> repliesWaiting;
 
     public ReplyWaitingHandler() {
         repliesWaiting = new ConcurrentHashMap<>();
     }
 
-    public void put(UUID responseKey) {
+    public void put(String responseKey) {
         repliesWaiting.put(responseKey, ReplyWaiting.builder().nanoTime(System.nanoTime()).reply(null).build());
     }
 
-    public Object getReply(UUID responseKey) throws InterruptedException {
+    public Object getReply(String responseKey) throws InterruptedException {
         synchronized (repliesWaiting) {
             while (repliesWaiting.containsKey(responseKey) && repliesWaiting.get(responseKey).checkReply().isEmpty()) {
                 repliesWaiting.wait(RESPONSE_TIMEOUT);
@@ -37,8 +37,10 @@ public class ReplyWaitingHandler {
 
     public void handleReplies(ClientMessage message) {
         synchronized (repliesWaiting) {
-            UUID corrId = (UUID)message.getCorrelationID();
-            repliesWaiting.get(corrId).setReply(SerializationUtils.deserialize(message.getBodyBuffer().toByteBuffer().array()));
+            String corrId = message.getCorrelationID().toString();
+            byte[] mo = new byte[message.getBodyBuffer().readableBytes()];
+            message.getBodyBuffer().readBytes(mo);
+            repliesWaiting.get(corrId).setReply(SerializationUtils.deserialize(mo));
             repliesWaiting.notifyAll();
         }
     }

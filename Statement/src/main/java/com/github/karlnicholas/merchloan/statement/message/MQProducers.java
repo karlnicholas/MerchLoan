@@ -40,12 +40,12 @@ public class MQProducers {
         serviceRequestStatementCompleteProducer = clientSession.createProducer(mqConsumerUtils.getServiceRequestStatementCompleteQueue());
         statementReplyQueue = "statement-reply-"+UUID.randomUUID();
         statementSendProducer = clientSession.createProducer();
-        mqConsumerUtils.bindConsumer(clientSession, statementReplyQueue, replyWaitingHandler::handleReplies);
+        mqConsumerUtils.bindConsumer(clientSession, statementReplyQueue, true, replyWaitingHandler::handleReplies);
     }
 
     public Object accountBillingCycleCharge(BillingCycleCharge billingCycleCharge) throws InterruptedException, ActiveMQException {
         log.debug("accountBillingCycleCharge: {}", billingCycleCharge);
-        UUID responseKey = UUID.randomUUID();
+        String responseKey = UUID.randomUUID().toString();
         replyWaitingHandler.put(responseKey);
         ClientMessage message = clientSession.createMessage(false);
         message.setCorrelationID(responseKey);
@@ -57,7 +57,7 @@ public class MQProducers {
 
     public Object accountQueryStatementHeader(StatementHeader statementHeader) throws InterruptedException, ActiveMQException {
         log.debug("accountQueryStatementHeader: {}", statementHeader);
-        UUID responseKey = UUID.randomUUID();
+        String responseKey = UUID.randomUUID().toString();
         replyWaitingHandler.put(responseKey);
         ClientMessage message = clientSession.createMessage(false);
         message.setCorrelationID(responseKey);

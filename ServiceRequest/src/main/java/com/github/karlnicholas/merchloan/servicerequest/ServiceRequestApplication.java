@@ -1,6 +1,8 @@
 package com.github.karlnicholas.merchloan.servicerequest;
 
 import com.github.karlnicholas.merchloan.sqlutil.SqlInitialization;
+import org.apache.activemq.artemis.api.core.ActiveMQException;
+import org.apache.activemq.artemis.api.core.client.ClientSession;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -25,11 +27,14 @@ public class ServiceRequestApplication {
 
     @Autowired
     private DataSource dataSource;
+    @Autowired
+    private ClientSession clientSession;
 
     @EventListener(ApplicationReadyEvent.class)
-    public void initialize() throws SQLException, IOException {
+    public void initialize() throws SQLException, IOException, ActiveMQException {
         try(Connection con = dataSource.getConnection()) {
             SqlInitialization.initialize(con, ServiceRequestApplication.class.getResourceAsStream("/sql/schema.sql"));
         }
+        clientSession.start();
     }
 }

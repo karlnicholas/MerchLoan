@@ -45,23 +45,25 @@ public class MQConsumers {
                 .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
         this.mqConsumerUtils = mqConsumerUtils;
 
-        mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getAccountCreateAccountQueue(), this::receivedCreateAccountMessage);
-        mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getAccountFundingQueue(), this::receivedFundingMessage);
-        mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getAccountValidateCreditQueue(), this::receivedValidateCreditMessage);
-        mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getAccountValidateDebitQueue(), this::receivedValidateDebitMessage);
-        mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getAccountCloseLoanQueue(), this::receivedCloseLoanMessage);
-        mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getAccountLoanClosedQueue(), this::receivedLoanClosedMessage);
-        mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getAccountQueryStatementHeaderQueue(), this::receivedStatementHeaderMessage);
-        mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getAccountBillingCycleChargeQueue(), this::receivedBillingCycleChargeMessage);
-        mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getAccountQueryLoansToCycleQueue(), this::receivedLoansToCyceMessage);
-        mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getAccountQueryAccountIdQueue(), this::receivedQueryAccountIdMessage);
-        mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getAccountQueryLoanIdQueue(), this::receivedQueryLoanIdMessage);
+        mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getAccountCreateAccountQueue(), false, this::receivedCreateAccountMessage);
+        mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getAccountFundingQueue(), false, this::receivedFundingMessage);
+        mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getAccountValidateCreditQueue(), false, this::receivedValidateCreditMessage);
+        mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getAccountValidateDebitQueue(), false, this::receivedValidateDebitMessage);
+        mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getAccountCloseLoanQueue(), false, this::receivedCloseLoanMessage);
+        mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getAccountLoanClosedQueue(), false, this::receivedLoanClosedMessage);
+        mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getAccountQueryStatementHeaderQueue(), false, this::receivedStatementHeaderMessage);
+        mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getAccountBillingCycleChargeQueue(), false, this::receivedBillingCycleChargeMessage);
+        mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getAccountQueryLoansToCycleQueue(), false, this::receivedLoansToCyceMessage);
+        mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getAccountQueryAccountIdQueue(), false, this::receivedQueryAccountIdMessage);
+        mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getAccountQueryLoanIdQueue(), false, this::receivedQueryLoanIdMessage);
 
         accountProducer = clientSession.createProducer();
     }
 
     public void receivedStatementHeaderMessage(ClientMessage message) {
-        StatementHeader statementHeader = (StatementHeader) SerializationUtils.deserialize(message.getBodyBuffer().toByteBuffer().array());
+        byte[] mo = new byte[message.getBodyBuffer().readableBytes()];
+        message.getBodyBuffer().readBytes(mo);
+        StatementHeader statementHeader = (StatementHeader) SerializationUtils.deserialize(mo);
         try {
             log.debug("receivedStatementHeaderMessage {}", statementHeader);
             ServiceRequestResponse serviceRequestResponse = accountManagementService.statementHeader(statementHeader);
@@ -74,7 +76,9 @@ public class MQConsumers {
     }
 
     public void receivedLoansToCyceMessage(ClientMessage message) {
-        LocalDate businessDate = (LocalDate) SerializationUtils.deserialize(message.getBodyBuffer().toByteBuffer().array());
+        byte[] mo = new byte[message.getBodyBuffer().readableBytes()];
+        message.getBodyBuffer().readBytes(mo);
+        LocalDate businessDate = (LocalDate) SerializationUtils.deserialize(mo);
         try {
             log.debug("receivedLoansToCyceMessage {}", businessDate);
             reply(message, accountManagementService.loansToCycle(businessDate));
@@ -84,7 +88,9 @@ public class MQConsumers {
     }
 
     public void receivedBillingCycleChargeMessage(ClientMessage message) {
-        BillingCycleCharge billingCycleCharge = (BillingCycleCharge) SerializationUtils.deserialize(message.getBodyBuffer().toByteBuffer().array());
+        byte[] mo = new byte[message.getBodyBuffer().readableBytes()];
+        message.getBodyBuffer().readBytes(mo);
+        BillingCycleCharge billingCycleCharge = (BillingCycleCharge)  SerializationUtils.deserialize(mo);
         try {
             log.debug("receivedBillingCycleChargeMessage {}", billingCycleCharge);
             RegisterEntry re = registerManagementService.billingCycleCharge(billingCycleCharge);
@@ -102,7 +108,9 @@ public class MQConsumers {
     }
 
     public void receivedQueryAccountIdMessage(ClientMessage message) {
-        UUID id = (UUID) SerializationUtils.deserialize(message.getBodyBuffer().toByteBuffer().array());
+        byte[] mo = new byte[message.getBodyBuffer().readableBytes()];
+        message.getBodyBuffer().readBytes(mo);
+        UUID id = (UUID) SerializationUtils.deserialize(mo);
         try {
             log.debug("receivedQueryAccountIdMessage {}", id);
             Optional<Account> accountOpt = queryService.queryAccountId(id);
@@ -117,7 +125,9 @@ public class MQConsumers {
     }
 
     public void receivedQueryLoanIdMessage(ClientMessage message) {
-        UUID id = (UUID) SerializationUtils.deserialize(message.getBodyBuffer().toByteBuffer().array());
+        byte[] mo = new byte[message.getBodyBuffer().readableBytes()];
+        message.getBodyBuffer().readBytes(mo);
+        UUID id = (UUID) SerializationUtils.deserialize(mo);
         try {
             log.debug("receivedQueryLoanIdMessage {}", id);
             Optional<LoanDto> r = queryService.queryLoanId(id);
@@ -140,7 +150,9 @@ public class MQConsumers {
     }
 
     public void receivedCreateAccountMessage(ClientMessage message) {
-        CreateAccount createAccount = (CreateAccount) SerializationUtils.deserialize(message.getBodyBuffer().toByteBuffer().array());
+        byte[] mo = new byte[message.getBodyBuffer().readableBytes()];
+        message.getBodyBuffer().readBytes(mo);
+        CreateAccount createAccount = (CreateAccount) SerializationUtils.deserialize(mo);
         if ( createAccount == null ) {
             throw new IllegalStateException(NULL_ERROR_MESSAGE);
         }
@@ -167,7 +179,9 @@ public class MQConsumers {
         // 10000 * 0.0092059/0.104713067
         // 10000 * 0.08791548
         // = 879.16
-        FundLoan fundLoan = (FundLoan) SerializationUtils.deserialize(message.getBodyBuffer().toByteBuffer().array());
+        byte[] mo = new byte[message.getBodyBuffer().readableBytes()];
+        message.getBodyBuffer().readBytes(mo);
+        FundLoan fundLoan = (FundLoan) SerializationUtils.deserialize(mo);
         if ( fundLoan == null ) {
             throw new IllegalStateException(NULL_ERROR_MESSAGE);
         }
@@ -201,7 +215,9 @@ public class MQConsumers {
     }
 
     public void receivedValidateCreditMessage(ClientMessage message) {
-        CreditLoan creditLoan = (CreditLoan) SerializationUtils.deserialize(message.getBodyBuffer().toByteBuffer().array());
+        byte[] mo = new byte[message.getBodyBuffer().readableBytes()];
+        message.getBodyBuffer().readBytes(mo);
+        CreditLoan creditLoan = (CreditLoan) SerializationUtils.deserialize(mo);
         if ( creditLoan == null ) {
             throw new IllegalStateException(NULL_ERROR_MESSAGE);
         }
@@ -233,7 +249,9 @@ public class MQConsumers {
     }
 
     public void receivedValidateDebitMessage(ClientMessage message) {
-        DebitLoan debitLoan = (DebitLoan) SerializationUtils.deserialize(message.getBodyBuffer().toByteBuffer().array());
+        byte[] mo = new byte[message.getBodyBuffer().readableBytes()];
+        message.getBodyBuffer().readBytes(mo);
+        DebitLoan debitLoan = (DebitLoan) SerializationUtils.deserialize(mo);
         if ( debitLoan == null ) {
             throw new IllegalStateException(NULL_ERROR_MESSAGE);
         }
@@ -266,7 +284,9 @@ public class MQConsumers {
     }
 
     public void receivedCloseLoanMessage(ClientMessage message) {
-        CloseLoan closeLoan = (CloseLoan) SerializationUtils.deserialize(message.getBodyBuffer().toByteBuffer().array());
+        byte[] mo = new byte[message.getBodyBuffer().readableBytes()];
+        message.getBodyBuffer().readBytes(mo);
+        CloseLoan closeLoan = (CloseLoan)  SerializationUtils.deserialize(mo);
         if ( closeLoan == null ) {
             throw new IllegalStateException(NULL_ERROR_MESSAGE);
         }
@@ -327,7 +347,9 @@ public class MQConsumers {
     }
 
     public void receivedLoanClosedMessage(ClientMessage message) {
-        StatementHeader statementHeader = (StatementHeader) SerializationUtils.deserialize(message.getBodyBuffer().toByteBuffer().array());
+        byte[] mo = new byte[message.getBodyBuffer().readableBytes()];
+        message.getBodyBuffer().readBytes(mo);
+        StatementHeader statementHeader = (StatementHeader) SerializationUtils.deserialize(mo);
         if ( statementHeader == null ) {
             throw new IllegalStateException(NULL_ERROR_MESSAGE);
         }

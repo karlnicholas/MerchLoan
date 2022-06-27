@@ -44,18 +44,20 @@ public class MQConsumers {
         objectMapper = new ObjectMapper().findAndRegisterModules()
                 .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
 
-        mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getStatementStatementQueue(), this::receivedStatementMessage);
-        mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getStatementCloseStatementQueue(), this::receivedCloseStatementMessage);
-        mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getStatementQueryStatementQueue(), this::receivedQueryStatementMessage);
-        mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getStatementQueryStatementsQueue(), this::receivedQueryStatementsMessage);
-        mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getStatementQueryMostRecentStatementQueue(), this::receivedQueryMostRecentStatementMessage);
+        mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getStatementStatementQueue(), false, this::receivedStatementMessage);
+        mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getStatementCloseStatementQueue(), false, this::receivedCloseStatementMessage);
+        mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getStatementQueryStatementQueue(), false, this::receivedQueryStatementMessage);
+        mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getStatementQueryStatementsQueue(), false, this::receivedQueryStatementsMessage);
+        mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getStatementQueryMostRecentStatementQueue(), false, this::receivedQueryMostRecentStatementMessage);
 
         responseProducer = clientSession.createProducer();
     }
 
     public void receivedQueryStatementMessage(ClientMessage message) {
         try {
-            UUID loanId = (UUID) SerializationUtils.deserialize(message.getBodyBuffer().toByteBuffer().array());
+            byte[] mo = new byte[message.getBodyBuffer().readableBytes()];
+            message.getBodyBuffer().readBytes(mo);
+            UUID loanId = (UUID) SerializationUtils.deserialize(mo);
             log.debug("receivedQueryStatementMessage {}", loanId);
             String result = queryService.findById(loanId).map(Statement::getStatementDoc).orElse("ERROR: No statement found for id " + loanId);
             reply(message, result);
@@ -66,7 +68,9 @@ public class MQConsumers {
 
     public void receivedQueryMostRecentStatementMessage(ClientMessage message) {
         try {
-            UUID loanId = (UUID) SerializationUtils.deserialize(message.getBodyBuffer().toByteBuffer().array());
+            byte[] mo = new byte[message.getBodyBuffer().readableBytes()];
+            message.getBodyBuffer().readBytes(mo);
+            UUID loanId = (UUID) SerializationUtils.deserialize(mo);
             log.debug("receivedQueryMostRecentStatementMessage {}", loanId);
             MostRecentStatement mostRecentStatement = queryService.findMostRecentStatement(loanId).map(statement -> MostRecentStatement.builder()
                             .id(statement.getId())
@@ -84,7 +88,9 @@ public class MQConsumers {
 
     public void receivedQueryStatementsMessage(ClientMessage message) {
         try {
-            UUID id = (UUID) SerializationUtils.deserialize(message.getBodyBuffer().toByteBuffer().array());
+            byte[] mo = new byte[message.getBodyBuffer().readableBytes()];
+            message.getBodyBuffer().readBytes(mo);
+            UUID id = (UUID) SerializationUtils.deserialize(mo);
             log.debug("receivedQueryStatementsMessage Received {}", id);
             reply(message, objectMapper.writeValueAsString(queryService.findByLoanId(id)));
         } catch (Exception ex) {
@@ -100,7 +106,9 @@ public class MQConsumers {
     }
 
     public void receivedStatementMessage(ClientMessage message) {
-        StatementHeader statementHeader = (StatementHeader) SerializationUtils.deserialize(message.getBodyBuffer().toByteBuffer().array());
+        byte[] mo = new byte[message.getBodyBuffer().readableBytes()];
+        message.getBodyBuffer().readBytes(mo);
+        StatementHeader statementHeader = (StatementHeader) SerializationUtils.deserialize(mo);
         if (statementHeader == null) {
             throw new IllegalStateException("Message body null");
         }
@@ -187,7 +195,9 @@ public class MQConsumers {
     }
 
     public void receivedCloseStatementMessage(ClientMessage message) {
-        StatementHeader statementHeader = (StatementHeader) SerializationUtils.deserialize(message.getBodyBuffer().toByteBuffer().array());
+        byte[] mo = new byte[message.getBodyBuffer().readableBytes()];
+        message.getBodyBuffer().readBytes(mo);
+        StatementHeader statementHeader = (StatementHeader) SerializationUtils.deserialize(mo);
         try {
             log.debug("receivedCloseStatementMessage {}", statementHeader);
             Optional<Statement> statementExistsOpt = statementService.findStatement(statementHeader.getLoanId(), statementHeader.getStatementDate());

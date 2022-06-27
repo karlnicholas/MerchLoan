@@ -30,12 +30,12 @@ public class MQProducers {
         querySendProducer = clientSession.createProducer();
         queryReplyQueue = "query-reply-"+UUID.randomUUID();
 
-        mqConsumerUtils.bindConsumer(clientSession, queryReplyQueue, replyWaitingHandler::handleReplies);
+        mqConsumerUtils.bindConsumer(clientSession, queryReplyQueue, true, replyWaitingHandler::handleReplies);
     }
 
     public Object queryServiceRequest(UUID id) {
         log.debug("queryServiceRequest: {}", id);
-        UUID responseKey = UUID.randomUUID();
+        String responseKey = UUID.randomUUID().toString();
         replyWaitingHandler.put(responseKey);
         ClientMessage message = clientSession.createMessage(false);
         message.setCorrelationID(responseKey);
@@ -53,7 +53,7 @@ public class MQProducers {
 
     public Object queryAccount(UUID id) {
         log.debug("queryAccount: {}", id);
-        UUID responseKey = UUID.randomUUID();
+        String responseKey = UUID.randomUUID().toString();
         replyWaitingHandler.put(responseKey);
         ClientMessage message = clientSession.createMessage(false);
         message.setCorrelationID(responseKey);
@@ -71,7 +71,7 @@ public class MQProducers {
 
     public Object queryLoan(UUID id) {
         log.debug("queryLoan: {}", id);
-        UUID responseKey = UUID.randomUUID();
+        String responseKey = UUID.randomUUID().toString();
         replyWaitingHandler.put(responseKey);
         ClientMessage message = clientSession.createMessage(false);
         message.setCorrelationID(responseKey);
@@ -89,7 +89,7 @@ public class MQProducers {
 
     public Object queryStatement(UUID id) {
         log.debug("queryStatement: {}", id);
-        UUID responseKey = UUID.randomUUID();
+        String responseKey = UUID.randomUUID().toString();
         replyWaitingHandler.put(responseKey);
         ClientMessage message = clientSession.createMessage(false);
         message.setCorrelationID(responseKey);
@@ -107,7 +107,7 @@ public class MQProducers {
 
     public Object queryStatements(UUID id) {
         log.debug("queryStatements: {}", id);
-        UUID responseKey = UUID.randomUUID();
+        String responseKey = UUID.randomUUID().toString();
         replyWaitingHandler.put(responseKey);
         ClientMessage message = clientSession.createMessage(false);
         message.setCorrelationID(responseKey);
@@ -125,7 +125,7 @@ public class MQProducers {
 
     public Object queryCheckRequest() {
         log.debug("queryCheckRequest:");
-        UUID responseKey = UUID.randomUUID();
+        String responseKey = UUID.randomUUID().toString();
         replyWaitingHandler.put(responseKey);
         ClientMessage message = clientSession.createMessage(false);
         message.setCorrelationID(responseKey);

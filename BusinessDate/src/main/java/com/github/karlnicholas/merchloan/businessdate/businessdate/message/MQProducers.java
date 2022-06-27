@@ -34,12 +34,12 @@ public class MQProducers {
         serviceRequestBillLoanProducer = clientSession.createProducer(mqConsumerUtils.getServiceRequestBillLoanQueue());
         businessDateReplyQueue = "businessdate-reply-"+UUID.randomUUID();
         businessDateSendProducer = clientSession.createProducer();
-        mqConsumerUtils.bindConsumer(clientSession, businessDateReplyQueue, replyWaitingHandler::handleReplies);
+        mqConsumerUtils.bindConsumer(clientSession, businessDateReplyQueue, true, replyWaitingHandler::handleReplies);
     }
 
     public Object servicerequestCheckRequest() throws InterruptedException, ActiveMQException {
         log.debug("servicerequestCheckRequest:");
-        UUID responseKey = UUID.randomUUID();
+        String responseKey = UUID.randomUUID().toString();
         replyWaitingHandler.put(responseKey);
         ClientMessage message = clientSession.createMessage(false);
         message.setCorrelationID(responseKey);
@@ -51,7 +51,7 @@ public class MQProducers {
 
     public Object acccountQueryLoansToCycle(LocalDate businessDate) throws InterruptedException, ActiveMQException {
         log.debug("acccountQueryLoansToCycle: {}", businessDate);
-        UUID responseKey = UUID.randomUUID();
+        String responseKey = UUID.randomUUID().toString();
         replyWaitingHandler.put(responseKey);
         ClientMessage message = clientSession.createMessage(false);
         message.setCorrelationID(responseKey);

@@ -38,7 +38,7 @@ public class MQProducers {
         accountsReplyQueue = "accounts-reply-"+UUID.randomUUID();
         accountSendProducer = clientSession.createProducer();
 
-        mqConsumerUtils.bindConsumer(clientSession, accountsReplyQueue, replyWaitingHandler::handleReplies);
+        mqConsumerUtils.bindConsumer(clientSession, accountsReplyQueue, true, replyWaitingHandler::handleReplies);
     }
 
     public void serviceRequestServiceRequest(ServiceRequestResponse serviceRequest) throws ActiveMQException {
@@ -57,7 +57,7 @@ public class MQProducers {
 
     public Object queryMostRecentStatement(UUID loanId) throws InterruptedException, ActiveMQException {
         log.debug("queryMostRecentStatement: {}", loanId);
-        UUID responseKey = UUID.randomUUID();
+        String responseKey = UUID.randomUUID().toString();
         replyWaitingHandler.put(responseKey);
         ClientMessage message = clientSession.createMessage(false);
         message.setCorrelationID(responseKey);

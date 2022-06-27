@@ -18,14 +18,14 @@ public class MDConnectionConfig {
     private String password;
     @Value("${rabbitmq.host:localhost}")
     private String host;
-    @Value("${rabbitmq.port:5672}")
+    @Value("${rabbitmq.port:61616}")
     private Integer port;
     @Value("${rabbitmq.virtual-host:/}")
     private String virtualHost;
 
     @Bean
     public ClientSession getConnectionFactory() throws Exception {
-        ServerLocator locator = ActiveMQClient.createServerLocator("tcp://localhost:61617");
+        ServerLocator locator = ActiveMQClient.createServerLocator("tcp://localhost:61616");
         ClientSessionFactory factory =  locator.createSessionFactory();
         ClientSession clientSession = factory.createSession();
         return clientSession;

@@ -41,18 +41,20 @@ public class MQConsumers {
         this.objectMapper = new ObjectMapper().findAndRegisterModules()
                 .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
 
-        mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getServicerequestQueue(), this::receivedServiceRequestMessage);
-        mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getServicerequestQueryIdQueue(), this::receivedServiceRequestQueryIdMessage);
-        mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getServiceRequestCheckRequestQueue(), this::receivedCheckRequestMessage);
-        mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getServiceRequestBillLoanQueue(), this::receivedServiceRequestBillloanMessage);
-        mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getServiceRequestStatementCompleteQueue(), this::receivedServiceStatementCompleteMessage);
+        mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getServicerequestQueue(), true, this::receivedServiceRequestMessage);
+        mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getServicerequestQueryIdQueue(), true, this::receivedServiceRequestQueryIdMessage);
+        mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getServiceRequestCheckRequestQueue(), true, this::receivedCheckRequestMessage);
+        mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getServiceRequestBillLoanQueue(), true, this::receivedServiceRequestBillloanMessage);
+        mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getServiceRequestStatementCompleteQueue(), true, this::receivedServiceStatementCompleteMessage);
 
         responseProducer = clientSession.createProducer();
     }
 
     public void receivedServiceRequestQueryIdMessage(ClientMessage message) {
         try {
-            UUID id = (UUID) SerializationUtils.deserialize(message.getBodyBuffer().toByteBuffer().array());
+            byte[] mo = new byte[message.getBodyBuffer().readableBytes()];
+            message.getBodyBuffer().readBytes(mo);
+            UUID id = (UUID) SerializationUtils.deserialize(mo);
             log.debug("ServiceRequestQueryId Received {}", id);
             Optional<ServiceRequest> requestOpt = queryService.getServiceRequest(id);
             String response;
@@ -85,13 +87,16 @@ public class MQConsumers {
 
     private void reply(ClientMessage origMessage, Object data) throws ActiveMQException {
         ClientMessage message = clientSession.createMessage(false);
-        message.getBodyBuffer().writeBytes(SerializationUtils.serialize(data));
+        byte[] mo = SerializationUtils.serialize(data);
+        message.writeBodyBufferBytes(mo);
         message.setCorrelationID(origMessage.getCorrelationID());
         responseProducer.send(origMessage.getReplyTo(), message);
     }
 
     public void receivedServiceRequestMessage(ClientMessage message) {
-        ServiceRequestResponse serviceRequest = (ServiceRequestResponse) SerializationUtils.deserialize(message.getBodyBuffer().toByteBuffer().array());
+        byte[] mo = new byte[message.getBodyBuffer().readableBytes()];
+        message.getBodyBuffer().readBytes(mo);
+        ServiceRequestResponse serviceRequest = (ServiceRequestResponse) SerializationUtils.deserialize(mo);
         log.debug("ServiceRequestResponse Received {}", serviceRequest);
         try {
             serviceRequestService.completeServiceRequest(serviceRequest);
@@ -101,7 +106,9 @@ public class MQConsumers {
     }
 
     public void receivedServiceRequestBillloanMessage(ClientMessage message) {
-        BillingCycle billingCycle = (BillingCycle) SerializationUtils.deserialize(message.getBodyBuffer().toByteBuffer().array());
+        byte[] mo = new byte[message.getBodyBuffer().readableBytes()];
+        message.getBodyBuffer().readBytes(mo);
+        BillingCycle billingCycle = (BillingCycle) SerializationUtils.deserialize(mo);
         if ( billingCycle == null ) {
             throw new IllegalStateException("Message body null");
         }
@@ -120,7 +127,9 @@ public class MQConsumers {
     }
 
     public void receivedServiceStatementCompleteMessage(ClientMessage message) {
-        StatementCompleteResponse statementCompleteResponse = (StatementCompleteResponse) SerializationUtils.deserialize(message.getBodyBuffer().toByteBuffer().array());
+        byte[] mo = new byte[message.getBodyBuffer().readableBytes()];
+        message.getBodyBuffer().readBytes(mo);
+        StatementCompleteResponse statementCompleteResponse = (StatementCompleteResponse) SerializationUtils.deserialize(mo);
         log.debug("StatementComplete Received {}", statementCompleteResponse);
         try {
             serviceRequestService.statementComplete(statementCompleteResponse);
