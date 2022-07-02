@@ -2,6 +2,8 @@ package com.github.karlnicholas.merchloan.businessdate.businessdate;
 
 import com.github.karlnicholas.merchloan.businessdate.businessdate.service.BusinessDateService;
 import com.github.karlnicholas.merchloan.sqlutil.SqlInitialization;
+import org.apache.activemq.artemis.api.core.ActiveMQException;
+import org.apache.activemq.artemis.api.core.client.ClientSession;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -34,13 +36,15 @@ public class BusinessDateApplication {
     private BusinessDateService businessDateService;
     @Autowired
     private DataSource dataSource;
+    private ClientSession clientSession;
 
     @EventListener(ApplicationReadyEvent.class)
-    public void initialize() throws SQLException, IOException {
+    public void initialize() throws SQLException, IOException, ActiveMQException {
         try(Connection con = dataSource.getConnection()) {
             SqlInitialization.initialize(con, BusinessDateApplication.class.getResourceAsStream("/sql/schema.sql"));
         }
         businessDateService.initializeBusinessDate();
+        clientSession.start();
     }
 
     @Bean
