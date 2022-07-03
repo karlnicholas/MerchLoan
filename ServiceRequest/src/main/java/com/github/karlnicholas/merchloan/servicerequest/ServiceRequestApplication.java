@@ -35,6 +35,8 @@ public class ServiceRequestApplication {
         try(Connection con = dataSource.getConnection()) {
             SqlInitialization.initialize(con, ServiceRequestApplication.class.getResourceAsStream("/sql/schema.sql"));
         }
+        clientSession.addMetaData(ClientSession.JMS_SESSION_IDENTIFIER_PROPERTY, "jms-client-id");
+        clientSession.addMetaData("jms-client-id", "servicerequest");
         clientSession.start();
     }
 }

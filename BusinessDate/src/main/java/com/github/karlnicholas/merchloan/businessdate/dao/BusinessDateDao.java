@@ -1,6 +1,6 @@
-package com.github.karlnicholas.merchloan.businessdate.businessdate.dao;
+package com.github.karlnicholas.merchloan.businessdate.dao;
 
-import com.github.karlnicholas.merchloan.businessdate.businessdate.model.BusinessDate;
+import com.github.karlnicholas.merchloan.businessdate.model.BusinessDate;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 

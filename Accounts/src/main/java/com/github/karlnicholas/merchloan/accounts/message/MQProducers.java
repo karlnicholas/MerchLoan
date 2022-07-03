@@ -38,7 +38,7 @@ public class MQProducers {
         accountsReplyQueue = "accounts-reply-"+UUID.randomUUID();
         accountSendProducer = clientSession.createProducer();
 
-        mqConsumerUtils.bindConsumer(clientSession, accountsReplyQueue, true, replyWaitingHandler::handleReplies);
+        mqConsumerUtils.bindConsumer(clientSession, accountsReplyQueue, true, true, replyWaitingHandler::handleReplies);
     }
 
     public void serviceRequestServiceRequest(ServiceRequestResponse serviceRequest) throws ActiveMQException {

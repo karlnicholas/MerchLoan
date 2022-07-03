@@ -8,20 +8,20 @@ import com.github.karlnicholas.merchloan.jms.MQConsumerUtils;
 import com.github.karlnicholas.merchloan.jmsmessage.BillingCycle;
 import com.github.karlnicholas.merchloan.jmsmessage.ServiceRequestResponse;
 import com.github.karlnicholas.merchloan.jmsmessage.StatementCompleteResponse;
-import com.github.karlnicholas.merchloan.servicerequest.component.ServiceRequestException;
 import com.github.karlnicholas.merchloan.servicerequest.model.ServiceRequest;
 import com.github.karlnicholas.merchloan.servicerequest.service.QueryService;
 import com.github.karlnicholas.merchloan.servicerequest.service.ServiceRequestService;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.activemq.artemis.api.core.ActiveMQException;
+import org.apache.activemq.artemis.api.core.client.ClientConsumer;
 import org.apache.activemq.artemis.api.core.client.ClientMessage;
 import org.apache.activemq.artemis.api.core.client.ClientProducer;
 import org.apache.activemq.artemis.api.core.client.ClientSession;
 import org.springframework.stereotype.Component;
 import org.springframework.util.SerializationUtils;
 
+import javax.annotation.PreDestroy;
 import java.io.IOException;
-import java.sql.SQLException;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -29,25 +29,49 @@ import java.util.UUID;
 @Slf4j
 public class MQConsumers {
     private final ServiceRequestService serviceRequestService;
+    private final MQConsumerUtils mqConsumerUtils;
     private final ClientSession clientSession;
     private final ClientProducer responseProducer;
+    private final ClientConsumer servicerequestQueue;
+    private final ClientConsumer servicerequestQueryIdQueue;
+    private final ClientConsumer serviceRequestCheckRequestQueue;
+    private final ClientConsumer serviceRequestBillLoanQueue;
+    private final ClientConsumer serviceRequestStatementCompleteQueue;
+
     private final QueryService queryService;
     private final ObjectMapper objectMapper;
 
     public MQConsumers(ClientSession clientSession, MQConsumerUtils mqConsumerUtils, QueryService queryService, ServiceRequestService serviceRequestService) throws IOException, ActiveMQException {
         this.clientSession = clientSession;
+        this.mqConsumerUtils = mqConsumerUtils;
         this.serviceRequestService = serviceRequestService;
         this.queryService = queryService;
         this.objectMapper = new ObjectMapper().findAndRegisterModules()
                 .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
 
-        mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getServicerequestQueue(), true, this::receivedServiceRequestMessage);
-        mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getServicerequestQueryIdQueue(), true, this::receivedServiceRequestQueryIdMessage);
-        mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getServiceRequestCheckRequestQueue(), true, this::receivedCheckRequestMessage);
-        mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getServiceRequestBillLoanQueue(), true, this::receivedServiceRequestBillloanMessage);
-        mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getServiceRequestStatementCompleteQueue(), true, this::receivedServiceStatementCompleteMessage);
+        servicerequestQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getServicerequestQueue(), false, false, this::receivedServiceRequestMessage);
+        servicerequestQueryIdQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getServicerequestQueryIdQueue(), false, false, this::receivedServiceRequestQueryIdMessage);
+        serviceRequestCheckRequestQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getServiceRequestCheckRequestQueue(), false, false, this::receivedCheckRequestMessage);
+        serviceRequestBillLoanQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getServiceRequestBillLoanQueue(), false, false, this::receivedServiceRequestBillloanMessage);
+        serviceRequestStatementCompleteQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getServiceRequestStatementCompleteQueue(), false, false, this::receivedServiceStatementCompleteMessage);
 
         responseProducer = clientSession.createProducer();
+    }
+
+    @PreDestroy
+    public void preDestroy() throws ActiveMQException {
+        log.info("Consumer PreDestroy");
+        servicerequestQueue.close();
+        servicerequestQueryIdQueue.close();
+        serviceRequestCheckRequestQueue.close();
+        serviceRequestBillLoanQueue.close();
+        serviceRequestStatementCompleteQueue.close();
+
+        clientSession.deleteQueue(mqConsumerUtils.getServicerequestQueue());
+        clientSession.deleteQueue(mqConsumerUtils.getServicerequestQueryIdQueue());
+        clientSession.deleteQueue(mqConsumerUtils.getServiceRequestCheckRequestQueue());
+        clientSession.deleteQueue(mqConsumerUtils.getServiceRequestBillLoanQueue());
+        clientSession.deleteQueue(mqConsumerUtils.getServiceRequestStatementCompleteQueue());
     }
 
     public void receivedServiceRequestQueryIdMessage(ClientMessage message) {
@@ -77,8 +101,8 @@ public class MQConsumers {
 
 
     public void receivedCheckRequestMessage(ClientMessage message) {
-        log.debug("CheckRequest Received");
         try {
+            log.debug("CheckRequest Received");
             reply(message, queryService.checkRequest());
         } catch (Exception e) {
             log.error("receivedCheckRequestMessage", e);
@@ -94,26 +118,26 @@ public class MQConsumers {
     }
 
     public void receivedServiceRequestMessage(ClientMessage message) {
-        byte[] mo = new byte[message.getBodyBuffer().readableBytes()];
-        message.getBodyBuffer().readBytes(mo);
-        ServiceRequestResponse serviceRequest = (ServiceRequestResponse) SerializationUtils.deserialize(mo);
-        log.debug("ServiceRequestResponse Received {}", serviceRequest);
         try {
+            byte[] mo = new byte[message.getBodyBuffer().readableBytes()];
+            message.getBodyBuffer().readBytes(mo);
+            ServiceRequestResponse serviceRequest = (ServiceRequestResponse) SerializationUtils.deserialize(mo);
+            log.debug("ServiceRequestResponse Received {}", serviceRequest);
             serviceRequestService.completeServiceRequest(serviceRequest);
-        } catch (SQLException ex) {
-            throw new IllegalStateException(ex);
+        } catch (Exception ex) {
+            log.error("receivedServiceRequestMessage", ex);
         }
     }
 
     public void receivedServiceRequestBillloanMessage(ClientMessage message) {
-        byte[] mo = new byte[message.getBodyBuffer().readableBytes()];
-        message.getBodyBuffer().readBytes(mo);
-        BillingCycle billingCycle = (BillingCycle) SerializationUtils.deserialize(mo);
-        if ( billingCycle == null ) {
-            throw new IllegalStateException("Message body null");
-        }
-        log.debug("Billloan Received {}", billingCycle);
         try {
+            byte[] mo = new byte[message.getBodyBuffer().readableBytes()];
+            message.getBodyBuffer().readBytes(mo);
+            BillingCycle billingCycle = (BillingCycle) SerializationUtils.deserialize(mo);
+            if ( billingCycle == null ) {
+                throw new IllegalStateException("Message body null");
+            }
+            log.debug("Billloan Received {}", billingCycle);
             serviceRequestService.statementStatementRequest(StatementRequest.builder()
                             .loanId(billingCycle.getLoanId())
                             .statementDate(billingCycle.getStatementDate())
@@ -121,20 +145,20 @@ public class MQConsumers {
                             .endDate(billingCycle.getEndDate())
                             .build(),
                     Boolean.FALSE, null);
-        } catch ( ServiceRequestException ex) {
-            throw new IllegalStateException(ex);
+        } catch ( Exception ex) {
+            log.error("receivedServiceRequestBillloanMessage", ex);
         }
     }
 
     public void receivedServiceStatementCompleteMessage(ClientMessage message) {
-        byte[] mo = new byte[message.getBodyBuffer().readableBytes()];
-        message.getBodyBuffer().readBytes(mo);
-        StatementCompleteResponse statementCompleteResponse = (StatementCompleteResponse) SerializationUtils.deserialize(mo);
-        log.debug("StatementComplete Received {}", statementCompleteResponse);
         try {
+            byte[] mo = new byte[message.getBodyBuffer().readableBytes()];
+            message.getBodyBuffer().readBytes(mo);
+            StatementCompleteResponse statementCompleteResponse = (StatementCompleteResponse) SerializationUtils.deserialize(mo);
+            log.debug("StatementComplete Received {}", statementCompleteResponse);
             serviceRequestService.statementComplete(statementCompleteResponse);
-        } catch (SQLException ex) {
-            throw new IllegalStateException(ex);
+        } catch (Exception ex) {
+            log.error("receivedServiceStatementCompleteMessage", ex);
         }
     }
 

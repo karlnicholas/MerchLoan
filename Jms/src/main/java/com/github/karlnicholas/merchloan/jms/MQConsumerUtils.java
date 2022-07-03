@@ -4,6 +4,7 @@ package com.github.karlnicholas.merchloan.jms;
 import lombok.Data;
 import org.apache.activemq.artemis.api.core.ActiveMQException;
 import org.apache.activemq.artemis.api.core.QueueConfiguration;
+import org.apache.activemq.artemis.api.core.RoutingType;
 import org.apache.activemq.artemis.api.core.SimpleString;
 import org.apache.activemq.artemis.api.core.client.ClientConsumer;
 import org.apache.activemq.artemis.api.core.client.ClientSession;
@@ -20,17 +21,20 @@ import java.io.IOException;
 @Data
 public class MQConsumerUtils {
 
-    public void bindConsumer(ClientSession clientSession, String queueName, boolean exclusive, MessageHandler messageHandler) throws ActiveMQException {
+    public ClientConsumer bindConsumer(ClientSession clientSession, String queueName, boolean exclusive, boolean temporary, MessageHandler messageHandler) throws ActiveMQException {
         ClientSession.QueueQuery query = clientSession.queueQuery(SimpleString.toSimpleString(queueName));
         if (!query.isExists()) {
             QueueConfiguration queueConfiguration = new QueueConfiguration(queueName);
             queueConfiguration.setDurable(false);
             queueConfiguration.setExclusive(exclusive);
             queueConfiguration.setAutoDelete(true);
+            queueConfiguration.setTemporary(temporary);
+            queueConfiguration.setRoutingType(RoutingType.ANYCAST);
             clientSession.createQueue(queueConfiguration);
         }
         ClientConsumer clientConsumer = clientSession.createConsumer(queueName);
         clientConsumer.setMessageHandler(messageHandler);
+        return clientConsumer;
 //        Channel channel = connection.createChannel();
 //        channel.exchangeDeclare(exchange, BuiltinExchangeType.DIRECT, false, true, null);
 //        channel.queueDeclare(queueName, false, exclusive, true, null);

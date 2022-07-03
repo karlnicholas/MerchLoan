@@ -1,6 +1,6 @@
-package com.github.karlnicholas.merchloan.businessdate.businessdate.controller;
+package com.github.karlnicholas.merchloan.businessdate.controller;
 
-import com.github.karlnicholas.merchloan.businessdate.businessdate.service.BusinessDateService;
+import com.github.karlnicholas.merchloan.businessdate.service.BusinessDateService;
 import org.apache.activemq.artemis.api.core.ActiveMQException;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.PostMapping;

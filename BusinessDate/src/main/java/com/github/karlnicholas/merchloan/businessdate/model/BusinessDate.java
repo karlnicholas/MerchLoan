@@ -1,4 +1,4 @@
-package com.github.karlnicholas.merchloan.businessdate.businessdate.model;
+package com.github.karlnicholas.merchloan.businessdate.model;
 
 import lombok.*;
 

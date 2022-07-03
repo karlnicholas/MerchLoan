@@ -11,8 +11,6 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.event.EventListener;
 
-import java.io.IOException;
-import java.sql.SQLException;
 import java.util.concurrent.CountDownLatch;
 
 @SpringBootApplication(scanBasePackages = {"com.github.karlnicholas.merchloan"})
@@ -31,7 +29,9 @@ public class AccountsApplication {
     @Autowired
     private ClientSession clientSession;
     @EventListener(ApplicationReadyEvent.class)
-    public void initialize() throws SQLException, IOException, ActiveMQException {
+    public void initialize() throws ActiveMQException {
+        clientSession.addMetaData(ClientSession.JMS_SESSION_IDENTIFIER_PROPERTY, "jms-client-id");
+        clientSession.addMetaData("jms-client-id", "accounts");
         clientSession.start();
     }
 }

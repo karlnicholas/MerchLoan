@@ -24,11 +24,12 @@ public class MDConnectionConfig {
     private String virtualHost;
 
     @Bean
-    public ClientSession getConnectionFactory() throws Exception {
+    public ClientSessionFactory getConnectionFactory() throws Exception {
         ServerLocator locator = ActiveMQClient.createServerLocator("tcp://localhost:61616");
         ClientSessionFactory factory =  locator.createSessionFactory();
-        ClientSession clientSession = factory.createSession();
-        return clientSession;
+        return factory;
+//        ClientSession clientSession = factory.createSession();
+//        return clientSession;
 //        ConnectionFactory factory = new ConnectionFactory();
 //        factory.setPassword(password);
 //        factory.setUsername(username);

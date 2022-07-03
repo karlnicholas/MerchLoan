@@ -1,6 +1,6 @@
-package com.github.karlnicholas.merchloan.businessdate.businessdate;
+package com.github.karlnicholas.merchloan.businessdate;
 
-import com.github.karlnicholas.merchloan.businessdate.businessdate.service.BusinessDateService;
+import com.github.karlnicholas.merchloan.businessdate.service.BusinessDateService;
 import com.github.karlnicholas.merchloan.sqlutil.SqlInitialization;
 import org.apache.activemq.artemis.api.core.ActiveMQException;
 import org.apache.activemq.artemis.api.core.client.ClientSession;
@@ -36,6 +36,7 @@ public class BusinessDateApplication {
     private BusinessDateService businessDateService;
     @Autowired
     private DataSource dataSource;
+    @Autowired
     private ClientSession clientSession;
 
     @EventListener(ApplicationReadyEvent.class)
@@ -44,6 +45,8 @@ public class BusinessDateApplication {
             SqlInitialization.initialize(con, BusinessDateApplication.class.getResourceAsStream("/sql/schema.sql"));
         }
         businessDateService.initializeBusinessDate();
+        clientSession.addMetaData(ClientSession.JMS_SESSION_IDENTIFIER_PROPERTY, "jms-client-id");
+        clientSession.addMetaData("jms-client-id", "businessdate");
         clientSession.start();
     }
 

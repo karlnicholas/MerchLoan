@@ -22,10 +22,10 @@ import java.util.UUID;
 @Slf4j
 public class MQProducers {
     private final ClientSession clientSession;
-    private final MQConsumerUtils mqConsumerUtils;
-    private final ClientProducer statementSendProducer;
     private final ClientProducer servicerequestProducer;
     private final ClientProducer accountLoanClosedProducer;
+    private final ClientProducer accountBillingCycleChargeProducer;
+    private final ClientProducer accountQueryStatementHeaderProducer;
     private final ClientProducer serviceRequestStatementCompleteProducer;
     private final ReplyWaitingHandler replyWaitingHandler;
     private final String statementReplyQueue;
@@ -33,14 +33,14 @@ public class MQProducers {
     @Autowired
     public MQProducers(ClientSession clientSession, MQConsumerUtils mqConsumerUtils) throws ActiveMQException {
         this.clientSession = clientSession;
-        this.mqConsumerUtils = mqConsumerUtils;
         replyWaitingHandler = new ReplyWaitingHandler();
         servicerequestProducer = clientSession.createProducer(mqConsumerUtils.getServicerequestQueue());
         accountLoanClosedProducer = clientSession.createProducer(mqConsumerUtils.getAccountLoanClosedQueue());
+        accountBillingCycleChargeProducer = clientSession.createProducer(mqConsumerUtils.getAccountBillingCycleChargeQueue());
+        accountQueryStatementHeaderProducer = clientSession.createProducer(mqConsumerUtils.getAccountQueryStatementHeaderQueue());
         serviceRequestStatementCompleteProducer = clientSession.createProducer(mqConsumerUtils.getServiceRequestStatementCompleteQueue());
         statementReplyQueue = "statement-reply-"+UUID.randomUUID();
-        statementSendProducer = clientSession.createProducer();
-        mqConsumerUtils.bindConsumer(clientSession, statementReplyQueue, true, replyWaitingHandler::handleReplies);
+        mqConsumerUtils.bindConsumer(clientSession, statementReplyQueue, true, true, replyWaitingHandler::handleReplies);
     }
 
     public Object accountBillingCycleCharge(BillingCycleCharge billingCycleCharge) throws InterruptedException, ActiveMQException {
@@ -51,7 +51,7 @@ public class MQProducers {
         message.setCorrelationID(responseKey);
         message.setReplyTo(SimpleString.toSimpleString(statementReplyQueue));
         message.getBodyBuffer().writeBytes(SerializationUtils.serialize(billingCycleCharge));
-        statementSendProducer.send(message);
+        accountBillingCycleChargeProducer.send(message);
         return replyWaitingHandler.getReply(responseKey);
     }
 
@@ -63,7 +63,7 @@ public class MQProducers {
         message.setCorrelationID(responseKey);
         message.setReplyTo(SimpleString.toSimpleString(statementReplyQueue));
         message.getBodyBuffer().writeBytes(SerializationUtils.serialize(statementHeader));
-        statementSendProducer.send(message);
+        accountQueryStatementHeaderProducer.send(message);
         return replyWaitingHandler.getReply(responseKey);
     }
 

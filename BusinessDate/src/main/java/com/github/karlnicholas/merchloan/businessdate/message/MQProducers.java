@@ -1,4 +1,4 @@
-package com.github.karlnicholas.merchloan.businessdate.businessdate.message;
+package com.github.karlnicholas.merchloan.businessdate.message;
 
 import com.github.karlnicholas.merchloan.jms.MQConsumerUtils;
 import com.github.karlnicholas.merchloan.jms.ReplyWaitingHandler;
@@ -34,7 +34,7 @@ public class MQProducers {
         serviceRequestBillLoanProducer = clientSession.createProducer(mqConsumerUtils.getServiceRequestBillLoanQueue());
         businessDateReplyQueue = "businessdate-reply-"+UUID.randomUUID();
         businessDateSendProducer = clientSession.createProducer();
-        mqConsumerUtils.bindConsumer(clientSession, businessDateReplyQueue, true, replyWaitingHandler::handleReplies);
+        mqConsumerUtils.bindConsumer(clientSession, businessDateReplyQueue, true, true, replyWaitingHandler::handleReplies);
     }
 
     public Object servicerequestCheckRequest() throws InterruptedException, ActiveMQException {

@@ -29,9 +29,12 @@ public class StatementApplication {
         return new CountDownLatch(1);
     }
 
+    @Autowired
     private ClientSession clientSession;
     @EventListener(ApplicationReadyEvent.class)
-    public void initialize() throws SQLException, IOException, ActiveMQException {
+    public void initialize() throws ActiveMQException {
+        clientSession.addMetaData(ClientSession.JMS_SESSION_IDENTIFIER_PROPERTY, "jms-client-id");
+        clientSession.addMetaData("jms-client-id", "statement");
         clientSession.start();
     }
 

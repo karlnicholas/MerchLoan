@@ -10,12 +10,14 @@ import com.github.karlnicholas.merchloan.statement.service.QueryService;
 import com.github.karlnicholas.merchloan.statement.service.StatementService;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.activemq.artemis.api.core.ActiveMQException;
+import org.apache.activemq.artemis.api.core.client.ClientConsumer;
 import org.apache.activemq.artemis.api.core.client.ClientMessage;
 import org.apache.activemq.artemis.api.core.client.ClientProducer;
 import org.apache.activemq.artemis.api.core.client.ClientSession;
 import org.springframework.stereotype.Component;
 import org.springframework.util.SerializationUtils;
 
+import javax.annotation.PreDestroy;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -26,8 +28,14 @@ import java.util.UUID;
 @Slf4j
 public class MQConsumers {
     private final ClientSession clientSession;
+    private final MQConsumerUtils mqConsumerUtils;
     private final QueryService queryService;
-    private ClientProducer responseProducer;
+    private final ClientProducer responseProducer;
+    private final ClientConsumer statementStatementQueue;
+    private final ClientConsumer statementCloseStatementQueue;
+    private final ClientConsumer statementQueryStatementQueue;
+    private final ClientConsumer statementQueryStatementsQueue;
+    private final ClientConsumer statementQueryMostRecentStatementQueue;
     private final ObjectMapper objectMapper;
     private final StatementService statementService;
     private final MQProducers mqProducers;
@@ -38,19 +46,35 @@ public class MQConsumers {
 
     public MQConsumers(ClientSession clientSession, MQConsumerUtils mqConsumerUtils, MQProducers mqProducers, StatementService statementService, QueryService queryService) throws IOException, ActiveMQException {
         this.clientSession = clientSession;
+        this.mqConsumerUtils = mqConsumerUtils;
         this.statementService = statementService;
         this.mqProducers = mqProducers;
         this.queryService = queryService;
         objectMapper = new ObjectMapper().findAndRegisterModules()
                 .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
 
-        mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getStatementStatementQueue(), false, this::receivedStatementMessage);
-        mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getStatementCloseStatementQueue(), false, this::receivedCloseStatementMessage);
-        mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getStatementQueryStatementQueue(), false, this::receivedQueryStatementMessage);
-        mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getStatementQueryStatementsQueue(), false, this::receivedQueryStatementsMessage);
-        mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getStatementQueryMostRecentStatementQueue(), false, this::receivedQueryMostRecentStatementMessage);
+        statementStatementQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getStatementStatementQueue(), false, false, this::receivedStatementMessage);
+        statementCloseStatementQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getStatementCloseStatementQueue(), false, false, this::receivedCloseStatementMessage);
+        statementQueryStatementQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getStatementQueryStatementQueue(), false, false, this::receivedQueryStatementMessage);
+        statementQueryStatementsQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getStatementQueryStatementsQueue(), false, false, this::receivedQueryStatementsMessage);
+        statementQueryMostRecentStatementQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getStatementQueryMostRecentStatementQueue(), false, false, this::receivedQueryMostRecentStatementMessage);
 
         responseProducer = clientSession.createProducer();
+    }
+
+    @PreDestroy
+    public void preDestroy() throws ActiveMQException {
+        statementStatementQueue.close();
+        statementCloseStatementQueue.close();
+        statementQueryStatementQueue.close();
+        statementQueryStatementsQueue.close();
+        statementQueryMostRecentStatementQueue.close();
+
+        clientSession.deleteQueue(mqConsumerUtils.getStatementStatementQueue());
+        clientSession.deleteQueue(mqConsumerUtils.getStatementCloseStatementQueue());
+        clientSession.deleteQueue(mqConsumerUtils.getStatementQueryStatementQueue());
+        clientSession.deleteQueue(mqConsumerUtils.getStatementQueryStatementsQueue());
+        clientSession.deleteQueue(mqConsumerUtils.getStatementQueryMostRecentStatementQueue());
     }
 
     public void receivedQueryStatementMessage(ClientMessage message) {

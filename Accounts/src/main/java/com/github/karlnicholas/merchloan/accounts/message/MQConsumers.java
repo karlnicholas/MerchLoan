@@ -12,12 +12,14 @@ import com.github.karlnicholas.merchloan.jms.MQConsumerUtils;
 import com.github.karlnicholas.merchloan.jmsmessage.*;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.activemq.artemis.api.core.ActiveMQException;
+import org.apache.activemq.artemis.api.core.client.ClientConsumer;
 import org.apache.activemq.artemis.api.core.client.ClientMessage;
 import org.apache.activemq.artemis.api.core.client.ClientProducer;
 import org.apache.activemq.artemis.api.core.client.ClientSession;
 import org.springframework.stereotype.Component;
 import org.springframework.util.SerializationUtils;
 
+import javax.annotation.PreDestroy;
 import java.time.LocalDate;
 import java.util.Optional;
 import java.util.UUID;
@@ -33,6 +35,18 @@ public class MQConsumers {
     private final MQProducers rabbitMqSender;
     private final MQConsumerUtils mqConsumerUtils;
     private final ClientProducer accountProducer;
+    private final ClientConsumer accountCreateAccountQueue;
+    private final ClientConsumer accountFundingQueue;
+    private final ClientConsumer accountValidateCreditQueue;
+    private final ClientConsumer accountValidateDebitQueue;
+    private final ClientConsumer accountCloseLoanQueue;
+    private final ClientConsumer accountLoanClosedQueue;
+    private final ClientConsumer accountQueryStatementHeaderQueue;
+    private final ClientConsumer accountBillingCycleChargeQueue;
+    private final ClientConsumer accountQueryLoansToCycleQueue;
+    private final ClientConsumer accountQueryAccountIdQueue;
+    private final ClientConsumer accountQueryLoanIdQueue;
+
     private static final String NULL_ERROR_MESSAGE = "Message body null";
 
     public MQConsumers(ClientSession clientSession, MQProducers rabbitMqSender, MQConsumerUtils mqConsumerUtils, AccountManagementService accountManagementService, RegisterManagementService registerManagementService, QueryService queryService) throws ActiveMQException {
@@ -45,26 +59,53 @@ public class MQConsumers {
                 .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
         this.mqConsumerUtils = mqConsumerUtils;
 
-        mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getAccountCreateAccountQueue(), false, this::receivedCreateAccountMessage);
-        mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getAccountFundingQueue(), false, this::receivedFundingMessage);
-        mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getAccountValidateCreditQueue(), false, this::receivedValidateCreditMessage);
-        mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getAccountValidateDebitQueue(), false, this::receivedValidateDebitMessage);
-        mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getAccountCloseLoanQueue(), false, this::receivedCloseLoanMessage);
-        mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getAccountLoanClosedQueue(), false, this::receivedLoanClosedMessage);
-        mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getAccountQueryStatementHeaderQueue(), false, this::receivedStatementHeaderMessage);
-        mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getAccountBillingCycleChargeQueue(), false, this::receivedBillingCycleChargeMessage);
-        mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getAccountQueryLoansToCycleQueue(), false, this::receivedLoansToCyceMessage);
-        mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getAccountQueryAccountIdQueue(), false, this::receivedQueryAccountIdMessage);
-        mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getAccountQueryLoanIdQueue(), false, this::receivedQueryLoanIdMessage);
+        accountCreateAccountQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getAccountCreateAccountQueue(), false, false, this::receivedCreateAccountMessage);
+        accountFundingQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getAccountFundingQueue(), false, false, this::receivedFundingMessage);
+        accountValidateCreditQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getAccountValidateCreditQueue(), false, false, this::receivedValidateCreditMessage);
+        accountValidateDebitQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getAccountValidateDebitQueue(), false, false, this::receivedValidateDebitMessage);
+        accountCloseLoanQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getAccountCloseLoanQueue(), false, false, this::receivedCloseLoanMessage);
+        accountLoanClosedQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getAccountLoanClosedQueue(), false, false, this::receivedLoanClosedMessage);
+        accountQueryStatementHeaderQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getAccountQueryStatementHeaderQueue(), false, false, this::receivedStatementHeaderMessage);
+        accountBillingCycleChargeQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getAccountBillingCycleChargeQueue(), false, false, this::receivedBillingCycleChargeMessage);
+        accountQueryLoansToCycleQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getAccountQueryLoansToCycleQueue(), false, false, this::receivedLoansToCyceMessage);
+        accountQueryAccountIdQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getAccountQueryAccountIdQueue(), false, false, this::receivedQueryAccountIdMessage);
+        accountQueryLoanIdQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getAccountQueryLoanIdQueue(), false, false, this::receivedQueryLoanIdMessage);
 
         accountProducer = clientSession.createProducer();
     }
 
+    @PreDestroy
+    public void preDestroy() throws ActiveMQException {
+        log.info("consumers preDestroy");
+        accountCreateAccountQueue.close();
+        accountFundingQueue.close();
+        accountValidateCreditQueue.close();
+        accountValidateDebitQueue.close();
+        accountCloseLoanQueue.close();
+        accountLoanClosedQueue.close();
+        accountQueryStatementHeaderQueue.close();
+        accountBillingCycleChargeQueue.close();
+        accountQueryLoansToCycleQueue.close();
+        accountQueryAccountIdQueue.close();
+        accountQueryLoanIdQueue.close();
+        clientSession.deleteQueue(mqConsumerUtils.getAccountCreateAccountQueue());
+        clientSession.deleteQueue(mqConsumerUtils.getAccountFundingQueue());
+        clientSession.deleteQueue(mqConsumerUtils.getAccountValidateCreditQueue());
+        clientSession.deleteQueue(mqConsumerUtils.getAccountValidateDebitQueue());
+        clientSession.deleteQueue(mqConsumerUtils.getAccountCloseLoanQueue());
+        clientSession.deleteQueue(mqConsumerUtils.getAccountLoanClosedQueue());
+        clientSession.deleteQueue(mqConsumerUtils.getAccountQueryStatementHeaderQueue());
+        clientSession.deleteQueue(mqConsumerUtils.getAccountBillingCycleChargeQueue());
+        clientSession.deleteQueue(mqConsumerUtils.getAccountQueryLoansToCycleQueue());
+        clientSession.deleteQueue(mqConsumerUtils.getAccountQueryAccountIdQueue());
+        clientSession.deleteQueue(mqConsumerUtils.getAccountQueryLoanIdQueue());
+    }
+
     public void receivedStatementHeaderMessage(ClientMessage message) {
-        byte[] mo = new byte[message.getBodyBuffer().readableBytes()];
-        message.getBodyBuffer().readBytes(mo);
-        StatementHeader statementHeader = (StatementHeader) SerializationUtils.deserialize(mo);
         try {
+            byte[] mo = new byte[message.getBodyBuffer().readableBytes()];
+            message.getBodyBuffer().readBytes(mo);
+            StatementHeader statementHeader = (StatementHeader) SerializationUtils.deserialize(mo);
             log.debug("receivedStatementHeaderMessage {}", statementHeader);
             ServiceRequestResponse serviceRequestResponse = accountManagementService.statementHeader(statementHeader);
             if (serviceRequestResponse.isSuccess())
