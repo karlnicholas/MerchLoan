@@ -39,7 +39,7 @@ public class MQProducers {
         serviceRequestCheckRequestProducer = clientSession.createProducer(mqConsumerUtils.getServiceRequestCheckRequestQueue());
         queryReplyQueue = "query-reply-"+UUID.randomUUID();
 
-        mqConsumerUtils.bindConsumer(clientSession, queryReplyQueue, true, true, replyWaitingHandler::handleReplies);
+        mqConsumerUtils.bindConsumer(clientSession, queryReplyQueue, true, replyWaitingHandler::handleReplies);
     }
 
     public Object queryServiceRequest(UUID id) {

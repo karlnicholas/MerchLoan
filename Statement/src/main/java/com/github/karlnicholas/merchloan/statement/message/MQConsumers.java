@@ -44,7 +44,7 @@ public class MQConsumers {
     private static final String LOG_STRING = "receivedStatementMessage {}";
 
 
-    public MQConsumers(ClientSession clientSession, MQConsumerUtils mqConsumerUtils, MQProducers mqProducers, StatementService statementService, QueryService queryService) throws IOException, ActiveMQException {
+    public MQConsumers(ClientSession clientSession, MQConsumerUtils mqConsumerUtils, MQProducers mqProducers, StatementService statementService, QueryService queryService) throws ActiveMQException {
         this.clientSession = clientSession;
         this.mqConsumerUtils = mqConsumerUtils;
         this.statementService = statementService;
@@ -53,11 +53,11 @@ public class MQConsumers {
         objectMapper = new ObjectMapper().findAndRegisterModules()
                 .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
 
-        statementStatementQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getStatementStatementQueue(), false, false, this::receivedStatementMessage);
-        statementCloseStatementQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getStatementCloseStatementQueue(), false, false, this::receivedCloseStatementMessage);
-        statementQueryStatementQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getStatementQueryStatementQueue(), false, false, this::receivedQueryStatementMessage);
-        statementQueryStatementsQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getStatementQueryStatementsQueue(), false, false, this::receivedQueryStatementsMessage);
-        statementQueryMostRecentStatementQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getStatementQueryMostRecentStatementQueue(), false, false, this::receivedQueryMostRecentStatementMessage);
+        statementStatementQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getStatementStatementQueue(), false, this::receivedStatementMessage);
+        statementCloseStatementQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getStatementCloseStatementQueue(), false, this::receivedCloseStatementMessage);
+        statementQueryStatementQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getStatementQueryStatementQueue(), false, this::receivedQueryStatementMessage);
+        statementQueryStatementsQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getStatementQueryStatementsQueue(), false, this::receivedQueryStatementsMessage);
+        statementQueryMostRecentStatementQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getStatementQueryMostRecentStatementQueue(), false, this::receivedQueryMostRecentStatementMessage);
 
         responseProducer = clientSession.createProducer();
     }

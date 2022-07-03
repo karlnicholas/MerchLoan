@@ -21,12 +21,11 @@ import java.io.IOException;
 @Data
 public class MQConsumerUtils {
 
-    public ClientConsumer bindConsumer(ClientSession clientSession, String queueName, boolean exclusive, boolean temporary, MessageHandler messageHandler) throws ActiveMQException {
+    public ClientConsumer bindConsumer(ClientSession clientSession, String queueName, boolean temporary, MessageHandler messageHandler) throws ActiveMQException {
         ClientSession.QueueQuery query = clientSession.queueQuery(SimpleString.toSimpleString(queueName));
         if (!query.isExists()) {
             QueueConfiguration queueConfiguration = new QueueConfiguration(queueName);
             queueConfiguration.setDurable(false);
-            queueConfiguration.setExclusive(exclusive);
             queueConfiguration.setAutoDelete(true);
             queueConfiguration.setTemporary(temporary);
             queueConfiguration.setRoutingType(RoutingType.ANYCAST);

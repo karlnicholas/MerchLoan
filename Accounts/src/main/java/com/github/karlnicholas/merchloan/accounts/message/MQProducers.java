@@ -21,8 +21,7 @@ import java.util.UUID;
 @Slf4j
 public class MQProducers {
     private final ClientSession clientSession;
-    private final MQConsumerUtils mqConsumerUtils;
-    private final ClientProducer accountSendProducer;
+    private final ClientProducer statementQueryMostRecentStatementProducer ;
     private final ClientProducer statementCloseStatementProducer;
     private final ReplyWaitingHandler replyWaitingHandler;
     private final ClientProducer servicerequestProducer;
@@ -31,14 +30,12 @@ public class MQProducers {
     @Autowired
     public MQProducers(ClientSession clientSession, MQConsumerUtils mqConsumerUtils) throws ActiveMQException {
         this.clientSession = clientSession;
-        this.mqConsumerUtils = mqConsumerUtils;
         replyWaitingHandler = new ReplyWaitingHandler();
         servicerequestProducer = clientSession.createProducer(mqConsumerUtils.getServicerequestQueue());
         statementCloseStatementProducer = clientSession.createProducer(mqConsumerUtils.getStatementCloseStatementQueue());
+        statementQueryMostRecentStatementProducer = clientSession.createProducer(mqConsumerUtils.getStatementQueryMostRecentStatementQueue());
         accountsReplyQueue = "accounts-reply-"+UUID.randomUUID();
-        accountSendProducer = clientSession.createProducer();
-
-        mqConsumerUtils.bindConsumer(clientSession, accountsReplyQueue, true, true, replyWaitingHandler::handleReplies);
+        mqConsumerUtils.bindConsumer(clientSession, accountsReplyQueue, true, replyWaitingHandler::handleReplies);
     }
 
     public void serviceRequestServiceRequest(ServiceRequestResponse serviceRequest) throws ActiveMQException {
@@ -63,7 +60,7 @@ public class MQProducers {
         message.setCorrelationID(responseKey);
         message.setReplyTo(SimpleString.toSimpleString(accountsReplyQueue));
         message.getBodyBuffer().writeBytes(SerializationUtils.serialize(loanId));
-        accountSendProducer.send(mqConsumerUtils.getStatementQueryMostRecentStatementQueue(), message);
+        statementQueryMostRecentStatementProducer.send(message);
         return replyWaitingHandler.getReply(responseKey);
     }
 

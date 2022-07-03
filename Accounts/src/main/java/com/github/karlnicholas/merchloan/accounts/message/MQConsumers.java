@@ -59,17 +59,17 @@ public class MQConsumers {
                 .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
         this.mqConsumerUtils = mqConsumerUtils;
 
-        accountCreateAccountQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getAccountCreateAccountQueue(), false, false, this::receivedCreateAccountMessage);
-        accountFundingQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getAccountFundingQueue(), false, false, this::receivedFundingMessage);
-        accountValidateCreditQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getAccountValidateCreditQueue(), false, false, this::receivedValidateCreditMessage);
-        accountValidateDebitQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getAccountValidateDebitQueue(), false, false, this::receivedValidateDebitMessage);
-        accountCloseLoanQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getAccountCloseLoanQueue(), false, false, this::receivedCloseLoanMessage);
-        accountLoanClosedQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getAccountLoanClosedQueue(), false, false, this::receivedLoanClosedMessage);
-        accountQueryStatementHeaderQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getAccountQueryStatementHeaderQueue(), false, false, this::receivedStatementHeaderMessage);
-        accountBillingCycleChargeQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getAccountBillingCycleChargeQueue(), false, false, this::receivedBillingCycleChargeMessage);
-        accountQueryLoansToCycleQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getAccountQueryLoansToCycleQueue(), false, false, this::receivedLoansToCyceMessage);
-        accountQueryAccountIdQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getAccountQueryAccountIdQueue(), false, false, this::receivedQueryAccountIdMessage);
-        accountQueryLoanIdQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getAccountQueryLoanIdQueue(), false, false, this::receivedQueryLoanIdMessage);
+        accountCreateAccountQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getAccountCreateAccountQueue(), false, this::receivedCreateAccountMessage);
+        accountFundingQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getAccountFundingQueue(), false, this::receivedFundingMessage);
+        accountValidateCreditQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getAccountValidateCreditQueue(), false, this::receivedValidateCreditMessage);
+        accountValidateDebitQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getAccountValidateDebitQueue(), false, this::receivedValidateDebitMessage);
+        accountCloseLoanQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getAccountCloseLoanQueue(), false, this::receivedCloseLoanMessage);
+        accountLoanClosedQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getAccountLoanClosedQueue(), false, this::receivedLoanClosedMessage);
+        accountQueryStatementHeaderQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getAccountQueryStatementHeaderQueue(), false, this::receivedStatementHeaderMessage);
+        accountBillingCycleChargeQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getAccountBillingCycleChargeQueue(), false, this::receivedBillingCycleChargeMessage);
+        accountQueryLoansToCycleQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getAccountQueryLoansToCycleQueue(), false, this::receivedLoansToCyceMessage);
+        accountQueryAccountIdQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getAccountQueryAccountIdQueue(), false, this::receivedQueryAccountIdMessage);
+        accountQueryLoanIdQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getAccountQueryLoanIdQueue(), false, this::receivedQueryLoanIdMessage);
 
         accountProducer = clientSession.createProducer();
     }

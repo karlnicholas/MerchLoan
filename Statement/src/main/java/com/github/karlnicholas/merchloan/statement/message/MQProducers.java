@@ -40,7 +40,7 @@ public class MQProducers {
         accountQueryStatementHeaderProducer = clientSession.createProducer(mqConsumerUtils.getAccountQueryStatementHeaderQueue());
         serviceRequestStatementCompleteProducer = clientSession.createProducer(mqConsumerUtils.getServiceRequestStatementCompleteQueue());
         statementReplyQueue = "statement-reply-"+UUID.randomUUID();
-        mqConsumerUtils.bindConsumer(clientSession, statementReplyQueue, true, true, replyWaitingHandler::handleReplies);
+        mqConsumerUtils.bindConsumer(clientSession, statementReplyQueue, true, replyWaitingHandler::handleReplies);
     }
 
     public Object accountBillingCycleCharge(BillingCycleCharge billingCycleCharge) throws InterruptedException, ActiveMQException {

@@ -49,11 +49,11 @@ public class MQConsumers {
         this.objectMapper = new ObjectMapper().findAndRegisterModules()
                 .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
 
-        servicerequestQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getServicerequestQueue(), false, false, this::receivedServiceRequestMessage);
-        servicerequestQueryIdQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getServicerequestQueryIdQueue(), false, false, this::receivedServiceRequestQueryIdMessage);
-        serviceRequestCheckRequestQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getServiceRequestCheckRequestQueue(), false, false, this::receivedCheckRequestMessage);
-        serviceRequestBillLoanQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getServiceRequestBillLoanQueue(), false, false, this::receivedServiceRequestBillloanMessage);
-        serviceRequestStatementCompleteQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getServiceRequestStatementCompleteQueue(), false, false, this::receivedServiceStatementCompleteMessage);
+        servicerequestQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getServicerequestQueue(), false, this::receivedServiceRequestMessage);
+        servicerequestQueryIdQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getServicerequestQueryIdQueue(), false, this::receivedServiceRequestQueryIdMessage);
+        serviceRequestCheckRequestQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getServiceRequestCheckRequestQueue(), false, this::receivedCheckRequestMessage);
+        serviceRequestBillLoanQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getServiceRequestBillLoanQueue(), false, this::receivedServiceRequestBillloanMessage);
+        serviceRequestStatementCompleteQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getServiceRequestStatementCompleteQueue(), false, this::receivedServiceStatementCompleteMessage);
 
         responseProducer = clientSession.createProducer();
     }

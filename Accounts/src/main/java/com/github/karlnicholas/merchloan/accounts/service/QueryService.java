@@ -59,10 +59,10 @@ public class QueryService {
         // loan has AccountId, startDate, funding, months, interestRate, monthlyPayment, loanState
         try (Connection con = dataSource.getConnection()) {
             Optional<Loan> loanOpt = loanDao.findById(con, loanId);
-            if ( loanOpt.isPresent() ) {
+            if (loanOpt.isPresent()) {
                 Loan loan = loanOpt.get();
                 Optional<Account> accountOpt = accountDao.findById(con, loan.getAccountId());
-                if ( accountOpt.isPresent() ) {
+                if (accountOpt.isPresent()) {
                     Account account = accountOpt.get();
                     // start building response
                     LoanDto loanDto = LoanDto.builder()
@@ -78,7 +78,7 @@ public class QueryService {
                             .months(loan.getMonths())
                             .build();
                     if (loan.getLoanState() != Loan.LOAN_STATE.CLOSED) {
-                        computeLoanValues(loanId, loan, loanDto);
+                        computeLoanValues(con, loanId, loan, loanDto);
                     }
                     return Optional.of(loanDto);
                 } else {
@@ -90,68 +90,66 @@ public class QueryService {
         }
     }
 
-    private void computeLoanValues(UUID loanId, Loan loan, LoanDto loanDto) throws InterruptedException, SQLException, ActiveMQException {
-        try (Connection con = dataSource.getConnection()) {
-            // get most recent statement
-            MostRecentStatement mostRecentStatement = (MostRecentStatement) rabbitMqSender.queryMostRecentStatement(loanId);
-            // generate a simulated new statement for current period
-            StatementHeader statementHeader = StatementHeader.builder().build();
-            statementHeader.setLoanId(loanId);
-            List<RegisterEntry> registerEntries;
-            if (mostRecentStatement.getStatementDate() == null) {
-                statementHeader.setEndDate(loan.getStatementDates().get(0));
-                statementHeader.setStartDate(loan.getStartDate());
+    private void computeLoanValues(Connection con, UUID loanId, Loan loan, LoanDto loanDto) throws InterruptedException, SQLException, ActiveMQException {
+        // get most recent statement
+        MostRecentStatement mostRecentStatement = (MostRecentStatement) rabbitMqSender.queryMostRecentStatement(loanId);
+        // generate a simulated new statement for current period
+        StatementHeader statementHeader = StatementHeader.builder().build();
+        statementHeader.setLoanId(loanId);
+        List<RegisterEntry> registerEntries;
+        if (mostRecentStatement.getStatementDate() == null) {
+            statementHeader.setEndDate(loan.getStatementDates().get(0));
+            statementHeader.setStartDate(loan.getStartDate());
+            registerEntries = registerEntryDao.findByLoanIdAndDateBetweenOrderByTimestamp(con, statementHeader.getLoanId(), statementHeader.getStartDate(), statementHeader.getEndDate());
+        } else {
+            int index = loan.getStatementDates().indexOf(mostRecentStatement.getStatementDate());
+            if (index + 1 < loan.getStatementDates().size()) {
+                statementHeader.setEndDate(loan.getStatementDates().get(index + 1));
+                statementHeader.setStartDate(loan.getStatementDates().get(index).plusDays(1));
                 registerEntries = registerEntryDao.findByLoanIdAndDateBetweenOrderByTimestamp(con, statementHeader.getLoanId(), statementHeader.getStartDate(), statementHeader.getEndDate());
             } else {
-                int index = loan.getStatementDates().indexOf(mostRecentStatement.getStatementDate());
-                if (index + 1 < loan.getStatementDates().size()) {
-                    statementHeader.setEndDate(loan.getStatementDates().get(index + 1));
-                    statementHeader.setStartDate(loan.getStatementDates().get(index).plusDays(1));
-                    registerEntries = registerEntryDao.findByLoanIdAndDateBetweenOrderByTimestamp(con, statementHeader.getLoanId(), statementHeader.getStartDate(), statementHeader.getEndDate());
-                } else {
-                    registerEntries = new ArrayList<>();
-                }
+                registerEntries = new ArrayList<>();
             }
-            // determine current balance, payoff amount
-            BigDecimal startingBalance;
-            BigDecimal interestBalance;
-            if (mostRecentStatement.getStatementDate() == null) {
-                startingBalance = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_EVEN);
-                interestBalance = loan.getFunding();
-            } else {
-                startingBalance = mostRecentStatement.getEndingBalance();
-                interestBalance = mostRecentStatement.getEndingBalance();
+        }
+        // determine current balance, payoff amount
+        BigDecimal startingBalance;
+        BigDecimal interestBalance;
+        if (mostRecentStatement.getStatementDate() == null) {
+            startingBalance = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_EVEN);
+            interestBalance = loan.getFunding();
+        } else {
+            startingBalance = mostRecentStatement.getEndingBalance();
+            interestBalance = mostRecentStatement.getEndingBalance();
+        }
+        BigDecimal currentBalance = startingBalance;
+        // determine current payoff amount
+        BigDecimal currentInterest = interestBalance.multiply(loan.getInterestRate()).divide(BigDecimal.valueOf(loan.getMonths()), RoundingMode.HALF_EVEN);
+        for (RegisterEntry re : registerEntries) {
+            if (re.getDebit() != null) {
+                currentBalance = currentBalance.add(re.getDebit());
+            } else if (re.getCredit() != null) {
+                currentBalance = currentBalance.subtract(re.getCredit());
             }
-            BigDecimal currentBalance = startingBalance;
-            // determine current payoff amount
-            BigDecimal currentInterest = interestBalance.multiply(loan.getInterestRate()).divide(BigDecimal.valueOf(loan.getMonths()), RoundingMode.HALF_EVEN);
-            for (RegisterEntry re : registerEntries) {
-                if (re.getDebit() != null) {
-                    currentBalance = currentBalance.add(re.getDebit());
-                } else if (re.getCredit() != null) {
-                    currentBalance = currentBalance.subtract(re.getCredit());
-                }
-            }
-            BigDecimal payoffAmount = currentInterest.add(currentBalance).setScale(2, RoundingMode.HALF_EVEN);
-            // compute current Payment
-            // must first compute expected balance
-            // what is number of months?
-            int nMonths = loan.getStatementDates().indexOf(statementHeader.getEndDate()) + 1;
-            BigDecimal computeAmount = loan.getFunding();
-            for (int i = 0; i < nMonths; ++i) {
-                BigDecimal computeInterest = computeAmount.multiply(loan.getInterestRate()).divide(BigDecimal.valueOf(loan.getMonths()), RoundingMode.HALF_EVEN);
-                computeAmount = computeAmount.add(computeInterest).subtract(loan.getMonthlyPayments()).setScale(2, RoundingMode.HALF_EVEN);
-            }
-            // fill out additional response
-            BigDecimal currentPayment = currentBalance.add(currentInterest).setScale(2, RoundingMode.HALF_EVEN).subtract(computeAmount);
-            loanDto.setCurrentPayment(currentPayment.compareTo(payoffAmount) < 0 ? currentPayment : payoffAmount);
-            loanDto.setCurrentInterest(currentInterest.setScale(2, RoundingMode.HALF_EVEN));
-            loanDto.setPayoffAmount(payoffAmount);
-            loanDto.setCurrentBalance(currentBalance);
-            if (mostRecentStatement.getStatementDate() != null) {
-                loanDto.setLastStatementDate(mostRecentStatement.getStatementDate());
-                loanDto.setLastStatementBalance(mostRecentStatement.getEndingBalance());
-            }
+        }
+        BigDecimal payoffAmount = currentInterest.add(currentBalance).setScale(2, RoundingMode.HALF_EVEN);
+        // compute current Payment
+        // must first compute expected balance
+        // what is number of months?
+        int nMonths = loan.getStatementDates().indexOf(statementHeader.getEndDate()) + 1;
+        BigDecimal computeAmount = loan.getFunding();
+        for (int i = 0; i < nMonths; ++i) {
+            BigDecimal computeInterest = computeAmount.multiply(loan.getInterestRate()).divide(BigDecimal.valueOf(loan.getMonths()), RoundingMode.HALF_EVEN);
+            computeAmount = computeAmount.add(computeInterest).subtract(loan.getMonthlyPayments()).setScale(2, RoundingMode.HALF_EVEN);
+        }
+        // fill out additional response
+        BigDecimal currentPayment = currentBalance.add(currentInterest).setScale(2, RoundingMode.HALF_EVEN).subtract(computeAmount);
+        loanDto.setCurrentPayment(currentPayment.compareTo(payoffAmount) < 0 ? currentPayment : payoffAmount);
+        loanDto.setCurrentInterest(currentInterest.setScale(2, RoundingMode.HALF_EVEN));
+        loanDto.setPayoffAmount(payoffAmount);
+        loanDto.setCurrentBalance(currentBalance);
+        if (mostRecentStatement.getStatementDate() != null) {
+            loanDto.setLastStatementDate(mostRecentStatement.getStatementDate());
+            loanDto.setLastStatementBalance(mostRecentStatement.getEndingBalance());
         }
     }
 
