@@ -27,16 +27,11 @@ public class ServiceRequestApplication {
 
     @Autowired
     private DataSource dataSource;
-    @Autowired
-    private ClientSession clientSession;
 
     @EventListener(ApplicationReadyEvent.class)
     public void initialize() throws SQLException, IOException, ActiveMQException {
         try(Connection con = dataSource.getConnection()) {
             SqlInitialization.initialize(con, ServiceRequestApplication.class.getResourceAsStream("/sql/schema.sql"));
         }
-        clientSession.addMetaData(ClientSession.JMS_SESSION_IDENTIFIER_PROPERTY, "jms-client-id");
-        clientSession.addMetaData("jms-client-id", "servicerequest");
-        clientSession.start();
     }
 }

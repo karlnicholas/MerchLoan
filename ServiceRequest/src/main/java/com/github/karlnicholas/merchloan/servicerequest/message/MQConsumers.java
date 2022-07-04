@@ -13,10 +13,7 @@ import com.github.karlnicholas.merchloan.servicerequest.service.QueryService;
 import com.github.karlnicholas.merchloan.servicerequest.service.ServiceRequestService;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.activemq.artemis.api.core.ActiveMQException;
-import org.apache.activemq.artemis.api.core.client.ClientConsumer;
-import org.apache.activemq.artemis.api.core.client.ClientMessage;
-import org.apache.activemq.artemis.api.core.client.ClientProducer;
-import org.apache.activemq.artemis.api.core.client.ClientSession;
+import org.apache.activemq.artemis.api.core.client.*;
 import org.springframework.stereotype.Component;
 import org.springframework.util.SerializationUtils;
 
@@ -41,8 +38,11 @@ public class MQConsumers {
     private final QueryService queryService;
     private final ObjectMapper objectMapper;
 
-    public MQConsumers(ClientSession clientSession, MQConsumerUtils mqConsumerUtils, QueryService queryService, ServiceRequestService serviceRequestService) throws IOException, ActiveMQException {
-        this.clientSession = clientSession;
+    public MQConsumers(ServerLocator locator, MQConsumerUtils mqConsumerUtils, QueryService queryService, ServiceRequestService serviceRequestService) throws Exception {
+        ClientSessionFactory producerFactory =  locator.createSessionFactory();
+        clientSession = producerFactory.createSession();
+        clientSession.addMetaData(ClientSession.JMS_SESSION_IDENTIFIER_PROPERTY, "jms-client-id");
+        clientSession.addMetaData("jms-client-id", "servicerequest-consumers");
         this.mqConsumerUtils = mqConsumerUtils;
         this.serviceRequestService = serviceRequestService;
         this.queryService = queryService;
@@ -56,6 +56,7 @@ public class MQConsumers {
         serviceRequestStatementCompleteQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getServiceRequestStatementCompleteQueue(), false, this::receivedServiceStatementCompleteMessage);
 
         responseProducer = clientSession.createProducer();
+        clientSession.start();
     }
 
     @PreDestroy

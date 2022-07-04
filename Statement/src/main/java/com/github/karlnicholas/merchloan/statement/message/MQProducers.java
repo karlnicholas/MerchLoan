@@ -32,7 +32,7 @@ public class MQProducers {
 
     @Autowired
     public MQProducers(ServerLocator locator, MQConsumerUtils mqConsumerUtils) throws Exception {
-        ClientSessionFactory producerFactory =  locator.createSessionFactory("statement-producers");
+        ClientSessionFactory producerFactory =  locator.createSessionFactory();
         clientSession = producerFactory.createSession();
         clientSession.addMetaData(ClientSession.JMS_SESSION_IDENTIFIER_PROPERTY, "jms-client-id");
         clientSession.addMetaData("jms-client-id", "statement-producers");
@@ -43,7 +43,7 @@ public class MQProducers {
         serviceRequestStatementCompleteProducer = clientSession.createProducer(mqConsumerUtils.getServiceRequestStatementCompleteQueue());
         clientSession.start();
 
-        ClientSessionFactory replyFactory =  locator.createSessionFactory("statement-reply");
+        ClientSessionFactory replyFactory =  locator.createSessionFactory();
         replySession = replyFactory.createSession();
         replySession.addMetaData(ClientSession.JMS_SESSION_IDENTIFIER_PROPERTY, "jms-client-id");
         replySession.addMetaData("jms-client-id", "statement-reply");

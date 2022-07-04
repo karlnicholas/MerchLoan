@@ -27,7 +27,7 @@ public class MQProducers {
     private final String businessDateReplyQueue;
     @Autowired
     public MQProducers(ServerLocator locator, MQConsumerUtils mqConsumerUtils) throws Exception {
-        ClientSessionFactory producerFactory =  locator.createSessionFactory("businessdate-producers");
+        ClientSessionFactory producerFactory =  locator.createSessionFactory();
         clientSession = producerFactory.createSession();
         clientSession.addMetaData(ClientSession.JMS_SESSION_IDENTIFIER_PROPERTY, "jms-client-id");
         clientSession.addMetaData("jms-client-id", "businessdate-producers");
@@ -37,7 +37,7 @@ public class MQProducers {
         clientSession.start();
 
         replyWaitingHandler = new ReplyWaitingHandler();
-        ClientSessionFactory replyFactory =  locator.createSessionFactory("businessdate-reply");
+        ClientSessionFactory replyFactory =  locator.createSessionFactory();
         replySession = replyFactory.createSession();
         replySession.addMetaData(ClientSession.JMS_SESSION_IDENTIFIER_PROPERTY, "jms-client-id");
         replySession.addMetaData("jms-client-id", "businessdate-reply");

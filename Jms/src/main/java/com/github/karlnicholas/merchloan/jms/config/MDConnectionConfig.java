@@ -22,7 +22,7 @@ public class MDConnectionConfig {
     private String virtualHost;
 
     @Bean
-    public ServerLocator getConnectionFactory() throws Exception {
+    public ServerLocator getServerLocator() throws Exception {
         ServerLocator locator = ActiveMQClient.createServerLocator("tcp://localhost:61616");
         locator.setUseGlobalPools(false);
         locator.setThreadPoolMaxSize(100);

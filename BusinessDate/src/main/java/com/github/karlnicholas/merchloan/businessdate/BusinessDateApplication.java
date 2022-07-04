@@ -36,18 +36,13 @@ public class BusinessDateApplication {
     private BusinessDateService businessDateService;
     @Autowired
     private DataSource dataSource;
-    @Autowired
-    private ClientSession clientSession;
 
     @EventListener(ApplicationReadyEvent.class)
-    public void initialize() throws SQLException, IOException, ActiveMQException {
+    public void initialize() throws SQLException, IOException {
         try(Connection con = dataSource.getConnection()) {
             SqlInitialization.initialize(con, BusinessDateApplication.class.getResourceAsStream("/sql/schema.sql"));
         }
         businessDateService.initializeBusinessDate();
-        clientSession.addMetaData(ClientSession.JMS_SESSION_IDENTIFIER_PROPERTY, "jms-client-id");
-        clientSession.addMetaData("jms-client-id", "businessdate");
-        clientSession.start();
     }
 
     @Bean

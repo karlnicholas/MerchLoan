@@ -28,7 +28,7 @@ public class MQProducers {
 
     @Autowired
     public MQProducers(ServerLocator locator, MQConsumerUtils mqConsumerUtils) throws Exception {
-        ClientSessionFactory producerFactory =  locator.createSessionFactory("accounts-producers");
+        ClientSessionFactory producerFactory =  locator.createSessionFactory();
         clientSession = producerFactory.createSession();
         clientSession.addMetaData(ClientSession.JMS_SESSION_IDENTIFIER_PROPERTY, "jms-client-id");
         clientSession.addMetaData("jms-client-id", "accounts-producers");
@@ -39,10 +39,10 @@ public class MQProducers {
 
         replyWaitingHandler = new ReplyWaitingHandler();
         accountsReplyQueue = "accounts-reply-"+UUID.randomUUID();
-        ClientSessionFactory replyFactory =  locator.createSessionFactory("accounts-reply");
+        ClientSessionFactory replyFactory =  locator.createSessionFactory();
         replySession = replyFactory.createSession();
-        clientSession.addMetaData(ClientSession.JMS_SESSION_IDENTIFIER_PROPERTY, "jms-client-id");
-        clientSession.addMetaData("jms-client-id", "accounts-reply");
+        replySession.addMetaData(ClientSession.JMS_SESSION_IDENTIFIER_PROPERTY, "jms-client-id");
+        replySession.addMetaData("jms-client-id", "accounts-reply");
         mqConsumerUtils.bindConsumer(replySession, accountsReplyQueue, true, replyWaitingHandler::handleReplies);
         replySession.start();
     }

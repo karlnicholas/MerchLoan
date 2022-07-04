@@ -27,7 +27,7 @@ public class MQProducers {
     private final String queryReplyQueue;
 
     public MQProducers(ServerLocator locator, MQConsumerUtils mqConsumerUtils) throws Exception {
-        ClientSessionFactory producerFactory =  locator.createSessionFactory("query-producers");
+        ClientSessionFactory producerFactory =  locator.createSessionFactory();
         clientSession = producerFactory.createSession();
         clientSession.addMetaData(ClientSession.JMS_SESSION_IDENTIFIER_PROPERTY, "jms-client-id");
         clientSession.addMetaData("jms-client-id", "query-producers");
@@ -39,7 +39,7 @@ public class MQProducers {
         serviceRequestCheckRequestProducer = clientSession.createProducer(mqConsumerUtils.getServiceRequestCheckRequestQueue());
         clientSession.start();
 
-        ClientSessionFactory replyFactory =  locator.createSessionFactory("query-reply");
+        ClientSessionFactory replyFactory =  locator.createSessionFactory();
         replySession = replyFactory.createSession();
         replySession.addMetaData(ClientSession.JMS_SESSION_IDENTIFIER_PROPERTY, "jms-client-id");
         replySession.addMetaData("jms-client-id", "query-reply");

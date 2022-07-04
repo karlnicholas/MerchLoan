@@ -42,7 +42,7 @@ public class MQConsumers {
 
 
     public MQConsumers(ServerLocator locator, MQConsumerUtils mqConsumerUtils, MQProducers mqProducers, StatementService statementService, QueryService queryService) throws Exception {
-        ClientSessionFactory producerFactory =  locator.createSessionFactory("statement-consumers");
+        ClientSessionFactory producerFactory =  locator.createSessionFactory();
         clientSession = producerFactory.createSession();
         clientSession.addMetaData(ClientSession.JMS_SESSION_IDENTIFIER_PROPERTY, "jms-client-id");
         clientSession.addMetaData("jms-client-id", "statement-consumers");
