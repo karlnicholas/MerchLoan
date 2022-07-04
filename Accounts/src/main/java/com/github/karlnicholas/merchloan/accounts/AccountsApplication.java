@@ -1,15 +1,10 @@
 package com.github.karlnicholas.merchloan.accounts;
 
 import lombok.extern.slf4j.Slf4j;
-import org.apache.activemq.artemis.api.core.ActiveMQException;
-import org.apache.activemq.artemis.api.core.client.ClientSession;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.event.EventListener;
 
 import java.util.concurrent.CountDownLatch;
 
@@ -25,13 +20,5 @@ public class AccountsApplication {
     @Bean
     public CountDownLatch closeLatch() {
         return new CountDownLatch(1);
-    }
-    @Autowired
-    private ClientSession clientSession;
-    @EventListener(ApplicationReadyEvent.class)
-    public void initialize() throws ActiveMQException {
-        clientSession.addMetaData(ClientSession.JMS_SESSION_IDENTIFIER_PROPERTY, "jms-client-id");
-        clientSession.addMetaData("jms-client-id", "accounts");
-        clientSession.start();
     }
 }

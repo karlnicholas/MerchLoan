@@ -6,14 +6,12 @@ import com.github.karlnicholas.merchloan.jmsmessage.BillingCycle;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.activemq.artemis.api.core.ActiveMQException;
 import org.apache.activemq.artemis.api.core.SimpleString;
-import org.apache.activemq.artemis.api.core.client.ClientMessage;
-import org.apache.activemq.artemis.api.core.client.ClientProducer;
-import org.apache.activemq.artemis.api.core.client.ClientSession;
+import org.apache.activemq.artemis.api.core.client.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.SerializationUtils;
 
-import java.io.IOException;
+import javax.annotation.PreDestroy;
 import java.time.LocalDate;
 import java.util.UUID;
 
@@ -21,22 +19,38 @@ import java.util.UUID;
 @Slf4j
 public class MQProducers {
     private final ClientSession clientSession;
-    private final MQConsumerUtils mqConsumerUtils;
+    private final ClientSession replySession;
     private final ClientProducer serviceRequestBillLoanProducer;
-    private final ClientProducer businessDateSendProducer;
+    private final ClientProducer serviceRequestCheckRequestProducer;
+    private final ClientProducer accountQueryLoansToCycleProducer;
     private final ReplyWaitingHandler replyWaitingHandler;
     private final String businessDateReplyQueue;
     @Autowired
-    public MQProducers(ClientSession clientSession, MQConsumerUtils mqConsumerUtils) throws ActiveMQException {
-        this.clientSession = clientSession;
-        this.mqConsumerUtils = mqConsumerUtils;
-        replyWaitingHandler = new ReplyWaitingHandler();
+    public MQProducers(ServerLocator locator, MQConsumerUtils mqConsumerUtils) throws Exception {
+        ClientSessionFactory producerFactory =  locator.createSessionFactory("businessdate-producers");
+        clientSession = producerFactory.createSession();
+        clientSession.addMetaData(ClientSession.JMS_SESSION_IDENTIFIER_PROPERTY, "jms-client-id");
+        clientSession.addMetaData("jms-client-id", "businessdate-producers");
         serviceRequestBillLoanProducer = clientSession.createProducer(mqConsumerUtils.getServiceRequestBillLoanQueue());
-        businessDateReplyQueue = "businessdate-reply-"+UUID.randomUUID();
-        businessDateSendProducer = clientSession.createProducer();
-        mqConsumerUtils.bindConsumer(clientSession, businessDateReplyQueue, true, replyWaitingHandler::handleReplies);
-    }
+        accountQueryLoansToCycleProducer = clientSession.createProducer(mqConsumerUtils.getAccountQueryLoansToCycleQueue());
+        serviceRequestCheckRequestProducer = clientSession.createProducer(mqConsumerUtils.getServiceRequestCheckRequestQueue());
+        clientSession.start();
 
+        replyWaitingHandler = new ReplyWaitingHandler();
+        ClientSessionFactory replyFactory =  locator.createSessionFactory("businessdate-reply");
+        replySession = replyFactory.createSession();
+        replySession.addMetaData(ClientSession.JMS_SESSION_IDENTIFIER_PROPERTY, "jms-client-id");
+        replySession.addMetaData("jms-client-id", "businessdate-reply");
+        businessDateReplyQueue = "businessdate-reply-"+UUID.randomUUID();
+        mqConsumerUtils.bindConsumer(replySession, businessDateReplyQueue, true, replyWaitingHandler::handleReplies);
+        replySession.start();
+    }
+    @PreDestroy
+    public void preDestroy() throws ActiveMQException {
+        log.info("producers preDestroy");
+        clientSession.close();
+        replySession.close();
+    }
     public Object servicerequestCheckRequest() throws InterruptedException, ActiveMQException {
         log.debug("servicerequestCheckRequest:");
         String responseKey = UUID.randomUUID().toString();
@@ -45,7 +59,7 @@ public class MQProducers {
         message.setCorrelationID(responseKey);
         message.setReplyTo(SimpleString.toSimpleString(businessDateReplyQueue));
         message.getBodyBuffer().writeBytes(SerializationUtils.serialize(new byte[0]));
-        businessDateSendProducer.send(mqConsumerUtils.getServiceRequestCheckRequestQueue(), message);
+        serviceRequestCheckRequestProducer.send(message, null);
         return replyWaitingHandler.getReply(responseKey);
     }
 
@@ -57,14 +71,14 @@ public class MQProducers {
         message.setCorrelationID(responseKey);
         message.setReplyTo(SimpleString.toSimpleString(businessDateReplyQueue));
         message.getBodyBuffer().writeBytes(SerializationUtils.serialize(businessDate));
-        businessDateSendProducer.send(mqConsumerUtils.getAccountQueryLoansToCycleQueue(), message);
+        accountQueryLoansToCycleProducer.send(message, null);
         return replyWaitingHandler.getReply(responseKey);
     }
 
     public void serviceRequestBillLoan(BillingCycle billingCycle) throws ActiveMQException {
         ClientMessage message = clientSession.createMessage(false);
         message.getBodyBuffer().writeBytes(SerializationUtils.serialize(billingCycle));
-        serviceRequestBillLoanProducer.send(message);
+        serviceRequestBillLoanProducer.send(message, null);
     }
 
 }

@@ -12,10 +12,7 @@ import com.github.karlnicholas.merchloan.jms.MQConsumerUtils;
 import com.github.karlnicholas.merchloan.jmsmessage.*;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.activemq.artemis.api.core.ActiveMQException;
-import org.apache.activemq.artemis.api.core.client.ClientConsumer;
-import org.apache.activemq.artemis.api.core.client.ClientMessage;
-import org.apache.activemq.artemis.api.core.client.ClientProducer;
-import org.apache.activemq.artemis.api.core.client.ClientSession;
+import org.apache.activemq.artemis.api.core.client.*;
 import org.springframework.stereotype.Component;
 import org.springframework.util.SerializationUtils;
 
@@ -32,7 +29,7 @@ public class MQConsumers {
     private final RegisterManagementService registerManagementService;
     private final QueryService queryService;
     private final ObjectMapper objectMapper;
-    private final MQProducers rabbitMqSender;
+    private final MQProducers mqProducers;
     private final MQConsumerUtils mqConsumerUtils;
     private final ClientProducer accountProducer;
     private final ClientConsumer accountCreateAccountQueue;
@@ -49,12 +46,16 @@ public class MQConsumers {
 
     private static final String NULL_ERROR_MESSAGE = "Message body null";
 
-    public MQConsumers(ClientSession clientSession, MQProducers rabbitMqSender, MQConsumerUtils mqConsumerUtils, AccountManagementService accountManagementService, RegisterManagementService registerManagementService, QueryService queryService) throws ActiveMQException {
-        this.clientSession = clientSession;
+    public MQConsumers(ServerLocator locator, MQProducers mqProducers, MQConsumerUtils mqConsumerUtils, AccountManagementService accountManagementService, RegisterManagementService registerManagementService, QueryService queryService) throws Exception {
+        ClientSessionFactory producerFactory =  locator.createSessionFactory();
+        clientSession = producerFactory.createSession();
+        clientSession.addMetaData(ClientSession.JMS_SESSION_IDENTIFIER_PROPERTY, "jms-client-id");
+        clientSession.addMetaData("jms-client-id", "accounts-consumers");
+
         this.accountManagementService = accountManagementService;
         this.registerManagementService = registerManagementService;
         this.queryService = queryService;
-        this.rabbitMqSender = rabbitMqSender;
+        this.mqProducers = mqProducers;
         this.objectMapper = new ObjectMapper().findAndRegisterModules()
                 .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
         this.mqConsumerUtils = mqConsumerUtils;
@@ -72,6 +73,8 @@ public class MQConsumers {
         accountQueryLoanIdQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getAccountQueryLoanIdQueue(), false, this::receivedQueryLoanIdMessage);
 
         accountProducer = clientSession.createProducer();
+
+        clientSession.start();
     }
 
     @PreDestroy
@@ -99,6 +102,7 @@ public class MQConsumers {
         clientSession.deleteQueue(mqConsumerUtils.getAccountQueryLoansToCycleQueue());
         clientSession.deleteQueue(mqConsumerUtils.getAccountQueryAccountIdQueue());
         clientSession.deleteQueue(mqConsumerUtils.getAccountQueryLoanIdQueue());
+        clientSession.close();
     }
 
     public void receivedStatementHeaderMessage(ClientMessage message) {
@@ -187,7 +191,7 @@ public class MQConsumers {
         ClientMessage message = clientSession.createMessage(false);
         message.setCorrelationID(origMessage.getCorrelationID());
         message.getBodyBuffer().writeBytes(SerializationUtils.serialize(data));
-        accountProducer.send(origMessage.getReplyTo(), message);
+        accountProducer.send(origMessage.getReplyTo(), message, null);
     }
 
     public void receivedCreateAccountMessage(ClientMessage message) {
@@ -206,7 +210,7 @@ public class MQConsumers {
             requestResponse.setError(ex.getMessage());
         } finally {
             try {
-                rabbitMqSender.serviceRequestServiceRequest(requestResponse);
+                mqProducers.serviceRequestServiceRequest(requestResponse);
             } catch (ActiveMQException e) {
                 throw new RuntimeException(e);
             }
@@ -248,7 +252,7 @@ public class MQConsumers {
             requestResponse.setError(ex.getMessage());
         } finally {
             try {
-                rabbitMqSender.serviceRequestServiceRequest(requestResponse);
+                mqProducers.serviceRequestServiceRequest(requestResponse);
             } catch (ActiveMQException e) {
                 throw new RuntimeException(e);
             }
@@ -282,7 +286,7 @@ public class MQConsumers {
             requestResponse.setError(ex.getMessage());
         } finally {
             try {
-                rabbitMqSender.serviceRequestServiceRequest(requestResponse);
+                mqProducers.serviceRequestServiceRequest(requestResponse);
             } catch (ActiveMQException e) {
                 throw new RuntimeException(e);
             }
@@ -317,7 +321,7 @@ public class MQConsumers {
             requestResponse.setError(ex.getMessage());
         } finally {
             try {
-                rabbitMqSender.serviceRequestServiceRequest(requestResponse);
+                mqProducers.serviceRequestServiceRequest(requestResponse);
             } catch (ActiveMQException e) {
                 throw new RuntimeException(e);
             }
@@ -365,7 +369,7 @@ public class MQConsumers {
                             .endDate(closeLoan.getDate())
                             .build();
                     registerManagementService.setStatementHeaderRegisterEntryies(statementHeader);
-                    rabbitMqSender.statementCloseStatement(statementHeader);
+                    mqProducers.statementCloseStatement(statementHeader);
                 } else {
                     requestResponse.setFailure("PayoffAmount incorrect. Required: " + loanOpt.get().getPayoffAmount());
                 }
@@ -380,7 +384,7 @@ public class MQConsumers {
             requestResponse.setError("receivedCloseLoanMessage exception " + ex.getMessage());
         } finally {
             try {
-                rabbitMqSender.serviceRequestServiceRequest(requestResponse);
+                mqProducers.serviceRequestServiceRequest(requestResponse);
             } catch (ActiveMQException e) {
                 throw new RuntimeException(e);
             }
@@ -404,7 +408,7 @@ public class MQConsumers {
             requestResponse.setError("receivedLoanClosedMessage excepion: " + ex.getMessage());
         } finally {
             try {
-                rabbitMqSender.serviceRequestServiceRequest(requestResponse);
+                mqProducers.serviceRequestServiceRequest(requestResponse);
             } catch (ActiveMQException e) {
                 throw new RuntimeException(e);
             }

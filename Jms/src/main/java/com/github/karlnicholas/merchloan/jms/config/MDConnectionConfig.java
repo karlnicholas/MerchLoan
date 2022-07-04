@@ -2,8 +2,6 @@ package com.github.karlnicholas.merchloan.jms.config;
 
 import lombok.extern.slf4j.Slf4j;
 import org.apache.activemq.artemis.api.core.client.ActiveMQClient;
-import org.apache.activemq.artemis.api.core.client.ClientSession;
-import org.apache.activemq.artemis.api.core.client.ClientSessionFactory;
 import org.apache.activemq.artemis.api.core.client.ServerLocator;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -24,19 +22,23 @@ public class MDConnectionConfig {
     private String virtualHost;
 
     @Bean
-    public ClientSessionFactory getConnectionFactory() throws Exception {
+    public ServerLocator getConnectionFactory() throws Exception {
         ServerLocator locator = ActiveMQClient.createServerLocator("tcp://localhost:61616");
-        ClientSessionFactory factory =  locator.createSessionFactory();
-        return factory;
-//        ClientSession clientSession = factory.createSession();
-//        return clientSession;
-//        ConnectionFactory factory = new ConnectionFactory();
-//        factory.setPassword(password);
-//        factory.setUsername(username);
-//        factory.setVirtualHost(virtualHost);
-//        factory.setHost(host);
-//        factory.setPort(port);
+        locator.setUseGlobalPools(false);
+        locator.setThreadPoolMaxSize(100);
+        return locator;
+//        ClientSessionFactory factory =  locator.createSessionFactory();
+//
 //        return factory;
+////        ClientSession clientSession = factory.createSession();
+////        return clientSession;
+////        ConnectionFactory factory = new ConnectionFactory();
+////        factory.setPassword(password);
+////        factory.setUsername(username);
+////        factory.setVirtualHost(virtualHost);
+////        factory.setHost(host);
+////        factory.setPort(port);
+////        return factory;
     }
 //
 //    @Bean

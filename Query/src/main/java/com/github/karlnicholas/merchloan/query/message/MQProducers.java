@@ -5,19 +5,18 @@ import com.github.karlnicholas.merchloan.jms.ReplyWaitingHandler;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.activemq.artemis.api.core.ActiveMQException;
 import org.apache.activemq.artemis.api.core.SimpleString;
-import org.apache.activemq.artemis.api.core.client.ClientMessage;
-import org.apache.activemq.artemis.api.core.client.ClientProducer;
-import org.apache.activemq.artemis.api.core.client.ClientSession;
+import org.apache.activemq.artemis.api.core.client.*;
 import org.springframework.stereotype.Service;
 import org.springframework.util.SerializationUtils;
 
+import javax.annotation.PreDestroy;
 import java.util.UUID;
 
 @Service
 @Slf4j
 public class MQProducers {
     private final ClientSession clientSession;
-    private final MQConsumerUtils mqConsumerUtils;
+    private final ClientSession replySession;
     private final ClientProducer servicerequestQueryIdProducer;
     private final ClientProducer accountQueryAccountIdProducer;
     private final ClientProducer accountQueryLoanIdProducer;
@@ -27,21 +26,35 @@ public class MQProducers {
     private final ReplyWaitingHandler replyWaitingHandler;
     private final String queryReplyQueue;
 
-    public MQProducers(ClientSession clientSession, MQConsumerUtils mqConsumerUtils) throws ActiveMQException {
-        this.clientSession = clientSession;
-        this.mqConsumerUtils = mqConsumerUtils;
-        replyWaitingHandler = new ReplyWaitingHandler();
+    public MQProducers(ServerLocator locator, MQConsumerUtils mqConsumerUtils) throws Exception {
+        ClientSessionFactory producerFactory =  locator.createSessionFactory("query-producers");
+        clientSession = producerFactory.createSession();
+        clientSession.addMetaData(ClientSession.JMS_SESSION_IDENTIFIER_PROPERTY, "jms-client-id");
+        clientSession.addMetaData("jms-client-id", "query-producers");
         servicerequestQueryIdProducer = clientSession.createProducer(mqConsumerUtils.getServicerequestQueryIdQueue());
         accountQueryAccountIdProducer = clientSession.createProducer(mqConsumerUtils.getAccountQueryAccountIdQueue());
         accountQueryLoanIdProducer = clientSession.createProducer(mqConsumerUtils.getAccountQueryLoanIdQueue());
         statementQueryStatementProducer = clientSession.createProducer(mqConsumerUtils.getStatementQueryStatementQueue());
         statementQueryStatementsProducer = clientSession.createProducer(mqConsumerUtils.getStatementQueryStatementsQueue());
         serviceRequestCheckRequestProducer = clientSession.createProducer(mqConsumerUtils.getServiceRequestCheckRequestQueue());
-        queryReplyQueue = "query-reply-"+UUID.randomUUID();
+        clientSession.start();
 
-        mqConsumerUtils.bindConsumer(clientSession, queryReplyQueue, true, replyWaitingHandler::handleReplies);
+        ClientSessionFactory replyFactory =  locator.createSessionFactory("query-reply");
+        replySession = replyFactory.createSession();
+        replySession.addMetaData(ClientSession.JMS_SESSION_IDENTIFIER_PROPERTY, "jms-client-id");
+        replySession.addMetaData("jms-client-id", "query-reply");
+        replyWaitingHandler = new ReplyWaitingHandler();
+        queryReplyQueue = "query-reply-"+UUID.randomUUID();
+        mqConsumerUtils.bindConsumer(replySession, queryReplyQueue, true, replyWaitingHandler::handleReplies);
+        replySession.start();
     }
 
+    @PreDestroy
+    public void preDestroy() throws ActiveMQException {
+        log.info("producers preDestroy");
+        clientSession.close();
+        replySession.close();
+    }
     public Object queryServiceRequest(UUID id) {
         log.debug("queryServiceRequest: {}", id);
         String responseKey = UUID.randomUUID().toString();
@@ -51,7 +64,7 @@ public class MQProducers {
         message.setReplyTo(SimpleString.toSimpleString(queryReplyQueue));
         message.getBodyBuffer().writeBytes(SerializationUtils.serialize(id));
         try {
-            servicerequestQueryIdProducer.send(message);
+            servicerequestQueryIdProducer.send(message, null);
             return replyWaitingHandler.getReply(responseKey);
         } catch (InterruptedException | ActiveMQException e) {
             log.error("queryServiceRequest", e);
@@ -69,7 +82,7 @@ public class MQProducers {
         message.setReplyTo(SimpleString.toSimpleString(queryReplyQueue));
         message.getBodyBuffer().writeBytes(SerializationUtils.serialize(id));
         try {
-            accountQueryAccountIdProducer.send(message);
+            accountQueryAccountIdProducer.send(message, null);
             return replyWaitingHandler.getReply(responseKey);
         } catch (InterruptedException | ActiveMQException e) {
             log.error("queryAccount", e);
@@ -87,7 +100,7 @@ public class MQProducers {
         message.setReplyTo(SimpleString.toSimpleString(queryReplyQueue));
         message.getBodyBuffer().writeBytes(SerializationUtils.serialize(id));
         try {
-            accountQueryLoanIdProducer.send(message);
+            accountQueryLoanIdProducer.send(message, null);
             return replyWaitingHandler.getReply(responseKey);
         } catch (InterruptedException | ActiveMQException e) {
             log.error("queryLoan", e);
@@ -105,7 +118,7 @@ public class MQProducers {
         message.setReplyTo(SimpleString.toSimpleString(queryReplyQueue));
         message.getBodyBuffer().writeBytes(SerializationUtils.serialize(id));
         try {
-            statementQueryStatementProducer.send(message);
+            statementQueryStatementProducer.send(message, null);
             return replyWaitingHandler.getReply(responseKey);
         } catch (InterruptedException | ActiveMQException e) {
             log.error("queryStatement", e);
@@ -123,7 +136,7 @@ public class MQProducers {
         message.setReplyTo(SimpleString.toSimpleString(queryReplyQueue));
         message.getBodyBuffer().writeBytes(SerializationUtils.serialize(id));
         try {
-            statementQueryStatementsProducer.send(message);
+            statementQueryStatementsProducer.send(message, null);
             return replyWaitingHandler.getReply(responseKey);
         } catch (InterruptedException | ActiveMQException e) {
             log.error("queryStatements", e);
@@ -141,7 +154,7 @@ public class MQProducers {
         message.setReplyTo(SimpleString.toSimpleString(queryReplyQueue));
         message.getBodyBuffer().writeBytes(SerializationUtils.serialize(new byte[0]));
         try {
-            serviceRequestCheckRequestProducer.send(message);
+            serviceRequestCheckRequestProducer.send(message, null);
             return replyWaitingHandler.getReply(responseKey);
         } catch (InterruptedException | ActiveMQException e) {
             log.error("queryCheckRequest", e);

@@ -114,7 +114,7 @@ public class MQConsumers {
         byte[] mo = SerializationUtils.serialize(data);
         message.writeBodyBufferBytes(mo);
         message.setCorrelationID(origMessage.getCorrelationID());
-        responseProducer.send(origMessage.getReplyTo(), message);
+        responseProducer.send(origMessage.getReplyTo(), message, null);
     }
 
     public void receivedServiceRequestMessage(ClientMessage message) {

@@ -37,42 +37,42 @@ public class MQProducers {
         log.debug("accountCreateAccount: {}", createAccount);
         ClientMessage message = clientSession.createMessage(false);
         message.getBodyBuffer().writeBytes(SerializationUtils.serialize(createAccount));
-        accountCreateAccountProducer.send(message);
+        accountCreateAccountProducer.send(message, null);
     }
 
     public void accountFundLoan(FundLoan fundLoan) throws ActiveMQException {
         log.debug("accountFundLoan: {}", fundLoan);
         ClientMessage message = clientSession.createMessage(false);
         message.getBodyBuffer().writeBytes(SerializationUtils.serialize(fundLoan));
-        accountFundingProducer.send(message);
+        accountFundingProducer.send(message, null);
     }
 
     public void accountValidateCredit(CreditLoan creditLoan) throws ActiveMQException {
         log.debug("accountValidateCredit: {}", creditLoan);
         ClientMessage message = clientSession.createMessage(false);
         message.getBodyBuffer().writeBytes(SerializationUtils.serialize(creditLoan));
-        accountValidateCreditProducer.send(message);
+        accountValidateCreditProducer.send(message, null);
     }
 
     public void accountValidateDebit(DebitLoan debitLoan) throws ActiveMQException {
         log.debug("accountValidateDebit: {}", debitLoan);
         ClientMessage message = clientSession.createMessage(false);
         message.getBodyBuffer().writeBytes(SerializationUtils.serialize(debitLoan));
-        accountValidateDebitProducer.send(message);
+        accountValidateDebitProducer.send(message, null);
     }
 
     public void statementStatement(StatementHeader statementHeader) throws ActiveMQException {
         log.debug("statementStatement: {}", statementHeader);
         ClientMessage message = clientSession.createMessage(false);
         message.getBodyBuffer().writeBytes(SerializationUtils.serialize(statementHeader));
-        statementStatementProducer.send(message);
+        statementStatementProducer.send(message, null);
     }
 
     public void accountCloseLoan(CloseLoan closeLoan) throws ActiveMQException {
         log.debug("accountCloseLoan: {}", closeLoan);
         ClientMessage message = clientSession.createMessage(false);
         message.getBodyBuffer().writeBytes(SerializationUtils.serialize(closeLoan));
-        accountCloseLoanProducer.send(message);
+        accountCloseLoanProducer.send(message, null);
     }
 
 }

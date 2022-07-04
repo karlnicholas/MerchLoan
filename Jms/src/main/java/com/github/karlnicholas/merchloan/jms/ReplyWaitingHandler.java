@@ -38,6 +38,7 @@ public class ReplyWaitingHandler {
     public void handleReplies(ClientMessage message) {
         synchronized (repliesWaiting) {
             String corrId = message.getCorrelationID().toString();
+            log.info("handleReplies");
             byte[] mo = new byte[message.getBodyBuffer().readableBytes()];
             message.getBodyBuffer().readBytes(mo);
             repliesWaiting.get(corrId).setReply(SerializationUtils.deserialize(mo));

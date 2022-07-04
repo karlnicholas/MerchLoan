@@ -10,10 +10,7 @@ import com.github.karlnicholas.merchloan.statement.service.QueryService;
 import com.github.karlnicholas.merchloan.statement.service.StatementService;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.activemq.artemis.api.core.ActiveMQException;
-import org.apache.activemq.artemis.api.core.client.ClientConsumer;
-import org.apache.activemq.artemis.api.core.client.ClientMessage;
-import org.apache.activemq.artemis.api.core.client.ClientProducer;
-import org.apache.activemq.artemis.api.core.client.ClientSession;
+import org.apache.activemq.artemis.api.core.client.*;
 import org.springframework.stereotype.Component;
 import org.springframework.util.SerializationUtils;
 
@@ -44,8 +41,11 @@ public class MQConsumers {
     private static final String LOG_STRING = "receivedStatementMessage {}";
 
 
-    public MQConsumers(ClientSession clientSession, MQConsumerUtils mqConsumerUtils, MQProducers mqProducers, StatementService statementService, QueryService queryService) throws ActiveMQException {
-        this.clientSession = clientSession;
+    public MQConsumers(ServerLocator locator, MQConsumerUtils mqConsumerUtils, MQProducers mqProducers, StatementService statementService, QueryService queryService) throws Exception {
+        ClientSessionFactory producerFactory =  locator.createSessionFactory("statement-consumers");
+        clientSession = producerFactory.createSession();
+        clientSession.addMetaData(ClientSession.JMS_SESSION_IDENTIFIER_PROPERTY, "jms-client-id");
+        clientSession.addMetaData("jms-client-id", "statement-consumers");
         this.mqConsumerUtils = mqConsumerUtils;
         this.statementService = statementService;
         this.mqProducers = mqProducers;
@@ -60,6 +60,7 @@ public class MQConsumers {
         statementQueryMostRecentStatementQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getStatementQueryMostRecentStatementQueue(), false, this::receivedQueryMostRecentStatementMessage);
 
         responseProducer = clientSession.createProducer();
+        clientSession.start();
     }
 
     @PreDestroy
@@ -75,6 +76,7 @@ public class MQConsumers {
         clientSession.deleteQueue(mqConsumerUtils.getStatementQueryStatementQueue());
         clientSession.deleteQueue(mqConsumerUtils.getStatementQueryStatementsQueue());
         clientSession.deleteQueue(mqConsumerUtils.getStatementQueryMostRecentStatementQueue());
+        clientSession.close();
     }
 
     public void receivedQueryStatementMessage(ClientMessage message) {
@@ -126,7 +128,7 @@ public class MQConsumers {
         ClientMessage message = clientSession.createMessage(false);
         message.setCorrelationID(origMessage.getCorrelationID());
         message.getBodyBuffer().writeBytes(SerializationUtils.serialize(data));
-        responseProducer.send(origMessage.getReplyTo(), message);
+        responseProducer.send(origMessage.getReplyTo(), message, null);
     }
 
     public void receivedStatementMessage(ClientMessage message) {

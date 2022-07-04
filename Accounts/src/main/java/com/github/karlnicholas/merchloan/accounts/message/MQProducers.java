@@ -7,20 +7,19 @@ import com.github.karlnicholas.merchloan.jmsmessage.StatementHeader;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.activemq.artemis.api.core.ActiveMQException;
 import org.apache.activemq.artemis.api.core.SimpleString;
-import org.apache.activemq.artemis.api.core.client.ClientMessage;
-import org.apache.activemq.artemis.api.core.client.ClientProducer;
-import org.apache.activemq.artemis.api.core.client.ClientSession;
+import org.apache.activemq.artemis.api.core.client.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.SerializationUtils;
 
-import java.io.IOException;
+import javax.annotation.PreDestroy;
 import java.util.UUID;
 
 @Service
 @Slf4j
 public class MQProducers {
     private final ClientSession clientSession;
+    private final ClientSession replySession;
     private final ClientProducer statementQueryMostRecentStatementProducer ;
     private final ClientProducer statementCloseStatementProducer;
     private final ReplyWaitingHandler replyWaitingHandler;
@@ -28,28 +27,44 @@ public class MQProducers {
     private final String accountsReplyQueue;
 
     @Autowired
-    public MQProducers(ClientSession clientSession, MQConsumerUtils mqConsumerUtils) throws ActiveMQException {
-        this.clientSession = clientSession;
-        replyWaitingHandler = new ReplyWaitingHandler();
+    public MQProducers(ServerLocator locator, MQConsumerUtils mqConsumerUtils) throws Exception {
+        ClientSessionFactory producerFactory =  locator.createSessionFactory("accounts-producers");
+        clientSession = producerFactory.createSession();
+        clientSession.addMetaData(ClientSession.JMS_SESSION_IDENTIFIER_PROPERTY, "jms-client-id");
+        clientSession.addMetaData("jms-client-id", "accounts-producers");
         servicerequestProducer = clientSession.createProducer(mqConsumerUtils.getServicerequestQueue());
         statementCloseStatementProducer = clientSession.createProducer(mqConsumerUtils.getStatementCloseStatementQueue());
         statementQueryMostRecentStatementProducer = clientSession.createProducer(mqConsumerUtils.getStatementQueryMostRecentStatementQueue());
+        clientSession.start();
+
+        replyWaitingHandler = new ReplyWaitingHandler();
         accountsReplyQueue = "accounts-reply-"+UUID.randomUUID();
-        mqConsumerUtils.bindConsumer(clientSession, accountsReplyQueue, true, replyWaitingHandler::handleReplies);
+        ClientSessionFactory replyFactory =  locator.createSessionFactory("accounts-reply");
+        replySession = replyFactory.createSession();
+        clientSession.addMetaData(ClientSession.JMS_SESSION_IDENTIFIER_PROPERTY, "jms-client-id");
+        clientSession.addMetaData("jms-client-id", "accounts-reply");
+        mqConsumerUtils.bindConsumer(replySession, accountsReplyQueue, true, replyWaitingHandler::handleReplies);
+        replySession.start();
+    }
+    @PreDestroy
+    public void preDestroy() throws ActiveMQException {
+        log.info("producers preDestroy");
+        clientSession.close();
+        replySession.close();
     }
 
     public void serviceRequestServiceRequest(ServiceRequestResponse serviceRequest) throws ActiveMQException {
         log.debug("serviceRequestServiceRequest: {}", serviceRequest);
         ClientMessage message = clientSession.createMessage(false);
         message.getBodyBuffer().writeBytes(SerializationUtils.serialize(serviceRequest));
-        servicerequestProducer.send(message);
+        servicerequestProducer.send(message, null);
     }
 
     public void statementCloseStatement(StatementHeader statementHeader) throws ActiveMQException {
         log.debug("statementCloseStatement: {}", statementHeader);
         ClientMessage message = clientSession.createMessage(false);
         message.getBodyBuffer().writeBytes(SerializationUtils.serialize(statementHeader));
-        statementCloseStatementProducer.send(message);
+        statementCloseStatementProducer.send(message, null);
     }
 
     public Object queryMostRecentStatement(UUID loanId) throws InterruptedException, ActiveMQException {
@@ -60,7 +75,7 @@ public class MQProducers {
         message.setCorrelationID(responseKey);
         message.setReplyTo(SimpleString.toSimpleString(accountsReplyQueue));
         message.getBodyBuffer().writeBytes(SerializationUtils.serialize(loanId));
-        statementQueryMostRecentStatementProducer.send(message);
+        statementQueryMostRecentStatementProducer.send(message, null);
         return replyWaitingHandler.getReply(responseKey);
     }
 

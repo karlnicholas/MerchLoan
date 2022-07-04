@@ -32,15 +32,15 @@ public class QueryService {
     private final AccountDao accountDao;
     private final LoanDao loanDao;
     private final RegisterEntryDao registerEntryDao;
-    private final MQProducers rabbitMqSender;
+    private final MQProducers mqProducers;
 
     @Autowired
-    public QueryService(DataSource dataSource, AccountDao accountDao, LoanDao loanDao, RegisterEntryDao registerEntryDao, MQProducers rabbitMqSender) {
+    public QueryService(DataSource dataSource, AccountDao accountDao, LoanDao loanDao, RegisterEntryDao registerEntryDao, MQProducers mqProducers) {
         this.dataSource = dataSource;
         this.accountDao = accountDao;
         this.loanDao = loanDao;
         this.registerEntryDao = registerEntryDao;
-        this.rabbitMqSender = rabbitMqSender;
+        this.mqProducers = mqProducers;
     }
 
     public Optional<Account> queryAccountId(UUID id) throws SQLException {
@@ -92,7 +92,7 @@ public class QueryService {
 
     private void computeLoanValues(Connection con, UUID loanId, Loan loan, LoanDto loanDto) throws InterruptedException, SQLException, ActiveMQException {
         // get most recent statement
-        MostRecentStatement mostRecentStatement = (MostRecentStatement) rabbitMqSender.queryMostRecentStatement(loanId);
+        MostRecentStatement mostRecentStatement = (MostRecentStatement) mqProducers.queryMostRecentStatement(loanId);
         // generate a simulated new statement for current period
         StatementHeader statementHeader = StatementHeader.builder().build();
         statementHeader.setLoanId(loanId);

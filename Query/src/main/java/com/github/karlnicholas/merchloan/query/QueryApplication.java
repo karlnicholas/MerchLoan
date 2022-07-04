@@ -19,14 +19,4 @@ public class QueryApplication {
     public static void main(String[] args) {
         SpringApplication.run(QueryApplication.class, args);
     }
-    @Autowired
-    private ClientSession clientSession;
-
-    @EventListener(ApplicationReadyEvent.class)
-    public void initialize() throws SQLException, IOException, ActiveMQException {
-        clientSession.addMetaData(ClientSession.JMS_SESSION_IDENTIFIER_PROPERTY, "jms-client-id");
-        clientSession.addMetaData("jms-client-id", "query");
-        clientSession.start();
-    }
-
 }
