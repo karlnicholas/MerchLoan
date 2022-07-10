@@ -41,7 +41,9 @@ public class ReplyWaitingHandler {
             log.debug("handleReplies");
             byte[] mo = new byte[message.getBodyBuffer().readableBytes()];
             message.getBodyBuffer().readBytes(mo);
-            repliesWaiting.get(corrId).setReply(SerializationUtils.deserialize(mo));
+            Object dm = SerializationUtils.deserialize(mo);
+            ReplyWaiting rw = repliesWaiting.get(corrId);
+            rw.setReply(dm);
             repliesWaiting.notifyAll();
         }
     }
