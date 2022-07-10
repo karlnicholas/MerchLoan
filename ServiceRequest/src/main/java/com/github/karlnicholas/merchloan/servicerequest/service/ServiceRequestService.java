@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.karlnicholas.merchloan.apimessage.message.*;
 import com.github.karlnicholas.merchloan.jms.MQConsumerUtils;
+import com.github.karlnicholas.merchloan.jms.ReplyWaitingHandler;
 import com.github.karlnicholas.merchloan.jms.queue.QueueMessageService;
 import com.github.karlnicholas.merchloan.jmsmessage.*;
 import com.github.karlnicholas.merchloan.redis.component.RedisComponent;
@@ -55,7 +56,7 @@ public class ServiceRequestService {
         statementStatementProducer = new StatementStatementProducer(mqConsumerUtils, null);
         accountCloseLoanProducer = new AccountCloseLoanProducer(mqConsumerUtils, null);
 
-        queueMessageService.initialize(locator, null, "ServiceRequest");
+        queueMessageService.initialize(locator, new ReplyWaitingHandler(), "ServiceRequest");
     }
     @PreDestroy
     public void preDestroy() throws InterruptedException, ActiveMQException {
