@@ -43,7 +43,7 @@ public class MQProducers {
         replySession = replyFactory.createSession();
         replySession.addMetaData(ClientSession.JMS_SESSION_IDENTIFIER_PROPERTY, "jms-client-id");
         replySession.addMetaData("jms-client-id", "accounts-reply");
-        mqConsumerUtils.bindConsumer(replySession, accountsReplyQueue, true, replyWaitingHandler::handleReplies);
+        mqConsumerUtils.bindConsumer(replySession, SimpleString.toSimpleString(accountsReplyQueue), true, replyWaitingHandler::handleReplies);
         replySession.start();
     }
     @PreDestroy

@@ -12,6 +12,7 @@ import com.github.karlnicholas.merchloan.jms.MQConsumerUtils;
 import com.github.karlnicholas.merchloan.jmsmessage.*;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.activemq.artemis.api.core.ActiveMQException;
+import org.apache.activemq.artemis.api.core.SimpleString;
 import org.apache.activemq.artemis.api.core.client.*;
 import org.springframework.stereotype.Component;
 import org.springframework.util.SerializationUtils;
@@ -60,17 +61,17 @@ public class MQConsumers {
                 .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
         this.mqConsumerUtils = mqConsumerUtils;
 
-        accountCreateAccountQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getAccountCreateAccountQueue(), false, this::receivedCreateAccountMessage);
-        accountFundingQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getAccountFundingQueue(), false, this::receivedFundingMessage);
-        accountValidateCreditQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getAccountValidateCreditQueue(), false, this::receivedValidateCreditMessage);
-        accountValidateDebitQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getAccountValidateDebitQueue(), false, this::receivedValidateDebitMessage);
-        accountCloseLoanQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getAccountCloseLoanQueue(), false, this::receivedCloseLoanMessage);
-        accountLoanClosedQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getAccountLoanClosedQueue(), false, this::receivedLoanClosedMessage);
-        accountQueryStatementHeaderQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getAccountQueryStatementHeaderQueue(), false, this::receivedStatementHeaderMessage);
-        accountBillingCycleChargeQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getAccountBillingCycleChargeQueue(), false, this::receivedBillingCycleChargeMessage);
-        accountQueryLoansToCycleQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getAccountQueryLoansToCycleQueue(), false, this::receivedLoansToCyceMessage);
-        accountQueryAccountIdQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getAccountQueryAccountIdQueue(), false, this::receivedQueryAccountIdMessage);
-        accountQueryLoanIdQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getAccountQueryLoanIdQueue(), false, this::receivedQueryLoanIdMessage);
+        accountCreateAccountQueue = mqConsumerUtils.bindConsumer(clientSession, SimpleString.toSimpleString(mqConsumerUtils.getAccountCreateAccountQueue()), false, this::receivedCreateAccountMessage);
+        accountFundingQueue = mqConsumerUtils.bindConsumer(clientSession, SimpleString.toSimpleString(mqConsumerUtils.getAccountFundingQueue()), false, this::receivedFundingMessage);
+        accountValidateCreditQueue = mqConsumerUtils.bindConsumer(clientSession, SimpleString.toSimpleString(mqConsumerUtils.getAccountValidateCreditQueue()), false, this::receivedValidateCreditMessage);
+        accountValidateDebitQueue = mqConsumerUtils.bindConsumer(clientSession, SimpleString.toSimpleString(mqConsumerUtils.getAccountValidateDebitQueue()), false, this::receivedValidateDebitMessage);
+        accountCloseLoanQueue = mqConsumerUtils.bindConsumer(clientSession, SimpleString.toSimpleString(mqConsumerUtils.getAccountCloseLoanQueue()), false, this::receivedCloseLoanMessage);
+        accountLoanClosedQueue = mqConsumerUtils.bindConsumer(clientSession, SimpleString.toSimpleString(mqConsumerUtils.getAccountLoanClosedQueue()), false, this::receivedLoanClosedMessage);
+        accountQueryStatementHeaderQueue = mqConsumerUtils.bindConsumer(clientSession,SimpleString.toSimpleString(mqConsumerUtils.getAccountQueryStatementHeaderQueue()), false, this::receivedStatementHeaderMessage);
+        accountBillingCycleChargeQueue = mqConsumerUtils.bindConsumer(clientSession, SimpleString.toSimpleString(mqConsumerUtils.getAccountBillingCycleChargeQueue()), false, this::receivedBillingCycleChargeMessage);
+        accountQueryLoansToCycleQueue = mqConsumerUtils.bindConsumer(clientSession, SimpleString.toSimpleString(mqConsumerUtils.getAccountQueryLoansToCycleQueue()), false, this::receivedLoansToCyceMessage);
+        accountQueryAccountIdQueue = mqConsumerUtils.bindConsumer(clientSession, SimpleString.toSimpleString(mqConsumerUtils.getAccountQueryAccountIdQueue()), false, this::receivedQueryAccountIdMessage);
+        accountQueryLoanIdQueue = mqConsumerUtils.bindConsumer(clientSession, SimpleString.toSimpleString(mqConsumerUtils.getAccountQueryLoanIdQueue()), false, this::receivedQueryLoanIdMessage);
 
         accountProducer = clientSession.createProducer();
 

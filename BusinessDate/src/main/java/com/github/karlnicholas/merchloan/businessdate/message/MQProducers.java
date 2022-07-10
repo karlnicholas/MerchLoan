@@ -42,7 +42,7 @@ public class MQProducers {
         replySession.addMetaData(ClientSession.JMS_SESSION_IDENTIFIER_PROPERTY, "jms-client-id");
         replySession.addMetaData("jms-client-id", "businessdate-reply");
         businessDateReplyQueue = "businessdate-reply-"+UUID.randomUUID();
-        mqConsumerUtils.bindConsumer(replySession, businessDateReplyQueue, true, replyWaitingHandler::handleReplies);
+        mqConsumerUtils.bindConsumer(replySession, SimpleString.toSimpleString(businessDateReplyQueue), true, replyWaitingHandler::handleReplies);
         replySession.start();
     }
     @PreDestroy

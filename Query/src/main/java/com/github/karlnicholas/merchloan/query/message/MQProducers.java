@@ -15,151 +15,143 @@ import java.util.UUID;
 @Service
 @Slf4j
 public class MQProducers {
-    private final ClientSession clientSession;
-    private final ClientSession replySession;
-    private final ClientProducer servicerequestQueryIdProducer;
-    private final ClientProducer accountQueryAccountIdProducer;
-    private final ClientProducer accountQueryLoanIdProducer;
-    private final ClientProducer statementQueryStatementProducer;
-    private final ClientProducer statementQueryStatementsProducer;
-    private final ClientProducer serviceRequestCheckRequestProducer;
-    private final ReplyWaitingHandler replyWaitingHandler;
-    private final String queryReplyQueue;
+//    private final ClientSession clientSession;
+//    private final ClientSession replySession;
+//    private final ClientProducer applicationProducer;
+//    private final MQConsumerUtils mqConsumerUtils;
+//    private final ReplyWaitingHandler replyWaitingHandler;
+//    private final String queryReplyQueue;
 
     public MQProducers(ServerLocator locator, MQConsumerUtils mqConsumerUtils) throws Exception {
-        ClientSessionFactory producerFactory =  locator.createSessionFactory();
-        clientSession = producerFactory.createSession();
-        clientSession.addMetaData(ClientSession.JMS_SESSION_IDENTIFIER_PROPERTY, "jms-client-id");
-        clientSession.addMetaData("jms-client-id", "query-producers");
-        servicerequestQueryIdProducer = clientSession.createProducer(mqConsumerUtils.getServicerequestQueryIdQueue());
-        accountQueryAccountIdProducer = clientSession.createProducer(mqConsumerUtils.getAccountQueryAccountIdQueue());
-        accountQueryLoanIdProducer = clientSession.createProducer(mqConsumerUtils.getAccountQueryLoanIdQueue());
-        statementQueryStatementProducer = clientSession.createProducer(mqConsumerUtils.getStatementQueryStatementQueue());
-        statementQueryStatementsProducer = clientSession.createProducer(mqConsumerUtils.getStatementQueryStatementsQueue());
-        serviceRequestCheckRequestProducer = clientSession.createProducer(mqConsumerUtils.getServiceRequestCheckRequestQueue());
-        clientSession.start();
-
-        ClientSessionFactory replyFactory =  locator.createSessionFactory();
-        replySession = replyFactory.createSession();
-        replySession.addMetaData(ClientSession.JMS_SESSION_IDENTIFIER_PROPERTY, "jms-client-id");
-        replySession.addMetaData("jms-client-id", "query-reply");
-        replyWaitingHandler = new ReplyWaitingHandler();
-        queryReplyQueue = "query-reply-"+UUID.randomUUID();
-        mqConsumerUtils.bindConsumer(replySession, queryReplyQueue, true, replyWaitingHandler::handleReplies);
-        replySession.start();
+//        ClientSessionFactory producerFactory =  locator.createSessionFactory();
+//        this.mqConsumerUtils = mqConsumerUtils;
+//        clientSession = producerFactory.createSession();
+//        clientSession.addMetaData(ClientSession.JMS_SESSION_IDENTIFIER_PROPERTY, "jms-client-id");
+//        clientSession.addMetaData("jms-client-id", "query-producers");
+//        applicationProducer = clientSession.createProducer();
+//        clientSession.start();
+//
+//        ClientSessionFactory replyFactory =  locator.createSessionFactory();
+//        replySession = replyFactory.createSession();
+//        replySession.addMetaData(ClientSession.JMS_SESSION_IDENTIFIER_PROPERTY, "jms-client-id");
+//        replySession.addMetaData("jms-client-id", "query-reply");
+//        replyWaitingHandler = new ReplyWaitingHandler();
+//        queryReplyQueue = "query-reply-"+UUID.randomUUID();
+//        mqConsumerUtils.bindConsumer(replySession, queryReplyQueue, true, replyWaitingHandler::handleReplies);
+//        replySession.start();
     }
 
-    @PreDestroy
-    public void preDestroy() throws ActiveMQException {
-        log.info("producers preDestroy");
-        clientSession.close();
-        replySession.close();
-    }
-    public Object queryServiceRequest(UUID id) {
-        log.debug("queryServiceRequest: {}", id);
-        String responseKey = UUID.randomUUID().toString();
-        replyWaitingHandler.put(responseKey);
-        ClientMessage message = clientSession.createMessage(false);
-        message.setCorrelationID(responseKey);
-        message.setReplyTo(SimpleString.toSimpleString(queryReplyQueue));
-        message.getBodyBuffer().writeBytes(SerializationUtils.serialize(id));
-        try {
-            servicerequestQueryIdProducer.send(message, null);
-            return replyWaitingHandler.getReply(responseKey);
-        } catch (InterruptedException | ActiveMQException e) {
-            log.error("queryServiceRequest", e);
-            Thread.currentThread().interrupt();
-            return null;
-        }
-    }
-
-    public Object queryAccount(UUID id) {
-        log.debug("queryAccount: {}", id);
-        String responseKey = UUID.randomUUID().toString();
-        replyWaitingHandler.put(responseKey);
-        ClientMessage message = clientSession.createMessage(false);
-        message.setCorrelationID(responseKey);
-        message.setReplyTo(SimpleString.toSimpleString(queryReplyQueue));
-        message.getBodyBuffer().writeBytes(SerializationUtils.serialize(id));
-        try {
-            accountQueryAccountIdProducer.send(message, null);
-            return replyWaitingHandler.getReply(responseKey);
-        } catch (InterruptedException | ActiveMQException e) {
-            log.error("queryAccount", e);
-            Thread.currentThread().interrupt();
-            return null;
-        }
-    }
-
-    public Object queryLoan(UUID id) {
-        log.debug("queryLoan: {}", id);
-        String responseKey = UUID.randomUUID().toString();
-        replyWaitingHandler.put(responseKey);
-        ClientMessage message = clientSession.createMessage(false);
-        message.setCorrelationID(responseKey);
-        message.setReplyTo(SimpleString.toSimpleString(queryReplyQueue));
-        message.getBodyBuffer().writeBytes(SerializationUtils.serialize(id));
-        try {
-            accountQueryLoanIdProducer.send(message, null);
-            return replyWaitingHandler.getReply(responseKey);
-        } catch (InterruptedException | ActiveMQException e) {
-            log.error("queryLoan", e);
-            Thread.currentThread().interrupt();
-            return null;
-        }
-    }
-
-    public Object queryStatement(UUID id) {
-        log.debug("queryStatement: {}", id);
-        String responseKey = UUID.randomUUID().toString();
-        replyWaitingHandler.put(responseKey);
-        ClientMessage message = clientSession.createMessage(false);
-        message.setCorrelationID(responseKey);
-        message.setReplyTo(SimpleString.toSimpleString(queryReplyQueue));
-        message.getBodyBuffer().writeBytes(SerializationUtils.serialize(id));
-        try {
-            statementQueryStatementProducer.send(message, null);
-            return replyWaitingHandler.getReply(responseKey);
-        } catch (InterruptedException | ActiveMQException e) {
-            log.error("queryStatement", e);
-            Thread.currentThread().interrupt();
-            return null;
-        }
-    }
-
-    public Object queryStatements(UUID id) {
-        log.debug("queryStatements: {}", id);
-        String responseKey = UUID.randomUUID().toString();
-        replyWaitingHandler.put(responseKey);
-        ClientMessage message = clientSession.createMessage(false);
-        message.setCorrelationID(responseKey);
-        message.setReplyTo(SimpleString.toSimpleString(queryReplyQueue));
-        message.getBodyBuffer().writeBytes(SerializationUtils.serialize(id));
-        try {
-            statementQueryStatementsProducer.send(message, null);
-            return replyWaitingHandler.getReply(responseKey);
-        } catch (InterruptedException | ActiveMQException e) {
-            log.error("queryStatements", e);
-            Thread.currentThread().interrupt();
-            return null;
-        }
-    }
-
-    public Object queryCheckRequest() {
-        log.debug("queryCheckRequest:");
-        String responseKey = UUID.randomUUID().toString();
-        replyWaitingHandler.put(responseKey);
-        ClientMessage message = clientSession.createMessage(false);
-        message.setCorrelationID(responseKey);
-        message.setReplyTo(SimpleString.toSimpleString(queryReplyQueue));
-        message.getBodyBuffer().writeBytes(SerializationUtils.serialize(new byte[0]));
-        try {
-            serviceRequestCheckRequestProducer.send(message, null);
-            return replyWaitingHandler.getReply(responseKey);
-        } catch (InterruptedException | ActiveMQException e) {
-            log.error("queryCheckRequest", e);
-            Thread.currentThread().interrupt();
-            return null;
-        }
-    }
+//    @PreDestroy
+//    public void preDestroy() throws ActiveMQException {
+//        log.info("producers preDestroy");
+//        clientSession.close();
+//        replySession.close();
+//    }
+//    public Object queryServiceRequest(UUID id) {
+//        log.debug("queryServiceRequest: {}", id);
+//        String responseKey = UUID.randomUUID().toString();
+//        replyWaitingHandler.put(responseKey);
+//        ClientMessage message = clientSession.createMessage(false);
+//        message.setCorrelationID(responseKey);
+//        message.setReplyTo(SimpleString.toSimpleString(queryReplyQueue));
+//        message.getBodyBuffer().writeBytes(SerializationUtils.serialize(id));
+//        try {
+//            applicationProducer.send(SimpleString.toSimpleString(mqConsumerUtils.getServicerequestQueryIdQueue()), message, null);
+//            return replyWaitingHandler.getReply(responseKey);
+//        } catch (InterruptedException | ActiveMQException e) {
+//            log.error("queryServiceRequest", e);
+//            Thread.currentThread().interrupt();
+//            return null;
+//        }
+//    }
+//
+//    public Object queryAccount(UUID id) {
+//        log.debug("queryAccount: {}", id);
+//        String responseKey = UUID.randomUUID().toString();
+//        replyWaitingHandler.put(responseKey);
+//        ClientMessage message = clientSession.createMessage(false);
+//        message.setCorrelationID(responseKey);
+//        message.setReplyTo(SimpleString.toSimpleString(queryReplyQueue));
+//        message.getBodyBuffer().writeBytes(SerializationUtils.serialize(id));
+//        try {
+//            applicationProducer.send(SimpleString.toSimpleString(mqConsumerUtils.getAccountQueryAccountIdQueue()), message, null);
+//            return replyWaitingHandler.getReply(responseKey);
+//        } catch (InterruptedException | ActiveMQException e) {
+//            log.error("queryAccount", e);
+//            Thread.currentThread().interrupt();
+//            return null;
+//        }
+//    }
+//
+//    public Object queryLoan(UUID id) {
+//        log.debug("queryLoan: {}", id);
+//        String responseKey = UUID.randomUUID().toString();
+//        replyWaitingHandler.put(responseKey);
+//        ClientMessage message = clientSession.createMessage(false);
+//        message.setCorrelationID(responseKey);
+//        message.setReplyTo(SimpleString.toSimpleString(queryReplyQueue));
+//        message.getBodyBuffer().writeBytes(SerializationUtils.serialize(id));
+//        try {
+//            applicationProducer.send(SimpleString.toSimpleString(mqConsumerUtils.getAccountQueryLoanIdQueue()), message, null);
+//            return replyWaitingHandler.getReply(responseKey);
+//        } catch (InterruptedException | ActiveMQException e) {
+//            log.error("queryLoan", e);
+//            Thread.currentThread().interrupt();
+//            return null;
+//        }
+//    }
+//
+//    public Object queryStatement(UUID id) {
+//        log.debug("queryStatement: {}", id);
+//        String responseKey = UUID.randomUUID().toString();
+//        replyWaitingHandler.put(responseKey);
+//        ClientMessage message = clientSession.createMessage(false);
+//        message.setCorrelationID(responseKey);
+//        message.setReplyTo(SimpleString.toSimpleString(queryReplyQueue));
+//        message.getBodyBuffer().writeBytes(SerializationUtils.serialize(id));
+//        try {
+//            applicationProducer.send(SimpleString.toSimpleString(mqConsumerUtils.getStatementQueryStatementQueue()), message, null);
+//            return replyWaitingHandler.getReply(responseKey);
+//        } catch (InterruptedException | ActiveMQException e) {
+//            log.error("queryStatement", e);
+//            Thread.currentThread().interrupt();
+//            return null;
+//        }
+//    }
+//
+//    public Object queryStatements(UUID id) {
+//        log.debug("queryStatements: {}", id);
+//        String responseKey = UUID.randomUUID().toString();
+//        replyWaitingHandler.put(responseKey);
+//        ClientMessage message = clientSession.createMessage(false);
+//        message.setCorrelationID(responseKey);
+//        message.setReplyTo(SimpleString.toSimpleString(queryReplyQueue));
+//        message.getBodyBuffer().writeBytes(SerializationUtils.serialize(id));
+//        try {
+//            applicationProducer.send(SimpleString.toSimpleString(mqConsumerUtils.getStatementQueryStatementsQueue()), message, null);
+//            return replyWaitingHandler.getReply(responseKey);
+//        } catch (InterruptedException | ActiveMQException e) {
+//            log.error("queryStatements", e);
+//            Thread.currentThread().interrupt();
+//            return null;
+//        }
+//    }
+//
+//    public Object queryCheckRequest() {
+//        log.debug("queryCheckRequest:");
+//        String responseKey = UUID.randomUUID().toString();
+//        replyWaitingHandler.put(responseKey);
+//        ClientMessage message = clientSession.createMessage(false);
+//        message.setCorrelationID(responseKey);
+//        message.setReplyTo(SimpleString.toSimpleString(queryReplyQueue));
+//        message.getBodyBuffer().writeBytes(SerializationUtils.serialize(new byte[0]));
+//        try {
+//            applicationProducer.send(SimpleString.toSimpleString(mqConsumerUtils.getServiceRequestCheckRequestQueue()), message, null);
+//            return replyWaitingHandler.getReply(responseKey);
+//        } catch (InterruptedException | ActiveMQException e) {
+//            log.error("queryCheckRequest", e);
+//            Thread.currentThread().interrupt();
+//            return null;
+//        }
+//    }
 }

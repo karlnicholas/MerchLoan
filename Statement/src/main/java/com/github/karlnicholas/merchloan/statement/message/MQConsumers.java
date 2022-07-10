@@ -10,6 +10,7 @@ import com.github.karlnicholas.merchloan.statement.service.QueryService;
 import com.github.karlnicholas.merchloan.statement.service.StatementService;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.activemq.artemis.api.core.ActiveMQException;
+import org.apache.activemq.artemis.api.core.SimpleString;
 import org.apache.activemq.artemis.api.core.client.*;
 import org.springframework.stereotype.Component;
 import org.springframework.util.SerializationUtils;
@@ -53,11 +54,11 @@ public class MQConsumers {
         objectMapper = new ObjectMapper().findAndRegisterModules()
                 .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
 
-        statementStatementQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getStatementStatementQueue(), false, this::receivedStatementMessage);
-        statementCloseStatementQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getStatementCloseStatementQueue(), false, this::receivedCloseStatementMessage);
-        statementQueryStatementQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getStatementQueryStatementQueue(), false, this::receivedQueryStatementMessage);
-        statementQueryStatementsQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getStatementQueryStatementsQueue(), false, this::receivedQueryStatementsMessage);
-        statementQueryMostRecentStatementQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getStatementQueryMostRecentStatementQueue(), false, this::receivedQueryMostRecentStatementMessage);
+        statementStatementQueue = mqConsumerUtils.bindConsumer(clientSession, SimpleString.toSimpleString(mqConsumerUtils.getStatementStatementQueue()), false, this::receivedStatementMessage);
+        statementCloseStatementQueue = mqConsumerUtils.bindConsumer(clientSession, SimpleString.toSimpleString(mqConsumerUtils.getStatementCloseStatementQueue()), false, this::receivedCloseStatementMessage);
+        statementQueryStatementQueue = mqConsumerUtils.bindConsumer(clientSession, SimpleString.toSimpleString(mqConsumerUtils.getStatementQueryStatementQueue()), false, this::receivedQueryStatementMessage);
+        statementQueryStatementsQueue = mqConsumerUtils.bindConsumer(clientSession, SimpleString.toSimpleString(mqConsumerUtils.getStatementQueryStatementsQueue()), false, this::receivedQueryStatementsMessage);
+        statementQueryMostRecentStatementQueue = mqConsumerUtils.bindConsumer(clientSession, SimpleString.toSimpleString(mqConsumerUtils.getStatementQueryMostRecentStatementQueue()), false, this::receivedQueryMostRecentStatementMessage);
 
         responseProducer = clientSession.createProducer();
         clientSession.start();

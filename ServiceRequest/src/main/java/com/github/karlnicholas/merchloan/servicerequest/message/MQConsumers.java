@@ -13,6 +13,7 @@ import com.github.karlnicholas.merchloan.servicerequest.service.QueryService;
 import com.github.karlnicholas.merchloan.servicerequest.service.ServiceRequestService;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.activemq.artemis.api.core.ActiveMQException;
+import org.apache.activemq.artemis.api.core.SimpleString;
 import org.apache.activemq.artemis.api.core.client.*;
 import org.springframework.stereotype.Component;
 import org.springframework.util.SerializationUtils;
@@ -49,11 +50,11 @@ public class MQConsumers {
         this.objectMapper = new ObjectMapper().findAndRegisterModules()
                 .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
 
-        servicerequestQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getServicerequestQueue(), false, this::receivedServiceRequestMessage);
-        servicerequestQueryIdQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getServicerequestQueryIdQueue(), false, this::receivedServiceRequestQueryIdMessage);
-        serviceRequestCheckRequestQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getServiceRequestCheckRequestQueue(), false, this::receivedCheckRequestMessage);
-        serviceRequestBillLoanQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getServiceRequestBillLoanQueue(), false, this::receivedServiceRequestBillloanMessage);
-        serviceRequestStatementCompleteQueue = mqConsumerUtils.bindConsumer(clientSession, mqConsumerUtils.getServiceRequestStatementCompleteQueue(), false, this::receivedServiceStatementCompleteMessage);
+        servicerequestQueue = mqConsumerUtils.bindConsumer(clientSession, SimpleString.toSimpleString(mqConsumerUtils.getServicerequestQueue()), false, this::receivedServiceRequestMessage);
+        servicerequestQueryIdQueue = mqConsumerUtils.bindConsumer(clientSession, SimpleString.toSimpleString(mqConsumerUtils.getServicerequestQueryIdQueue()), false, this::receivedServiceRequestQueryIdMessage);
+        serviceRequestCheckRequestQueue = mqConsumerUtils.bindConsumer(clientSession, SimpleString.toSimpleString(mqConsumerUtils.getServiceRequestCheckRequestQueue()), false, this::receivedCheckRequestMessage);
+        serviceRequestBillLoanQueue = mqConsumerUtils.bindConsumer(clientSession, SimpleString.toSimpleString(mqConsumerUtils.getServiceRequestBillLoanQueue()), false, this::receivedServiceRequestBillloanMessage);
+        serviceRequestStatementCompleteQueue = mqConsumerUtils.bindConsumer(clientSession, SimpleString.toSimpleString(mqConsumerUtils.getServiceRequestStatementCompleteQueue()), false, this::receivedServiceStatementCompleteMessage);
 
         responseProducer = clientSession.createProducer();
         clientSession.start();

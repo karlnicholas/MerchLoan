@@ -49,7 +49,7 @@ public class MQProducers {
         replySession.addMetaData("jms-client-id", "statement-reply");
         replyWaitingHandler = new ReplyWaitingHandler();
         statementReplyQueue = "statement-reply-"+UUID.randomUUID();
-        mqConsumerUtils.bindConsumer(replySession, statementReplyQueue, true, replyWaitingHandler::handleReplies);
+        mqConsumerUtils.bindConsumer(replySession, SimpleString.toSimpleString(statementReplyQueue), true, replyWaitingHandler::handleReplies);
         replySession.start();
     }
     @PreDestroy

@@ -21,8 +21,8 @@ import java.io.IOException;
 @Data
 public class MQConsumerUtils {
 
-    public ClientConsumer bindConsumer(ClientSession clientSession, String queueName, boolean temporary, MessageHandler messageHandler) throws ActiveMQException {
-        ClientSession.QueueQuery query = clientSession.queueQuery(SimpleString.toSimpleString(queueName));
+    public ClientConsumer bindConsumer(ClientSession clientSession, SimpleString queueName, boolean temporary, MessageHandler messageHandler) throws ActiveMQException {
+        ClientSession.QueueQuery query = clientSession.queueQuery(queueName);
         if (!query.isExists()) {
             QueueConfiguration queueConfiguration = new QueueConfiguration(queueName);
             queueConfiguration.setDurable(false);
