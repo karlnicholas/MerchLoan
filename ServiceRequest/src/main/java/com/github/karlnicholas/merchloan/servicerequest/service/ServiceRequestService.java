@@ -3,17 +3,21 @@ package com.github.karlnicholas.merchloan.servicerequest.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.karlnicholas.merchloan.apimessage.message.*;
+import com.github.karlnicholas.merchloan.jms.MQConsumerUtils;
+import com.github.karlnicholas.merchloan.jms.queue.QueueMessageService;
 import com.github.karlnicholas.merchloan.jmsmessage.*;
 import com.github.karlnicholas.merchloan.redis.component.RedisComponent;
 import com.github.karlnicholas.merchloan.servicerequest.component.ServiceRequestException;
 import com.github.karlnicholas.merchloan.servicerequest.dao.ServiceRequestDao;
-import com.github.karlnicholas.merchloan.servicerequest.message.MQProducers;
+import com.github.karlnicholas.merchloan.servicerequest.message.*;
 import com.github.karlnicholas.merchloan.servicerequest.model.ServiceRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.activemq.artemis.api.core.ActiveMQException;
+import org.apache.activemq.artemis.api.core.client.ServerLocator;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 
+import javax.annotation.PreDestroy;
 import javax.sql.DataSource;
 import java.io.IOException;
 import java.sql.Connection;
@@ -25,42 +29,63 @@ import java.util.UUID;
 @Service
 @Slf4j
 public class ServiceRequestService {
-    private final MQProducers mqProducers;
+    private final QueueMessageService queueMessageService;
+    private final AccountCreateAccountProducer accountCreateAccountProducer;
+    private final AccountFundLoanProducer accountFundingProducer;
+    private final AccountValidateCreditProducer accountValidateCreditProducer;
+    private final AccountValidateDebitProducer accountValidateDebitProducer;
+    private final StatementStatementProducer statementStatementProducer;
+    private final AccountCloseLoanProducer accountCloseLoanProducer;
     private final ServiceRequestDao serviceRequestDao;
     private final ObjectMapper objectMapper;
     private final RedisComponent redisComponent;
     private final DataSource dataSource;
 
-    public ServiceRequestService(MQProducers mqProducers, ServiceRequestDao serviceRequestDao, ObjectMapper objectMapper, RedisComponent redisComponent, DataSource dataSource) {
-        this.mqProducers = mqProducers;
+    public ServiceRequestService(ServerLocator locator, QueueMessageService queueMessageService, MQConsumerUtils mqConsumerUtils, ServiceRequestDao serviceRequestDao, ObjectMapper objectMapper, RedisComponent redisComponent, DataSource dataSource) throws Exception {
+        this.queueMessageService = queueMessageService;
         this.serviceRequestDao = serviceRequestDao;
         this.objectMapper = objectMapper;
         this.redisComponent = redisComponent;
         this.dataSource = dataSource;
+
+        accountCreateAccountProducer = new AccountCreateAccountProducer(mqConsumerUtils, null);
+        accountFundingProducer = new AccountFundLoanProducer(mqConsumerUtils, null);
+        accountValidateCreditProducer = new AccountValidateCreditProducer(mqConsumerUtils, null);
+        accountValidateDebitProducer = new AccountValidateDebitProducer(mqConsumerUtils, null);
+        statementStatementProducer = new StatementStatementProducer(mqConsumerUtils, null);
+        accountCloseLoanProducer = new AccountCloseLoanProducer(mqConsumerUtils, null);
+
+        queueMessageService.initialize(locator, null, "ServiceRequest");
+    }
+    @PreDestroy
+    public void preDestroy() throws InterruptedException, ActiveMQException {
+        queueMessageService.close();
     }
 
     public UUID accountRequest(ServiceRequestMessage serviceRequestMessage, Boolean retry, UUID existingId) throws ServiceRequestException {
         try {
             AccountRequest accountRequest = (AccountRequest) serviceRequestMessage;
             UUID id = retry == Boolean.TRUE ? existingId : persistRequest(accountRequest);
-            mqProducers.accountCreateAccount(CreateAccount.builder()
+            queueMessageService.addMessage(accountCreateAccountProducer, Optional.empty(), CreateAccount.builder()
                     .id(id)
                     .customer(accountRequest.getCustomer())
                     .createDate(redisComponent.getBusinessDate())
                     .retry(retry)
                     .build());
             return id;
-        } catch (SQLException | IOException | ActiveMQException ex) {
-            throw new ServiceRequestException(ex);
+        } catch (SQLException | IOException e) {
+            throw new ServiceRequestException(e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new ServiceRequestException(e);
         }
     }
 
     public UUID fundingRequest(ServiceRequestMessage serviceRequestMessage, Boolean retry, UUID existingId) throws ServiceRequestException {
         try {
             FundingRequest fundingRequest = (FundingRequest) serviceRequestMessage;
-            UUID id = null;
-            id = retry == Boolean.TRUE ? existingId : persistRequest(fundingRequest);
-            mqProducers.accountFundLoan(
+            UUID id = retry == Boolean.TRUE ? existingId : persistRequest(fundingRequest);
+            queueMessageService.addMessage(accountFundingProducer, Optional.empty(),
                     FundLoan.builder()
                             .id(id)
                             .accountId(fundingRequest.getAccountId())
@@ -71,8 +96,11 @@ public class ServiceRequestService {
                             .build()
             );
             return id;
-        } catch (SQLException | IOException | ActiveMQException ex) {
-            throw new ServiceRequestException(ex);
+        } catch (SQLException | IOException e) {
+            throw new ServiceRequestException(e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new ServiceRequestException(e);
         }
     }
 
@@ -80,7 +108,7 @@ public class ServiceRequestService {
         try {
             CreditRequest creditRequest = (CreditRequest) serviceRequestMessage;
             UUID id = retry == Boolean.TRUE ? existingId : persistRequest(creditRequest);
-            mqProducers.accountValidateCredit(
+            queueMessageService.addMessage(accountValidateCreditProducer, Optional.empty(),
                     CreditLoan.builder()
                             .id(id)
                             .loanId(creditRequest.getLoanId())
@@ -91,8 +119,11 @@ public class ServiceRequestService {
                             .build()
             );
             return id;
-        } catch (SQLException | IOException | ActiveMQException ex) {
-            throw new ServiceRequestException(ex);
+        } catch (SQLException | IOException e) {
+            throw new ServiceRequestException(e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new ServiceRequestException(e);
         }
     }
 
@@ -100,7 +131,7 @@ public class ServiceRequestService {
         try {
             StatementRequest statementRequest = (StatementRequest) serviceRequestMessage;
             UUID id = retry == Boolean.TRUE ? existingId : persistRequest(statementRequest);
-            mqProducers.statementStatement(
+            queueMessageService.addMessage(statementStatementProducer, Optional.empty(),
                     StatementHeader.builder()
                             .id(id)
                             .loanId(statementRequest.getLoanId())
@@ -113,8 +144,11 @@ public class ServiceRequestService {
                             .build()
             );
             return id;
-        } catch (SQLException | IOException | ActiveMQException ex) {
-            throw new ServiceRequestException(ex);
+        } catch (SQLException | IOException e) {
+            throw new ServiceRequestException(e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new ServiceRequestException(e);
         }
     }
 
@@ -122,7 +156,7 @@ public class ServiceRequestService {
         try {
             CloseRequest closeRequest = (CloseRequest) serviceRequestMessage;
             UUID id = retry == Boolean.TRUE ? existingId : persistRequest(closeRequest);
-            mqProducers.accountCloseLoan(
+            queueMessageService.addMessage(accountCloseLoanProducer, Optional.empty(),
                     CloseLoan.builder()
                             .id(id)
                             .loanId(closeRequest.getLoanId())
@@ -135,8 +169,11 @@ public class ServiceRequestService {
                             .build()
             );
             return id;
-        } catch (SQLException | IOException | ActiveMQException ex) {
-            throw new ServiceRequestException(ex);
+        } catch (SQLException | IOException e) {
+            throw new ServiceRequestException(e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new ServiceRequestException(e);
         }
     }
 
@@ -144,7 +181,7 @@ public class ServiceRequestService {
         try {
             DebitRequest debitRequest = (DebitRequest) serviceRequestMessage;
             UUID id = retry == Boolean.TRUE ? existingId : persistRequest(debitRequest);
-            mqProducers.accountValidateDebit(
+            queueMessageService.addMessage(accountValidateDebitProducer, Optional.empty(),
                     DebitLoan.builder()
                             .id(id)
                             .loanId(debitRequest.getLoanId())
@@ -155,8 +192,11 @@ public class ServiceRequestService {
                             .build()
             );
             return id;
-        } catch (SQLException | IOException | ActiveMQException ex) {
-            throw new ServiceRequestException(ex);
+        } catch (SQLException | IOException e) {
+            throw new ServiceRequestException(e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new ServiceRequestException(e);
         }
     }
 

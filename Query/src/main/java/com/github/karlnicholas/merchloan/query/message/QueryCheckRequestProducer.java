@@ -10,6 +10,7 @@ import org.apache.activemq.artemis.api.core.client.ClientProducer;
 import org.apache.activemq.artemis.api.core.client.ClientSession;
 import org.springframework.util.SerializationUtils;
 
+import java.util.Optional;
 import java.util.UUID;
 
 @Slf4j
@@ -23,10 +24,10 @@ public class QueryCheckRequestProducer implements QueueMessageHandlerProducer {
     }
 
     @Override
-    public void sendMessage(ClientSession clientSession, ClientProducer producer, Object data, String responseKey) {
+    public void sendMessage(ClientSession clientSession, ClientProducer producer, Object data, Optional<String> responseKeyOpt) {
         log.debug("queryCheckRequest:");
         ClientMessage message = clientSession.createMessage(false);
-        message.setCorrelationID(responseKey);
+        responseKeyOpt.ifPresent(message::setCorrelationID);
         message.setReplyTo(replyQueue);
         message.getBodyBuffer().writeBytes(SerializationUtils.serialize(new byte[0]));
         try {

@@ -17,6 +17,7 @@ import org.springframework.web.reactive.function.server.ServerResponse;
 import reactor.core.publisher.Mono;
 
 import javax.annotation.PreDestroy;
+import java.util.Optional;
 import java.util.UUID;
 
 @Component
@@ -50,7 +51,7 @@ public class ApiHandler {
         queryStatementsProducer = new QueryStatementsProducer(mqConsumerUtils, replyQueue);
         queryCheckRequestProducer = new QueryCheckRequestProducer(mqConsumerUtils, replyQueue);
 
-        queueMessageService.initialize(locator, replyWaitingHandler, "query");
+        queueMessageService.initialize(locator, replyWaitingHandler, "Query");
     }
 
     @PreDestroy
@@ -71,13 +72,13 @@ public class ApiHandler {
                         .map(id -> {
                             try {
                                 String responseKey = UUID.randomUUID().toString();
-                                queueMessageService.addMessage(queueMessageHandlerProducer, responseKey, id);
-                                return queueMessageService.getReply(responseKey);
+                                queueMessageService.addMessage(queueMessageHandlerProducer, Optional.of(responseKey), id);
+                                return queueMessageService.getReply(responseKey).toString();
                             } catch (InterruptedException e) {
                                 Thread.currentThread().interrupt();
                                 throw new ApiException(e);
                             }
-                        }), Object.class);
+                        }), String.class);
     }
 
     public Mono<ServerResponse> getAccount(ServerRequest serverRequest) {
@@ -101,7 +102,7 @@ public class ApiHandler {
                 Mono.fromSupplier(() -> {
                     try {
                         String responseKey = UUID.randomUUID().toString();
-                        queueMessageService.addMessage(queryCheckRequestProducer, responseKey, new byte[0]);
+                        queueMessageService.addMessage(queryCheckRequestProducer, Optional.of(responseKey), new byte[0]);
                         return (Boolean) queueMessageService.getReply(responseKey);
                     } catch (InterruptedException e) {
                         Thread.currentThread().interrupt();

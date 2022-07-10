@@ -1,7 +1,8 @@
-package com.github.karlnicholas.merchloan.query.message;
+package com.github.karlnicholas.merchloan.servicerequest.message;
 
 import com.github.karlnicholas.merchloan.jms.MQConsumerUtils;
 import com.github.karlnicholas.merchloan.jms.queue.QueueMessageHandlerProducer;
+import com.github.karlnicholas.merchloan.jmsmessage.DebitLoan;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.activemq.artemis.api.core.ActiveMQException;
 import org.apache.activemq.artemis.api.core.SimpleString;
@@ -11,29 +12,25 @@ import org.apache.activemq.artemis.api.core.client.ClientSession;
 import org.springframework.util.SerializationUtils;
 
 import java.util.Optional;
-import java.util.UUID;
 
 @Slf4j
-public class QueryAccountProducer implements QueueMessageHandlerProducer {
+public class AccountValidateDebitProducer implements QueueMessageHandlerProducer {
     private final SimpleString queue;
-    private final SimpleString replyQueue;
 
-    public QueryAccountProducer(MQConsumerUtils mqConsumerUtils, SimpleString replyQueue) {
-        this.replyQueue = replyQueue;
-        this.queue = SimpleString.toSimpleString(mqConsumerUtils.getAccountQueryAccountIdQueue());
+    public AccountValidateDebitProducer(MQConsumerUtils mqConsumerUtils, SimpleString replyQueue) {
+        this.queue = SimpleString.toSimpleString(mqConsumerUtils.getAccountValidateDebitQueue());
     }
+
     @Override
     public void sendMessage(ClientSession clientSession, ClientProducer producer, Object data, Optional<String> responseKeyOpt) {
-        UUID id = (UUID) data;
-        log.debug("queryAccount: {}", id);
+        DebitLoan debitLoan = (DebitLoan) data;
+        log.debug("accountValidateDebit: {}", debitLoan);
         ClientMessage message = clientSession.createMessage(false);
-        responseKeyOpt.ifPresent(message::setCorrelationID);
-        message.setReplyTo(replyQueue);
-        message.getBodyBuffer().writeBytes(SerializationUtils.serialize(id));
+        message.getBodyBuffer().writeBytes(SerializationUtils.serialize(debitLoan));
         try {
             producer.send(queue, message, null);
         } catch (ActiveMQException e) {
-            log.error("queryAccount", e);
+            log.error("AccountValidateDebitProducer", e);
         }
     }
 }

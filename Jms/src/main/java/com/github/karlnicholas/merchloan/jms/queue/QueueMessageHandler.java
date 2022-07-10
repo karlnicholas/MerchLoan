@@ -42,7 +42,7 @@ class QueueMessageHandler extends Thread implements Runnable {
                     }
                     QueueMessage queueMessage = messsageQueue.remove(0);
                     messsageQueue.notifyAll();
-                    queueMessage.getProducer().sendMessage(clientSession, producer, queueMessage.getMessage(), queueMessage.getResponseKey());
+                    queueMessage.getProducer().sendMessage(clientSession, producer, queueMessage.getMessage(), queueMessage.getResponseKeyOpt());
                 }
             } catch (InterruptedException ex) {
                 if ( run ) ex.printStackTrace();

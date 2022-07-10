@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class QueueMessageService {
@@ -33,13 +34,13 @@ public class QueueMessageService {
         }
     }
 
-    public void addMessage(QueueMessageHandlerProducer producer, String responseKey, Object data) throws InterruptedException {
+    public void addMessage(QueueMessageHandlerProducer producer, Optional<String> responseKeyOpt, Object data) throws InterruptedException {
         synchronized (messsageQueue) {
             while(messsageQueue.size() >= MAX_CAPACITY) {
                 messsageQueue.wait();
             }
-            replyWaitingHandler.put(responseKey);
-            QueueMessage queueMessage = new QueueMessage(data, producer, responseKey);
+            responseKeyOpt.ifPresent(replyWaitingHandler::put);
+            QueueMessage queueMessage = new QueueMessage(data, producer, responseKeyOpt);
             messsageQueue.add(queueMessage);
             messsageQueue.notifyAll();
         }

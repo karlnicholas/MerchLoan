@@ -11,6 +11,7 @@ import org.apache.activemq.artemis.api.core.client.ClientProducer;
 import org.apache.activemq.artemis.api.core.client.ClientSession;
 import org.springframework.util.SerializationUtils;
 
+import java.util.Optional;
 import java.util.UUID;
 
 @Slf4j
@@ -23,11 +24,11 @@ public class QueryStatementProducer implements QueueMessageHandlerProducer {
         this.queue = SimpleString.toSimpleString(mqConsumerUtils.getStatementQueryStatementQueue());
     }
     @Override
-    public void sendMessage(ClientSession clientSession, ClientProducer producer, Object data, String responseKey) {
+    public void sendMessage(ClientSession clientSession, ClientProducer producer, Object data, Optional<String> responseKeyOpt) {
         UUID id = (UUID) data;
         log.debug("queryStatement: {}", id);
         ClientMessage message = clientSession.createMessage(false);
-        message.setCorrelationID(responseKey);
+        responseKeyOpt.ifPresent(message::setCorrelationID);
         message.setReplyTo(replyQueue);
         message.getBodyBuffer().writeBytes(SerializationUtils.serialize(id));
         try {
