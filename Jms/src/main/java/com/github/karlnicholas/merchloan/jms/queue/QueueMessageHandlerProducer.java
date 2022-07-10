@@ -4,5 +4,5 @@ import org.apache.activemq.artemis.api.core.client.ClientProducer;
 import org.apache.activemq.artemis.api.core.client.ClientSession;
 
 public interface QueueMessageHandlerProducer {
-    Object sendMessage(ClientSession clientSession, ClientProducer producer, Object data);
+    void sendMessage(ClientSession clientSession, ClientProducer producer, Object data, String responseKey);
 }

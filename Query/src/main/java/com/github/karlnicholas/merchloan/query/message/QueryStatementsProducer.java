@@ -17,31 +17,23 @@ import java.util.UUID;
 public class QueryStatementsProducer implements QueueMessageHandlerProducer {
     private final SimpleString queue;
     private final SimpleString replyQueue;
-    private final ReplyWaitingHandler replyWaitingHandler;
 
-
-    public QueryStatementsProducer(MQConsumerUtils mqConsumerUtils, ReplyWaitingHandler replyWaitingHandler, SimpleString replyQueue) {
-        this.replyWaitingHandler = replyWaitingHandler;
+    public QueryStatementsProducer(MQConsumerUtils mqConsumerUtils, SimpleString replyQueue) {
         this.replyQueue = replyQueue;
         this.queue = SimpleString.toSimpleString(mqConsumerUtils.getStatementQueryStatementsQueue());
     }
     @Override
-    public Object sendMessage(ClientSession clientSession, ClientProducer producer, Object data) {
+    public void sendMessage(ClientSession clientSession, ClientProducer producer, Object data, String responseKey) {
         UUID id = (UUID) data;
         log.debug("queryStatements: {}", id);
-        String responseKey = UUID.randomUUID().toString();
-        replyWaitingHandler.put(responseKey);
         ClientMessage message = clientSession.createMessage(false);
         message.setCorrelationID(responseKey);
         message.setReplyTo(replyQueue);
         message.getBodyBuffer().writeBytes(SerializationUtils.serialize(id));
         try {
             producer.send(queue, message, null);
-            return replyWaitingHandler.getReply(responseKey);
-        } catch (InterruptedException | ActiveMQException e) {
+        } catch (ActiveMQException e) {
             log.error("queryStatements", e);
-            Thread.currentThread().interrupt();
-            return null;
         }
     }
 }

@@ -1,7 +1,6 @@
 package com.github.karlnicholas.merchloan.query.message;
 
 import com.github.karlnicholas.merchloan.jms.MQConsumerUtils;
-import com.github.karlnicholas.merchloan.jms.ReplyWaitingHandler;
 import com.github.karlnicholas.merchloan.jms.queue.QueueMessageHandlerProducer;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.activemq.artemis.api.core.ActiveMQException;
@@ -17,30 +16,23 @@ import java.util.UUID;
 public class QueryAccountProducer implements QueueMessageHandlerProducer {
     private final SimpleString queue;
     private final SimpleString replyQueue;
-    private final ReplyWaitingHandler replyWaitingHandler;
 
-    public QueryAccountProducer(MQConsumerUtils mqConsumerUtils, ReplyWaitingHandler replyWaitingHandler, SimpleString replyQueue) {
-        this.replyWaitingHandler = replyWaitingHandler;
+    public QueryAccountProducer(MQConsumerUtils mqConsumerUtils, SimpleString replyQueue) {
         this.replyQueue = replyQueue;
         this.queue = SimpleString.toSimpleString(mqConsumerUtils.getAccountQueryAccountIdQueue());
     }
     @Override
-    public Object sendMessage(ClientSession clientSession, ClientProducer producer, Object data) {
+    public void sendMessage(ClientSession clientSession, ClientProducer producer, Object data, String responseKey) {
         UUID id = (UUID) data;
         log.debug("queryAccount: {}", id);
-        String responseKey = UUID.randomUUID().toString();
-        replyWaitingHandler.put(responseKey);
         ClientMessage message = clientSession.createMessage(false);
         message.setCorrelationID(responseKey);
         message.setReplyTo(replyQueue);
         message.getBodyBuffer().writeBytes(SerializationUtils.serialize(id));
         try {
             producer.send(queue, message, null);
-            return replyWaitingHandler.getReply(responseKey);
-        } catch (InterruptedException | ActiveMQException e) {
+        } catch (ActiveMQException e) {
             log.error("queryAccount", e);
-            Thread.currentThread().interrupt();
-            return null;
         }
     }
 }

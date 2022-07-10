@@ -1,6 +1,7 @@
 package com.github.karlnicholas.merchloan.jms.queue;
 
 import com.github.karlnicholas.merchloan.jms.ReplyWaitingHandler;
+import org.apache.activemq.artemis.api.core.ActiveMQException;
 import org.apache.activemq.artemis.api.core.client.ServerLocator;
 import org.springframework.stereotype.Service;
 
@@ -12,13 +13,23 @@ public class QueueMessageService {
     private static final int MAX_CAPACITY = 5;
     private List<QueueMessage> messsageQueue;
     private ReplyWaitingHandler replyWaitingHandler;
+    private List<QueueMessageHandler> handlers;
 
-    public void initialize(ServerLocator locator, String queueName) throws Exception {
-        replyWaitingHandler = new ReplyWaitingHandler();
+    public void initialize(ServerLocator locator, ReplyWaitingHandler replyWaitingHandler, String queueName) throws Exception {
+        this.replyWaitingHandler = replyWaitingHandler;
         messsageQueue = new ArrayList<>();
+        handlers = new ArrayList<>();
         for ( int i = 0 ; i < MAX_CAPACITY; ++i) {
-            Thread tConsumer = new Thread(new QueueMessageHandler(locator, queueName, messsageQueue));
-            tConsumer.start();
+            QueueMessageHandler queueMessageHandler = new QueueMessageHandler(locator, queueName, messsageQueue);
+            handlers.add(queueMessageHandler);
+            queueMessageHandler.start();
+        }
+    }
+    public void close() throws InterruptedException, ActiveMQException {
+        for ( QueueMessageHandler queueMessageHandler: handlers) {
+            queueMessageHandler.stopHandler();
+            queueMessageHandler.join();
+            queueMessageHandler.close();
         }
     }
 
@@ -27,8 +38,8 @@ public class QueueMessageService {
             while(messsageQueue.size() >= MAX_CAPACITY) {
                 messsageQueue.wait();
             }
-            QueueMessage queueMessage = new QueueMessage(data, producer);
             replyWaitingHandler.put(responseKey);
+            QueueMessage queueMessage = new QueueMessage(data, producer, responseKey);
             messsageQueue.add(queueMessage);
             messsageQueue.notifyAll();
         }
@@ -37,5 +48,4 @@ public class QueueMessageService {
     public Object getReply(String responseKey) throws InterruptedException {
         return replyWaitingHandler.getReply(responseKey);
     }
-
 }

@@ -8,4 +8,4 @@ logging:
       github:
         karlnicholas:
           merchloan:
-            servicerequest: info
+            servicerequest: debug
