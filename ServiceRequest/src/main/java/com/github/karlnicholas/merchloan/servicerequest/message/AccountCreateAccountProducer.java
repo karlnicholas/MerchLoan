@@ -31,5 +31,6 @@ public class AccountCreateAccountProducer implements QueueMessageHandlerProducer
     }
     @Override
     public void close() {
+        // nothing to close
     }
 }

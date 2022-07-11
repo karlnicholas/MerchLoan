@@ -31,5 +31,6 @@ public class AccountValidateCreditProducer implements QueueMessageHandlerProduce
     }
     @Override
     public void close() {
+        // nothing to close
     }
 }

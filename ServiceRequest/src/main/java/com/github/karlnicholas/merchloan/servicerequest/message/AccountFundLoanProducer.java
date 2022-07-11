@@ -32,5 +32,6 @@ public class AccountFundLoanProducer implements QueueMessageHandlerProducer {
     }
     @Override
     public void close() {
+        // nothing to close
     }
 }

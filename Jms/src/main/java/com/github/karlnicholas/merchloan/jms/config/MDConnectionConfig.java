@@ -27,36 +27,5 @@ public class MDConnectionConfig {
         locator.setUseGlobalPools(false);
         locator.setThreadPoolMaxSize(100);
         return locator;
-//        ClientSessionFactory factory =  locator.createSessionFactory();
-//
-//        return factory;
-////        ClientSession clientSession = factory.createSession();
-////        return clientSession;
-////        ConnectionFactory factory = new ConnectionFactory();
-////        factory.setPassword(password);
-////        factory.setUsername(username);
-////        factory.setVirtualHost(virtualHost);
-////        factory.setHost(host);
-////        factory.setPort(port);
-////        return factory;
     }
-//
-//    @Bean
-//    public Connection getConnection(ConnectionFactory connectionFactory) throws IOException, TimeoutException, InterruptedException {
-//        int retryCount = 0;
-//        while (retryCount < 3) {
-//            try {
-//                return connectionFactory.newConnection();
-//            } catch (java.net.ConnectException e) {
-//                Thread.sleep(5000);
-//                // apply retry logic
-//                retryCount++;
-//                if (retryCount >= 3) {
-//                    throw e;
-//                }
-//            }
-//        }
-//        return null;
-//    }
-
 }

@@ -2,7 +2,6 @@ package com.github.karlnicholas.merchloan.servicerequest;
 
 import com.github.karlnicholas.merchloan.sqlutil.SqlInitialization;
 import org.apache.activemq.artemis.api.core.ActiveMQException;
-import org.apache.activemq.artemis.api.core.client.ClientSession;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;

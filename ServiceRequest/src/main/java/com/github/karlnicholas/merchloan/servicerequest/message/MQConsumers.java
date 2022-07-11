@@ -19,7 +19,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.SerializationUtils;
 
 import javax.annotation.PreDestroy;
-import java.io.IOException;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -29,18 +28,18 @@ public class MQConsumers {
     private final ServiceRequestService serviceRequestService;
     private final MQConsumerUtils mqConsumerUtils;
     private final ClientSession clientSession;
+    private final ClientSessionFactory producerFactory;
     private final ClientProducer responseProducer;
     private final ClientConsumer servicerequestQueue;
     private final ClientConsumer servicerequestQueryIdQueue;
     private final ClientConsumer serviceRequestCheckRequestQueue;
     private final ClientConsumer serviceRequestBillLoanQueue;
     private final ClientConsumer serviceRequestStatementCompleteQueue;
-
     private final QueryService queryService;
     private final ObjectMapper objectMapper;
 
     public MQConsumers(ServerLocator locator, MQConsumerUtils mqConsumerUtils, QueryService queryService, ServiceRequestService serviceRequestService) throws Exception {
-        ClientSessionFactory producerFactory =  locator.createSessionFactory();
+        producerFactory =  locator.createSessionFactory();
         clientSession = producerFactory.createSession();
         clientSession.addMetaData(ClientSession.JMS_SESSION_IDENTIFIER_PROPERTY, "jms-client-id");
         clientSession.addMetaData("jms-client-id", "servicerequest-consumers");
@@ -74,6 +73,9 @@ public class MQConsumers {
         clientSession.deleteQueue(mqConsumerUtils.getServiceRequestCheckRequestQueue());
         clientSession.deleteQueue(mqConsumerUtils.getServiceRequestBillLoanQueue());
         clientSession.deleteQueue(mqConsumerUtils.getServiceRequestStatementCompleteQueue());
+
+        clientSession.close();
+        producerFactory.close();
     }
 
     public void receivedServiceRequestQueryIdMessage(ClientMessage message) {

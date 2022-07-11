@@ -1,15 +1,19 @@
 package com.github.karlnicholas.merchloan.jms.queue;
 
 import com.github.karlnicholas.merchloan.jms.ReplyWaitingHandler;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.activemq.artemis.api.core.ActiveMQException;
 import org.apache.activemq.artemis.api.core.client.ClientProducer;
 import org.apache.activemq.artemis.api.core.client.ClientSession;
+import org.apache.activemq.artemis.api.core.client.ClientSessionFactory;
 import org.apache.activemq.artemis.api.core.client.ServerLocator;
 
 import java.util.List;
 
+@Slf4j
 class QueueMessageHandler extends Thread implements Runnable {
     private final List<QueueMessage> messsageQueue;
+    private final ClientSessionFactory sessionFactory;
     private final ClientSession clientSession;
     private final ClientProducer producer;
     private final ReplyWaitingHandler replyWaitingHandler;
@@ -20,7 +24,8 @@ class QueueMessageHandler extends Thread implements Runnable {
         this.replyWaitingHandler = replyWaitingHandler;
         run = true;
         this.messsageQueue = messsageQueue;
-        clientSession = locator.createSessionFactory().createSession();
+        sessionFactory = locator.createSessionFactory();
+        clientSession = sessionFactory.createSession();
         clientSession.addMetaData(ClientSession.JMS_SESSION_IDENTIFIER_PROPERTY, "jms-client-id");
         clientSession.addMetaData("jms-client-id", queueName);
         producer = clientSession.createProducer();
@@ -33,6 +38,7 @@ class QueueMessageHandler extends Thread implements Runnable {
     }
     public void close() throws ActiveMQException {
         clientSession.close();
+        sessionFactory.close();
     }
 
     @Override
@@ -52,7 +58,7 @@ class QueueMessageHandler extends Thread implements Runnable {
                 if ( run ) ex.printStackTrace();
                 Thread.currentThread().interrupt();
             } catch (ActiveMQException e) {
-                throw new RuntimeException(e);
+                log.error("QueueMessageHandler::run ", e);
             }
         }
     }

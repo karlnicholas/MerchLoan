@@ -26,6 +26,7 @@ import java.util.UUID;
 @Slf4j
 public class MQConsumers {
     private final ClientSession clientSession;
+    private final ClientSessionFactory producerFactory;
     private final MQConsumerUtils mqConsumerUtils;
     private final QueryService queryService;
     private final ClientProducer responseProducer;
@@ -43,7 +44,7 @@ public class MQConsumers {
 
 
     public MQConsumers(ServerLocator locator, MQConsumerUtils mqConsumerUtils, MQProducers mqProducers, StatementService statementService, QueryService queryService) throws Exception {
-        ClientSessionFactory producerFactory =  locator.createSessionFactory();
+        producerFactory =  locator.createSessionFactory();
         clientSession = producerFactory.createSession();
         clientSession.addMetaData(ClientSession.JMS_SESSION_IDENTIFIER_PROPERTY, "jms-client-id");
         clientSession.addMetaData("jms-client-id", "statement-consumers");
@@ -77,7 +78,9 @@ public class MQConsumers {
         clientSession.deleteQueue(mqConsumerUtils.getStatementQueryStatementQueue());
         clientSession.deleteQueue(mqConsumerUtils.getStatementQueryStatementsQueue());
         clientSession.deleteQueue(mqConsumerUtils.getStatementQueryMostRecentStatementQueue());
+
         clientSession.close();
+        producerFactory.close();
     }
 
     public void receivedQueryStatementMessage(ClientMessage message) {

@@ -4,8 +4,6 @@ import org.apache.activemq.artemis.api.core.ActiveMQException;
 import org.apache.activemq.artemis.api.core.client.ClientProducer;
 import org.apache.activemq.artemis.api.core.client.ClientSession;
 
-import java.util.Optional;
-
 public interface QueueMessageHandlerProducer {
     Object sendMessage(ClientSession clientSession, ClientProducer producer, Object data) throws ActiveMQException;
     void close() throws ActiveMQException;

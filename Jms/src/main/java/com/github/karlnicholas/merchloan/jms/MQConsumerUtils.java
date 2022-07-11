@@ -13,8 +13,6 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.PropertySource;
 
-import java.io.IOException;
-
 @Configuration
 @ConfigurationProperties(prefix = "rabbitmq")
 @PropertySource(value = "classpath:rabbitmq-config.properties")
@@ -34,11 +32,6 @@ public class MQConsumerUtils {
         ClientConsumer clientConsumer = clientSession.createConsumer(queueName);
         clientConsumer.setMessageHandler(messageHandler);
         return clientConsumer;
-//        Channel channel = connection.createChannel();
-//        channel.exchangeDeclare(exchange, BuiltinExchangeType.DIRECT, false, true, null);
-//        channel.queueDeclare(queueName, false, exclusive, true, null);
-//        channel.queueBind(queueName, exchange, queueName);
-//        channel.basicConsume(queueName, true, deliverCallback, consumerTag -> {});
     }
 
     private String exchange;

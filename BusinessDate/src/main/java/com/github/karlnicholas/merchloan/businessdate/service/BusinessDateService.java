@@ -67,7 +67,7 @@ public class BusinessDateService {
         }
     }
 
-    public void startBillingCycle(LocalDate priorBusinessDate) throws InterruptedException, ActiveMQException {
+    public void startBillingCycle(LocalDate priorBusinessDate) throws ActiveMQException {
         List<BillingCycle> loansToCycle = (List<BillingCycle>) mqProducers.acccountQueryLoansToCycle(priorBusinessDate);
         for( BillingCycle billingCycle: loansToCycle) {
             mqProducers.serviceRequestBillLoan(billingCycle);

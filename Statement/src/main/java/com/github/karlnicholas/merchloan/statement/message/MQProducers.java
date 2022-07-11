@@ -21,6 +21,7 @@ import java.util.UUID;
 @Component
 @Slf4j
 public class MQProducers {
+    private final ClientSessionFactory producerFactory;
     private final ClientSession clientSession;
     private final ClientProducer servicerequestProducer;
     private final ClientProducer accountLoanClosedProducer;
@@ -34,7 +35,7 @@ public class MQProducers {
 
     @Autowired
     public MQProducers(ServerLocator locator, MQConsumerUtils mqConsumerUtils) throws Exception {
-        ClientSessionFactory producerFactory =  locator.createSessionFactory();
+        producerFactory =  locator.createSessionFactory();
         clientSession = producerFactory.createSession();
         clientSession.addMetaData(ClientSession.JMS_SESSION_IDENTIFIER_PROPERTY, "jms-client-id");
         clientSession.addMetaData("jms-client-id", "statement-producers");
@@ -70,6 +71,7 @@ public class MQProducers {
     public void preDestroy() throws ActiveMQException {
         log.info("producers preDestroy");
         clientSession.close();
+        producerFactory.close();
     }
     public Object accountBillingCycleCharge(BillingCycleCharge billingCycleCharge) throws InterruptedException, ActiveMQException {
         log.debug("accountBillingCycleCharge: {}", billingCycleCharge);
