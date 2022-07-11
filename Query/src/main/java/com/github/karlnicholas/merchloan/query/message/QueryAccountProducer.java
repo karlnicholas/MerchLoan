@@ -4,13 +4,10 @@ import com.github.karlnicholas.merchloan.jms.MQConsumerUtils;
 import com.github.karlnicholas.merchloan.jms.queue.QueueMessageHandlerProducer;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.activemq.artemis.api.core.ActiveMQException;
-import org.apache.activemq.artemis.api.core.QueueConfiguration;
-import org.apache.activemq.artemis.api.core.RoutingType;
 import org.apache.activemq.artemis.api.core.SimpleString;
 import org.apache.activemq.artemis.api.core.client.*;
 import org.springframework.util.SerializationUtils;
 
-import java.util.Optional;
 import java.util.UUID;
 
 @Slf4j
@@ -26,16 +23,11 @@ public class QueryAccountProducer implements QueueMessageHandlerProducer {
         clientSession = sessionFactory.createSession();
         this.queue = SimpleString.toSimpleString(mqConsumerUtils.getAccountQueryAccountIdQueue());
         replyQueueName = SimpleString.toSimpleString("queryAccount" + UUID.randomUUID());
-        QueueConfiguration queueConfiguration = new QueueConfiguration(replyQueueName);
-        queueConfiguration.setDurable(false);
-        queueConfiguration.setAutoDelete(true);
-        queueConfiguration.setTemporary(true);
-        queueConfiguration.setRoutingType(RoutingType.ANYCAST);
-        clientSession.createQueue(queueConfiguration);
-        replyConsumer = clientSession.createConsumer(replyQueueName);
+        replyConsumer = MQConsumerUtils.createTemporaryQueue(clientSession, replyQueueName);
 
         clientSession.start();
     }
+
     @Override
     public Object sendMessage(ClientSession clientSession, ClientProducer producer, Object data) throws ActiveMQException {
         UUID id = (UUID) data;

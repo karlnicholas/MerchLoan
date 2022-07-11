@@ -34,6 +34,16 @@ public class MQConsumerUtils {
         return clientConsumer;
     }
 
+    public static ClientConsumer createTemporaryQueue(ClientSession clientSession, SimpleString replyQueueName) throws ActiveMQException {
+        QueueConfiguration queueConfiguration = new QueueConfiguration(replyQueueName);
+        queueConfiguration.setDurable(false);
+        queueConfiguration.setAutoDelete(true);
+        queueConfiguration.setTemporary(true);
+        queueConfiguration.setRoutingType(RoutingType.ANYCAST);
+        clientSession.createQueue(queueConfiguration);
+        return clientSession.createConsumer(replyQueueName);
+    }
+
     private String exchange;
 
     private String accountCreateAccountQueue;

@@ -11,8 +11,6 @@ import org.apache.activemq.artemis.api.core.client.ClientProducer;
 import org.apache.activemq.artemis.api.core.client.ClientSession;
 import org.springframework.util.SerializationUtils;
 
-import java.util.Optional;
-
 @Slf4j
 public class AccountValidateDebitProducer implements QueueMessageHandlerProducer {
     private final SimpleString queue;

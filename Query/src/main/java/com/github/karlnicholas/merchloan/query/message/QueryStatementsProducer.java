@@ -4,8 +4,6 @@ import com.github.karlnicholas.merchloan.jms.MQConsumerUtils;
 import com.github.karlnicholas.merchloan.jms.queue.QueueMessageHandlerProducer;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.activemq.artemis.api.core.ActiveMQException;
-import org.apache.activemq.artemis.api.core.QueueConfiguration;
-import org.apache.activemq.artemis.api.core.RoutingType;
 import org.apache.activemq.artemis.api.core.SimpleString;
 import org.apache.activemq.artemis.api.core.client.*;
 import org.springframework.util.SerializationUtils;
@@ -26,13 +24,7 @@ public class QueryStatementsProducer implements QueueMessageHandlerProducer {
         sessionFactory = locator.createSessionFactory();
         clientSession = sessionFactory.createSession();
         replyQueueName = SimpleString.toSimpleString("queryLoanReply" + UUID.randomUUID());
-        QueueConfiguration queueConfiguration = new QueueConfiguration(replyQueueName);
-        queueConfiguration.setDurable(false);
-        queueConfiguration.setAutoDelete(true);
-        queueConfiguration.setTemporary(true);
-        queueConfiguration.setRoutingType(RoutingType.ANYCAST);
-        clientSession.createQueue(queueConfiguration);
-        replyConsumer = clientSession.createConsumer(replyQueueName);
+        replyConsumer = MQConsumerUtils.createTemporaryQueue(clientSession, replyQueueName);
 
         clientSession.start();
     }

@@ -1,10 +1,7 @@
 package com.github.karlnicholas.merchloan.jms;
 
 import lombok.extern.slf4j.Slf4j;
-import org.apache.activemq.artemis.api.core.client.ClientMessage;
-import org.springframework.util.SerializationUtils;
 
-import java.io.IOException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
