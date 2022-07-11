@@ -22,7 +22,7 @@ public class LoanCycle {
     private LoanProcessHandler currentLoanHandler;
     private LocalDate cycleDate;
     private CYCLE_STATES cycleState;
-    private LoanData loanData;
+    private final LoanData loanData;
     private int statementIndex;
     private Future<Boolean> futureResult;
 
