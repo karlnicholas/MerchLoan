@@ -17,20 +17,20 @@ import java.util.Optional;
 public class AccountValidateDebitProducer implements QueueMessageHandlerProducer {
     private final SimpleString queue;
 
-    public AccountValidateDebitProducer(MQConsumerUtils mqConsumerUtils, SimpleString replyQueue) {
+    public AccountValidateDebitProducer(MQConsumerUtils mqConsumerUtils) {
         this.queue = SimpleString.toSimpleString(mqConsumerUtils.getAccountValidateDebitQueue());
     }
 
     @Override
-    public void sendMessage(ClientSession clientSession, ClientProducer producer, Object data, Optional<String> responseKeyOpt) {
+    public Object sendMessage(ClientSession clientSession, ClientProducer producer, Object data) throws ActiveMQException {
         DebitLoan debitLoan = (DebitLoan) data;
         log.debug("accountValidateDebit: {}", debitLoan);
         ClientMessage message = clientSession.createMessage(false);
         message.getBodyBuffer().writeBytes(SerializationUtils.serialize(debitLoan));
-        try {
-            producer.send(queue, message, null);
-        } catch (ActiveMQException e) {
-            log.error("AccountValidateDebitProducer", e);
-        }
+        producer.send(queue, message);
+        return null;
+    }
+    @Override
+    public void close() {
     }
 }

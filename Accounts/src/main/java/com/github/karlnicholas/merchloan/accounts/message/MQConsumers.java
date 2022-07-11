@@ -190,9 +190,8 @@ public class MQConsumers {
 
     private void reply(ClientMessage origMessage, Object data) throws ActiveMQException {
         ClientMessage message = clientSession.createMessage(false);
-        message.setCorrelationID(origMessage.getCorrelationID());
         message.getBodyBuffer().writeBytes(SerializationUtils.serialize(data));
-        accountProducer.send(origMessage.getReplyTo(), message, null);
+        accountProducer.send(origMessage.getReplyTo(), message);
     }
 
     public void receivedCreateAccountMessage(ClientMessage message) {

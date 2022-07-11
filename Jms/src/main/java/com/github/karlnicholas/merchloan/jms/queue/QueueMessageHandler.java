@@ -1,5 +1,6 @@
 package com.github.karlnicholas.merchloan.jms.queue;
 
+import com.github.karlnicholas.merchloan.jms.ReplyWaitingHandler;
 import org.apache.activemq.artemis.api.core.ActiveMQException;
 import org.apache.activemq.artemis.api.core.client.ClientProducer;
 import org.apache.activemq.artemis.api.core.client.ClientSession;
@@ -11,10 +12,12 @@ class QueueMessageHandler extends Thread implements Runnable {
     private final List<QueueMessage> messsageQueue;
     private final ClientSession clientSession;
     private final ClientProducer producer;
+    private final ReplyWaitingHandler replyWaitingHandler;
     private boolean run;
 
 
-    public QueueMessageHandler(ServerLocator locator, String queueName, List<QueueMessage> messsageQueue) throws Exception {
+    public QueueMessageHandler(ServerLocator locator, String queueName, List<QueueMessage> messsageQueue, ReplyWaitingHandler replyWaitingHandler) throws Exception {
+        this.replyWaitingHandler = replyWaitingHandler;
         run = true;
         this.messsageQueue = messsageQueue;
         clientSession = locator.createSessionFactory().createSession();
@@ -42,11 +45,14 @@ class QueueMessageHandler extends Thread implements Runnable {
                     }
                     QueueMessage queueMessage = messsageQueue.remove(0);
                     messsageQueue.notifyAll();
-                    queueMessage.getProducer().sendMessage(clientSession, producer, queueMessage.getMessage(), queueMessage.getResponseKeyOpt());
+                    Object reply = queueMessage.getProducer().sendMessage(clientSession, producer, queueMessage.getMessage());
+                    queueMessage.getResponseKeyOpt().ifPresent(key->replyWaitingHandler.handleReply(key, reply));
                 }
             } catch (InterruptedException ex) {
                 if ( run ) ex.printStackTrace();
                 Thread.currentThread().interrupt();
+            } catch (ActiveMQException e) {
+                throw new RuntimeException(e);
             }
         }
     }

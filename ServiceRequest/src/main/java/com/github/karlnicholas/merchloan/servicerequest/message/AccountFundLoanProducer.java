@@ -17,20 +17,20 @@ import java.util.Optional;
 public class AccountFundLoanProducer implements QueueMessageHandlerProducer {
     private final SimpleString queue;
 
-    public AccountFundLoanProducer(MQConsumerUtils mqConsumerUtils, SimpleString replyQueue) {
+    public AccountFundLoanProducer(MQConsumerUtils mqConsumerUtils) {
         this.queue = SimpleString.toSimpleString(mqConsumerUtils.getAccountFundingQueue());
     }
 
     @Override
-    public void sendMessage(ClientSession clientSession, ClientProducer producer, Object data, Optional<String> responseKeyOpt) {
+    public Object sendMessage(ClientSession clientSession, ClientProducer producer, Object data) throws ActiveMQException {
         FundLoan fundLoan = (FundLoan) data;
         log.debug("accountFundLoan: {}", fundLoan);
         ClientMessage message = clientSession.createMessage(false);
         message.getBodyBuffer().writeBytes(SerializationUtils.serialize(fundLoan));
-        try {
-            producer.send(queue, message, null);
-        } catch (ActiveMQException e) {
-            log.error("AccountFundLoanProducer", e);
-        }
+        producer.send(queue, message);
+        return null;
+    }
+    @Override
+    public void close() {
     }
 }

@@ -35,15 +35,10 @@ public class ReplyWaitingHandler {
         return repliesWaiting.remove(responseKey).getReply();
     }
 
-    public void handleReplies(ClientMessage message) {
+    public void handleReply(String key, Object reply) {
         synchronized (repliesWaiting) {
-            String corrId = message.getCorrelationID().toString();
-            log.debug("handleReplies");
-            byte[] mo = new byte[message.getBodyBuffer().readableBytes()];
-            message.getBodyBuffer().readBytes(mo);
-            Object dm = SerializationUtils.deserialize(mo);
-            ReplyWaiting rw = repliesWaiting.get(corrId);
-            rw.setReply(dm);
+            ReplyWaiting rw = repliesWaiting.get(key);
+            rw.setReply(reply);
             repliesWaiting.notifyAll();
         }
     }

@@ -17,20 +17,20 @@ import java.util.Optional;
 public class StatementStatementProducer implements QueueMessageHandlerProducer {
     private final SimpleString queue;
 
-    public StatementStatementProducer(MQConsumerUtils mqConsumerUtils, SimpleString replyQueue) {
+    public StatementStatementProducer(MQConsumerUtils mqConsumerUtils) {
         this.queue = SimpleString.toSimpleString(mqConsumerUtils.getStatementStatementQueue());
     }
 
     @Override
-    public void sendMessage(ClientSession clientSession, ClientProducer producer, Object data, Optional<String> responseKeyOpt) {
+    public Object sendMessage(ClientSession clientSession, ClientProducer producer, Object data) throws ActiveMQException {
         StatementHeader statementHeader = (StatementHeader) data;
         log.debug("statementStatement: {}", statementHeader);
         ClientMessage message = clientSession.createMessage(false);
         message.getBodyBuffer().writeBytes(SerializationUtils.serialize(statementHeader));
-        try {
-            producer.send(queue, message, null);
-        } catch (ActiveMQException e) {
-            log.error("StatementStatementProducer", e);
-        }
+        producer.send(queue, message);
+        return null;
+    }
+    @Override
+    public void close() {
     }
 }

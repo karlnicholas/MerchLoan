@@ -49,12 +49,12 @@ public class ServiceRequestService {
         this.redisComponent = redisComponent;
         this.dataSource = dataSource;
 
-        accountCreateAccountProducer = new AccountCreateAccountProducer(mqConsumerUtils, null);
-        accountFundingProducer = new AccountFundLoanProducer(mqConsumerUtils, null);
-        accountValidateCreditProducer = new AccountValidateCreditProducer(mqConsumerUtils, null);
-        accountValidateDebitProducer = new AccountValidateDebitProducer(mqConsumerUtils, null);
-        statementStatementProducer = new StatementStatementProducer(mqConsumerUtils, null);
-        accountCloseLoanProducer = new AccountCloseLoanProducer(mqConsumerUtils, null);
+        accountCreateAccountProducer = new AccountCreateAccountProducer(mqConsumerUtils);
+        accountFundingProducer = new AccountFundLoanProducer(mqConsumerUtils);
+        accountValidateCreditProducer = new AccountValidateCreditProducer(mqConsumerUtils);
+        accountValidateDebitProducer = new AccountValidateDebitProducer(mqConsumerUtils);
+        statementStatementProducer = new StatementStatementProducer(mqConsumerUtils);
+        accountCloseLoanProducer = new AccountCloseLoanProducer(mqConsumerUtils);
 
         queueMessageService.initialize(locator, new ReplyWaitingHandler(), "ServiceRequest");
     }

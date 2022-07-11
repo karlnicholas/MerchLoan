@@ -21,7 +21,7 @@ public class QueueMessageService {
         messsageQueue = new ArrayList<>();
         handlers = new ArrayList<>();
         for ( int i = 0 ; i < MAX_CAPACITY; ++i) {
-            QueueMessageHandler queueMessageHandler = new QueueMessageHandler(locator, queueName, messsageQueue);
+            QueueMessageHandler queueMessageHandler = new QueueMessageHandler(locator, queueName, messsageQueue, replyWaitingHandler);
             handlers.add(queueMessageHandler);
             queueMessageHandler.start();
         }

@@ -17,20 +17,20 @@ import java.util.Optional;
 public class AccountCloseLoanProducer implements QueueMessageHandlerProducer {
     private final SimpleString queue;
 
-    public AccountCloseLoanProducer(MQConsumerUtils mqConsumerUtils, SimpleString replyQueue) {
+    public AccountCloseLoanProducer(MQConsumerUtils mqConsumerUtils) {
         this.queue = SimpleString.toSimpleString(mqConsumerUtils.getAccountCloseLoanQueue());
     }
 
     @Override
-    public void sendMessage(ClientSession clientSession, ClientProducer producer, Object data, Optional<String> responseKeyOpt) {
+    public Object sendMessage(ClientSession clientSession, ClientProducer producer, Object data) throws ActiveMQException {
         CloseLoan closeLoan = (CloseLoan) data;
         log.debug("accountCloseLoan: {}", closeLoan);
         ClientMessage message = clientSession.createMessage(false);
         message.getBodyBuffer().writeBytes(SerializationUtils.serialize(closeLoan));
-        try {
-            producer.send(queue, message, null);
-        } catch (ActiveMQException e) {
-            log.error("AccountCloseLoanProducer", e);
-        }
+        producer.send(queue, message);
+        return null;
+    }
+    @Override
+    public void close() {
     }
 }

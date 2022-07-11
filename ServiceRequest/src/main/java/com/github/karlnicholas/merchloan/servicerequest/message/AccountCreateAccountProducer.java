@@ -17,19 +17,19 @@ import java.util.Optional;
 public class AccountCreateAccountProducer implements QueueMessageHandlerProducer {
     private final SimpleString queue;
 
-    public AccountCreateAccountProducer(MQConsumerUtils mqConsumerUtils, SimpleString replyQueue) {
+    public AccountCreateAccountProducer(MQConsumerUtils mqConsumerUtils) {
         this.queue = SimpleString.toSimpleString(mqConsumerUtils.getAccountCreateAccountQueue());
     }
     @Override
-    public void sendMessage(ClientSession clientSession, ClientProducer producer, Object data, Optional<String> responseKeyOpt) {
+    public Object sendMessage(ClientSession clientSession, ClientProducer producer, Object data) throws ActiveMQException {
         CreateAccount createAccount = (CreateAccount) data;
         log.debug("accountCreateAccount: {}", createAccount);
         ClientMessage message = clientSession.createMessage(false);
         message.getBodyBuffer().writeBytes(SerializationUtils.serialize(createAccount));
-        try {
-            producer.send(queue, message, null);
-        } catch (ActiveMQException e) {
-            log.error("AccountCreateAccountProducer", e);
-        }
+        producer.send(queue, message);
+        return null;
+    }
+    @Override
+    public void close() {
     }
 }

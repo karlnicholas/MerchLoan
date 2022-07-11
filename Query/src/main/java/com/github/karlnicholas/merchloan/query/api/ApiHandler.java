@@ -6,9 +6,6 @@ import com.github.karlnicholas.merchloan.jms.queue.QueueMessageHandlerProducer;
 import com.github.karlnicholas.merchloan.jms.queue.QueueMessageService;
 import com.github.karlnicholas.merchloan.query.message.*;
 import org.apache.activemq.artemis.api.core.ActiveMQException;
-import org.apache.activemq.artemis.api.core.SimpleString;
-import org.apache.activemq.artemis.api.core.client.ClientSession;
-import org.apache.activemq.artemis.api.core.client.ClientSessionFactory;
 import org.apache.activemq.artemis.api.core.client.ServerLocator;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
@@ -29,35 +26,29 @@ public class ApiHandler {
     private final QueryStatementProducer queryStatementProducer;
     private final QueryStatementsProducer queryStatementsProducer;
     private final QueryCheckRequestProducer queryCheckRequestProducer;
-    private final ClientSession replySession;
-    private final ClientSessionFactory replyFactory;
 
     public ApiHandler(ServerLocator locator, MQConsumerUtils mqConsumerUtils, QueueMessageService queueMessageService) throws Exception {
         this.queueMessageService = queueMessageService;
         ReplyWaitingHandler replyWaitingHandler = new ReplyWaitingHandler();
 
-        replyFactory = locator.createSessionFactory();
-        replySession = replyFactory.createSession();
-        replySession.addMetaData(ClientSession.JMS_SESSION_IDENTIFIER_PROPERTY, "jms-client-id");
-        replySession.addMetaData("jms-client-id", "query-reply");
-        SimpleString replyQueue = SimpleString.toSimpleString("query-reply-" + UUID.randomUUID());
-        mqConsumerUtils.bindConsumer(replySession, replyQueue, true, replyWaitingHandler::handleReplies);
-        replySession.start();
-
-        queryServiceRequestProducer = new QueryServiceRequestProducer(mqConsumerUtils, replyQueue);
-        queryAccountProducer = new QueryAccountProducer(mqConsumerUtils, replyQueue);
-        queryLoanProducer = new QueryLoanProducer(mqConsumerUtils, replyQueue);
-        queryStatementProducer = new QueryStatementProducer(mqConsumerUtils, replyQueue);
-        queryStatementsProducer = new QueryStatementsProducer(mqConsumerUtils, replyQueue);
-        queryCheckRequestProducer = new QueryCheckRequestProducer(mqConsumerUtils, replyQueue);
+        queryServiceRequestProducer = new QueryServiceRequestProducer(locator, mqConsumerUtils);
+        queryAccountProducer = new QueryAccountProducer(locator, mqConsumerUtils);
+        queryLoanProducer = new QueryLoanProducer(locator, mqConsumerUtils);
+        queryStatementProducer = new QueryStatementProducer(locator, mqConsumerUtils);
+        queryStatementsProducer = new QueryStatementsProducer(locator, mqConsumerUtils);
+        queryCheckRequestProducer = new QueryCheckRequestProducer(locator, mqConsumerUtils);
 
         queueMessageService.initialize(locator, replyWaitingHandler, "Query");
     }
 
     @PreDestroy
     public void preDestroy() throws ActiveMQException, InterruptedException {
-        replySession.close();
-        replyFactory.close();
+        queryServiceRequestProducer.close();
+        queryAccountProducer.close();
+        queryLoanProducer.close();
+        queryStatementProducer.close();
+        queryStatementsProducer.close();
+        queryCheckRequestProducer.close();
         queueMessageService.close();
     }
 

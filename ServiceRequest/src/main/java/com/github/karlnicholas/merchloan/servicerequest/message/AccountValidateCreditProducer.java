@@ -17,19 +17,19 @@ import java.util.Optional;
 public class AccountValidateCreditProducer implements QueueMessageHandlerProducer {
     private final SimpleString queue;
 
-    public AccountValidateCreditProducer(MQConsumerUtils mqConsumerUtils, SimpleString replyQueue) {
+    public AccountValidateCreditProducer(MQConsumerUtils mqConsumerUtils) {
         this.queue = SimpleString.toSimpleString(mqConsumerUtils.getAccountValidateCreditQueue());
     }
     @Override
-    public void sendMessage(ClientSession clientSession, ClientProducer producer, Object data, Optional<String> responseKeyOpt) {
+    public Object sendMessage(ClientSession clientSession, ClientProducer producer, Object data) throws ActiveMQException {
         CreditLoan creditLoan = (CreditLoan) data;
         log.debug("accountValidateCredit: {}", creditLoan);
         ClientMessage message = clientSession.createMessage(false);
         message.getBodyBuffer().writeBytes(SerializationUtils.serialize(creditLoan));
-        try {
-            producer.send(queue, message, null);
-        } catch (ActiveMQException e) {
-            log.error("AccountValidateCreditProducer", e);
-        }
+        producer.send(queue, message);
+        return null;
+    }
+    @Override
+    public void close() {
     }
 }
