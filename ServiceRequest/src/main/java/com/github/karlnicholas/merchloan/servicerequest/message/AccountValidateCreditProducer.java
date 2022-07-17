@@ -9,7 +9,6 @@ import org.apache.activemq.artemis.api.core.SimpleString;
 import org.apache.activemq.artemis.api.core.client.ClientMessage;
 import org.apache.activemq.artemis.api.core.client.ClientProducer;
 import org.apache.activemq.artemis.api.core.client.ClientSession;
-import org.springframework.util.SerializationUtils;
 
 @Slf4j
 public class AccountValidateCreditProducer implements QueueMessageHandlerProducer {

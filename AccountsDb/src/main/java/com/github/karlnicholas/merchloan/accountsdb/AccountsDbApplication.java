@@ -1,18 +1,11 @@
 package com.github.karlnicholas.merchloan.accountsdb;
 
-import org.springframework.boot.ApplicationArguments;
-import org.springframework.boot.ApplicationRunner;
-import org.springframework.boot.SpringApplication;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
-
-@SpringBootApplication
-public class AccountsDbApplication implements ApplicationRunner {
-    public static void main(String[] args) {
-        SpringApplication.run(AccountsDbApplication.class, args);
+public class AccountsDbApplication {
+    public static void main(String[] args) throws Exception {
+        new AccountsDbApplication().run();
     }
 
-    @Override
-    public void run(ApplicationArguments args) throws Exception {
+    public void run() throws Exception {
         AccountsDb.startServer();
     }
 

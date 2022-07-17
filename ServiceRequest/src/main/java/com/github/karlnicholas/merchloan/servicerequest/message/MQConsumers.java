@@ -15,14 +15,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.activemq.artemis.api.core.ActiveMQException;
 import org.apache.activemq.artemis.api.core.SimpleString;
 import org.apache.activemq.artemis.api.core.client.*;
-import org.springframework.stereotype.Component;
-import org.springframework.util.SerializationUtils;
 
-import javax.annotation.PreDestroy;
 import java.util.Optional;
 import java.util.UUID;
 
-@Component
 @Slf4j
 public class MQConsumers {
     private final ServiceRequestService serviceRequestService;

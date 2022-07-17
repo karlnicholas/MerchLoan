@@ -1,18 +1,11 @@
 package com.github.karlnicholas.merchloan.statementdb;
 
-import org.springframework.boot.ApplicationArguments;
-import org.springframework.boot.ApplicationRunner;
-import org.springframework.boot.SpringApplication;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
-
-@SpringBootApplication
-public class StatementDbApplication implements ApplicationRunner {
-    public static void main(String[] args) {
-        SpringApplication.run(StatementDbApplication.class, args);
+public class StatementDbApplication {
+    public static void main(String[] args) throws Exception {
+        new StatementDbApplication().run();
     }
 
-    @Override
-    public void run(ApplicationArguments args) throws Exception {
+    public void run() throws Exception {
         StatementDb.startServer();
     }
 

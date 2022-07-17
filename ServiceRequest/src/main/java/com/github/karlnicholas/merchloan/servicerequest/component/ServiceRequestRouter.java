@@ -3,13 +3,11 @@ package com.github.karlnicholas.merchloan.servicerequest.component;
 import com.github.karlnicholas.merchloan.apimessage.message.*;
 import com.github.karlnicholas.merchloan.servicerequest.service.ServiceRequestService;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
-@Component
 @Slf4j
 public class ServiceRequestRouter {
     private final Map<String, ExceptionFunction<? super ServiceRequestMessage, UUID>>  routingMap;
