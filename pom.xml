@@ -30,6 +30,11 @@
         <module>BusinessDate</module>
         <module>Client</module>
     </modules>
+    <scm>
+        <url>https://github.com/karlnicholas/MerchLoan.git</url>
+        <connection>scm:git:git@github.com:karlnicholas/MerchLoan.git</connection>
+        <developerConnection>scm:git:git@github.com:karlnicholas/MerchLoan.git</developerConnection>
+    </scm>
     <dependencyManagement>
         <dependencies>
             <dependency>
@@ -69,5 +74,16 @@
         <maven.compiler.source>11</maven.compiler.source>
         <maven.compiler.target>11</maven.compiler.target>
     </properties>
-
+    <build>
+        <plugins>
+            <plugin>
+                <artifactId>maven-release-plugin</artifactId>
+                <configuration>
+                    <goals>
+                        <goal>install</goal>
+                    </goals>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 </project>
