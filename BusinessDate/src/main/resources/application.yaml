@@ -1,7 +1,9 @@
 spring:
   jpa:
-    show-sql: false
     open-in-view: false
+    show-sql: false
+server:
+  port: 8100
 logging:
   level:
     com:

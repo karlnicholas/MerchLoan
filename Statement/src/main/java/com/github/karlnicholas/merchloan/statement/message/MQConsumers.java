@@ -12,6 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.activemq.artemis.api.core.ActiveMQException;
 import org.apache.activemq.artemis.api.core.SimpleString;
 import org.apache.activemq.artemis.api.core.client.*;
+import org.apache.activemq.artemis.core.remoting.FailureListener;
 import org.springframework.stereotype.Component;
 import org.springframework.util.SerializationUtils;
 
@@ -28,18 +29,18 @@ public class MQConsumers {
     private final ClientSessionFactory producerFactory;
     private final MQConsumerUtils mqConsumerUtils;
     private final QueryService queryService;
-    private final ClientProducer responseProducer;
+    private final ClientProducer queryStatementProducer;
+    private final ClientProducer queryMostRecentStatementProducer;
+    private final ClientProducer queryStatementsProducer;
     private final ClientConsumer statementStatementQueue;
     private final ClientConsumer statementCloseStatementQueue;
     private final ClientConsumer statementQueryStatementQueue;
     private final ClientConsumer statementQueryStatementsQueue;
     private final ClientConsumer statementQueryMostRecentStatementQueue;
-    private final ObjectMapper objectMapper;
     private final StatementService statementService;
     private final MQProducers mqProducers;
     private final BigDecimal interestRate = new BigDecimal("0.10");
     private final BigDecimal interestMonths = new BigDecimal("12");
-    private static final String LOG_STRING = "receivedStatementMessage {}";
 
 
     public MQConsumers(ServerLocator locator, MQConsumerUtils mqConsumerUtils, MQProducers mqProducers, StatementService statementService, QueryService queryService) throws Exception {
@@ -51,16 +52,47 @@ public class MQConsumers {
         this.statementService = statementService;
         this.mqProducers = mqProducers;
         this.queryService = queryService;
-        objectMapper = new ObjectMapper().findAndRegisterModules()
-                .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
+//        objectMapper = new ObjectMapper().findAndRegisterModules()
+//                .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
 
         statementStatementQueue = mqConsumerUtils.bindConsumer(clientSession, SimpleString.toSimpleString(mqConsumerUtils.getStatementStatementQueue()), false, this::receivedStatementMessage);
         statementCloseStatementQueue = mqConsumerUtils.bindConsumer(clientSession, SimpleString.toSimpleString(mqConsumerUtils.getStatementCloseStatementQueue()), false, this::receivedCloseStatementMessage);
         statementQueryStatementQueue = mqConsumerUtils.bindConsumer(clientSession, SimpleString.toSimpleString(mqConsumerUtils.getStatementQueryStatementQueue()), false, this::receivedQueryStatementMessage);
         statementQueryStatementsQueue = mqConsumerUtils.bindConsumer(clientSession, SimpleString.toSimpleString(mqConsumerUtils.getStatementQueryStatementsQueue()), false, this::receivedQueryStatementsMessage);
         statementQueryMostRecentStatementQueue = mqConsumerUtils.bindConsumer(clientSession, SimpleString.toSimpleString(mqConsumerUtils.getStatementQueryMostRecentStatementQueue()), false, this::receivedQueryMostRecentStatementMessage);
+        producerFactory.getConnection().addFailureListener(new FailureListener() {
+            @Override
+            public void connectionFailed(ActiveMQException exception, boolean failedOver) {
+                log.error("F1 ", exception);
+            }
 
-        responseProducer = clientSession.createProducer();
+            @Override
+            public void connectionFailed(ActiveMQException exception, boolean failedOver, String scaleDownTargetNodeID) {
+                log.error("F2 ", exception);
+            }
+        });
+
+        clientSession.addFailureListener(new SessionFailureListener() {
+
+            @Override
+            public void connectionFailed(ActiveMQException exception, boolean failedOver) {
+                log.error("F2 ", exception);
+            }
+
+            @Override
+            public void connectionFailed(ActiveMQException exception, boolean failedOver, String scaleDownTargetNodeID) {
+                log.error("F3 ", exception);
+            }
+
+            @Override
+            public void beforeReconnect(ActiveMQException exception) {
+                log.error("F4 ", exception);
+
+            }
+        });
+        queryStatementProducer = clientSession.createProducer();
+        queryMostRecentStatementProducer = clientSession.createProducer();
+        queryStatementsProducer  = clientSession.createProducer();
         clientSession.start();
     }
 
@@ -89,13 +121,16 @@ public class MQConsumers {
             UUID loanId = (UUID) SerializationUtils.deserialize(mo);
             log.debug("receivedQueryStatementMessage {}", loanId);
             String result = queryService.findById(loanId).map(Statement::getStatementDoc).orElse("ERROR: No statement found for id " + loanId);
-            reply(message, result);
+            ClientMessage replyMessage = clientSession.createMessage(false);
+            replyMessage.getBodyBuffer().writeBytes(SerializationUtils.serialize(result));
+            queryStatementProducer.send(message.getReplyTo(), replyMessage);
         } catch (Exception ex) {
             log.error("receivedQueryStatementMessage exception {}", ex.getMessage());
         }
     }
 
     public void receivedQueryMostRecentStatementMessage(ClientMessage message) {
+        log.debug("receivedQueryMostRecentStatementMessage PRE");
         try {
             byte[] mo = new byte[message.getBodyBuffer().readableBytes()];
             message.getBodyBuffer().readBytes(mo);
@@ -109,7 +144,9 @@ public class MQConsumers {
                             .startingBalance(statement.getStartingBalance())
                             .build())
                     .orElse(MostRecentStatement.builder().loanId(loanId).build());
-            reply(message, mostRecentStatement);
+            ClientMessage replyMessage = clientSession.createMessage(false);
+            replyMessage.getBodyBuffer().writeBytes(SerializationUtils.serialize(mostRecentStatement));
+            queryMostRecentStatementProducer.send(message.getReplyTo(), replyMessage);
         } catch (Exception ex) {
             log.error("receivedQueryMostRecentStatementMessage exception {}", ex.getMessage());
         }
@@ -121,16 +158,13 @@ public class MQConsumers {
             message.getBodyBuffer().readBytes(mo);
             UUID id = (UUID) SerializationUtils.deserialize(mo);
             log.debug("receivedQueryStatementsMessage Received {}", id);
-            reply(message, objectMapper.writeValueAsString(queryService.findByLoanId(id)));
+//            reply(message, objectMapper.writeValueAsString(queryService.findByLoanId(id)));
+            ClientMessage replyMessage = clientSession.createMessage(false);
+            replyMessage.getBodyBuffer().writeBytes(SerializationUtils.serialize(queryService.findByLoanId(id)));
+            queryStatementsProducer.send(message.getReplyTo(), replyMessage);
         } catch (Exception ex) {
             log.error("receivedQueryStatementsMessage exception {}", ex.getMessage());
         }
-    }
-
-    private void reply(ClientMessage origMessage, Object data) throws ActiveMQException {
-        ClientMessage message = clientSession.createMessage(false);
-        message.getBodyBuffer().writeBytes(SerializationUtils.serialize(data));
-        responseProducer.send(origMessage.getReplyTo(), message);
     }
 
     public void receivedStatementMessage(ClientMessage message) {
@@ -147,8 +181,9 @@ public class MQConsumers {
                 .build();
         boolean loanClosed = false;
         try {
-            log.debug(LOG_STRING, statementHeader);
+            log.debug("receivedStatementMessage: loanId: {}", statementHeader.getLoanId());
             statementHeader = (StatementHeader) mqProducers.accountQueryStatementHeader(statementHeader);
+            log.debug("receivedStatementMessage: statementHeader: {}", statementHeader);
             if (statementHeader.getCustomer() == null) {
                 requestResponse.setFailure("ERROR: Account/Loan not found for accountId " + statementHeader.getAccountId() + " and loanId " + statementHeader.getLoanId());
                 return;
@@ -176,6 +211,7 @@ public class MQConsumers {
                 statementHeader.getRegisterEntries().add(feeRegisterEntry);
             }
             BigDecimal interestAmt = interestBalance.multiply(interestRate).divide(interestMonths, 2, RoundingMode.HALF_EVEN);
+            log.debug("receivedStatementMessage: interestAmt: {}", interestAmt);
             RegisterEntryMessage interestRegisterEntry = (RegisterEntryMessage) mqProducers.accountBillingCycleCharge(BillingCycleCharge.builder()
                     .id(statementHeader.getInterestChargeId())
                     .loanId(statementHeader.getLoanId())
@@ -185,6 +221,7 @@ public class MQConsumers {
                     .retry(statementHeader.getRetry())
                     .build()
             );
+            log.debug("receivedStatementMessage: interestRegisterEntry: {}", interestRegisterEntry);
             statementHeader.getRegisterEntries().add(interestRegisterEntry);
             BigDecimal startingBalance = lastStatement.isPresent() ? lastStatement.get().getEndingBalance() : BigDecimal.ZERO.setScale(2, RoundingMode.HALF_EVEN);
             BigDecimal endingBalance = startingBalance;
@@ -201,15 +238,16 @@ public class MQConsumers {
             // so, done with interest and fee calculations here?
             statementService.saveStatement(statementHeader, startingBalance, endingBalance);
             requestResponse.setSuccess();
+            log.debug("receivedStatementMessage: requestResponse: {}", requestResponse);
             if (endingBalance.compareTo(BigDecimal.ZERO) <= 0) {
                 mqProducers.accountLoanClosed(statementHeader);
                 loanClosed = true;
             }
         } catch (InterruptedException iex) {
-            log.error(LOG_STRING, iex);
+            log.error("receivedStatementMessage {}", iex);
             Thread.currentThread().interrupt();
         } catch (Exception ex) {
-            log.error(LOG_STRING, ex);
+            log.error("receivedStatementMessage {}", ex);
             requestResponse.setError(ex.getMessage());
         } finally {
             if (!loanClosed) {

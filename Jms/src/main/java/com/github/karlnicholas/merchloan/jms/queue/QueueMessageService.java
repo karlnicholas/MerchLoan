@@ -16,12 +16,12 @@ public class QueueMessageService {
     private ReplyWaitingHandler replyWaitingHandler;
     private List<QueueMessageHandler> handlers;
 
-    public void initialize(ServerLocator locator, ReplyWaitingHandler replyWaitingHandler, String queueName) throws Exception {
-        this.replyWaitingHandler = replyWaitingHandler;
+    public void initialize(ServerLocator locator, String queueName) throws Exception {
+        this.replyWaitingHandler = new ReplyWaitingHandler();
         messsageQueue = new ArrayList<>();
         handlers = new ArrayList<>();
         for ( int i = 0 ; i < MAX_CAPACITY; ++i) {
-            QueueMessageHandler queueMessageHandler = new QueueMessageHandler(locator, queueName, messsageQueue, replyWaitingHandler);
+            QueueMessageHandler queueMessageHandler = new QueueMessageHandler(locator, queueName+i, messsageQueue, replyWaitingHandler);
             handlers.add(queueMessageHandler);
             queueMessageHandler.start();
         }

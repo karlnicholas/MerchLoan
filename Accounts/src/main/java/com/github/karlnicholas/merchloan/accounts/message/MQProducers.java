@@ -57,14 +57,14 @@ public class MQProducers {
     }
 
     public void serviceRequestServiceRequest(ServiceRequestResponse serviceRequest) throws ActiveMQException {
-        log.debug("serviceRequestServiceRequest: {}", serviceRequest);
+        log.debug("serviceRequestServiceRequest: {}", serviceRequest.getId());
         ClientMessage message = clientSession.createMessage(false);
         message.getBodyBuffer().writeBytes(SerializationUtils.serialize(serviceRequest));
         servicerequestProducer.send(message);
     }
 
     public void statementCloseStatement(StatementHeader statementHeader) throws ActiveMQException {
-        log.debug("statementCloseStatement: {}", statementHeader);
+        log.debug("statementCloseStatement: loanId: {}", statementHeader.getLoanId());
         ClientMessage message = clientSession.createMessage(false);
         message.getBodyBuffer().writeBytes(SerializationUtils.serialize(statementHeader));
         statementCloseStatementProducer.send(message);
@@ -75,7 +75,9 @@ public class MQProducers {
         ClientMessage message = clientSession.createMessage(false);
         message.setReplyTo(mostRecentStatementReplyQueueName);
         message.getBodyBuffer().writeBytes(SerializationUtils.serialize(loanId));
-        statementQueryMostRecentStatementProducer.send(message);
+        statementQueryMostRecentStatementProducer.send(message, ack->{
+            log.debug("ACK {}", ack);
+        });
         ClientMessage reply = mostRecentStatementReplyConsumer.receive();
         byte[] mo = new byte[reply.getBodyBuffer().readableBytes()];
         reply.getBodyBuffer().readBytes(mo);

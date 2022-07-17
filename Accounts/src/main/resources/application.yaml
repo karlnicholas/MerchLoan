@@ -3,7 +3,7 @@ logging:
     com:
       github:
         karlnicholas:
-          merchloan: info
+          merchloan: debug
     org:
       springframework:
         orm:

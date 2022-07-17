@@ -78,7 +78,9 @@ public class MQProducers {
         ClientMessage message = clientSession.createMessage(false);
         message.setReplyTo(billingCycleChargeQueueName);
         message.getBodyBuffer().writeBytes(SerializationUtils.serialize(billingCycleCharge));
-        accountBillingCycleChargeProducer.send(message);
+        accountBillingCycleChargeProducer.send(message, ack->{
+            log.debug("accountBillingCycleChargeProducer ACK: {}", ack);
+        });
         ClientMessage reply = billingCycleChargeConsumer.receive();
         byte[] mo = new byte[reply.getBodyBuffer().readableBytes()];
         reply.getBodyBuffer().readBytes(mo);
@@ -90,7 +92,9 @@ public class MQProducers {
         ClientMessage message = clientSession.createMessage(false);
         message.setReplyTo(queryStatementHeaderReplyQueueName);
         message.getBodyBuffer().writeBytes(SerializationUtils.serialize(statementHeader));
-        accountQueryStatementHeaderProducer.send(message);
+        accountQueryStatementHeaderProducer.send(message, ack->{
+            log.debug("accountQueryStatementHeaderProducer ACK: ", ack);
+        });
         ClientMessage reply = queryStatementHeaderConsumer.receive();
         byte[] mo = new byte[reply.getBodyBuffer().readableBytes()];
         reply.getBodyBuffer().readBytes(mo);

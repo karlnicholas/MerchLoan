@@ -29,7 +29,8 @@ public class MQConsumers {
     private final MQConsumerUtils mqConsumerUtils;
     private final ClientSession clientSession;
     private final ClientSessionFactory producerFactory;
-    private final ClientProducer responseProducer;
+    private final ClientProducer serviceRequestQueryIdReplyProducer;
+    private final ClientProducer checkRequestReplyProducer;
     private final ClientConsumer servicerequestQueue;
     private final ClientConsumer servicerequestQueryIdQueue;
     private final ClientConsumer serviceRequestCheckRequestQueue;
@@ -55,7 +56,8 @@ public class MQConsumers {
         serviceRequestBillLoanQueue = mqConsumerUtils.bindConsumer(clientSession, SimpleString.toSimpleString(mqConsumerUtils.getServiceRequestBillLoanQueue()), false, this::receivedServiceRequestBillloanMessage);
         serviceRequestStatementCompleteQueue = mqConsumerUtils.bindConsumer(clientSession, SimpleString.toSimpleString(mqConsumerUtils.getServiceRequestStatementCompleteQueue()), false, this::receivedServiceStatementCompleteMessage);
 
-        responseProducer = clientSession.createProducer();
+        serviceRequestQueryIdReplyProducer = clientSession.createProducer();
+        checkRequestReplyProducer = clientSession.createProducer();
         clientSession.start();
     }
 
@@ -97,7 +99,9 @@ public class MQConsumers {
             } else {
                 response = "ERROR: id not found: " + id;
             }
-            reply(message, response);
+            ClientMessage replyMessage = clientSession.createMessage(false);
+            replyMessage.writeBodyBufferBytes(SerializationUtils.serialize(response));
+            serviceRequestQueryIdReplyProducer.send(message.getReplyTo(), replyMessage);
         } catch (Exception e) {
             log.error("receivedCheckRequestMessage", e);
         }
@@ -107,18 +111,12 @@ public class MQConsumers {
     public void receivedCheckRequestMessage(ClientMessage message) {
         try {
             log.debug("CheckRequest Received");
-            reply(message, queryService.checkRequest());
+            ClientMessage replyMessage = clientSession.createMessage(false);
+            replyMessage.writeBodyBufferBytes(SerializationUtils.serialize(queryService.checkRequest()));
+            checkRequestReplyProducer.send(message.getReplyTo(), replyMessage);
         } catch (Exception e) {
             log.error("receivedCheckRequestMessage", e);
         }
-    }
-
-    private void reply(ClientMessage origMessage, Object data) throws ActiveMQException {
-        ClientMessage message = clientSession.createMessage(false);
-        byte[] mo = SerializationUtils.serialize(data);
-        message.writeBodyBufferBytes(mo);
-        message.setCorrelationID(origMessage.getCorrelationID());
-        responseProducer.send(origMessage.getReplyTo(), message);
     }
 
     public void receivedServiceRequestMessage(ClientMessage message) {

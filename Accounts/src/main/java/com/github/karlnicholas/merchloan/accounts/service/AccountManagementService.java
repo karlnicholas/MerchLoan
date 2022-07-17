@@ -109,9 +109,12 @@ public class AccountManagementService {
                 .id(statementHeader.getId())
                 .build();
         try (Connection con = dataSource.getConnection()) {
+            log.debug("statementHeader con {}", statementHeader.getLoanId());
             Optional<Loan> loanOpt = loanDao.findById(con, statementHeader.getLoanId());
+            log.debug("statementHeader loanOpt: {} {}", loanOpt, statementHeader.getLoanId());
             if (loanOpt.isPresent()) {
                 Optional<Account> accountQ = accountDao.findById(con, loanOpt.get().getAccountId());
+                log.debug("statementHeader accountQ: {} {}", accountQ, statementHeader.getLoanId());
                 if (accountQ.isPresent()) {
                     statementHeader.setCustomer(accountQ.get().getCustomer());
                     statementHeader.setAccountId(loanOpt.get().getAccountId());
@@ -134,6 +137,7 @@ public class AccountManagementService {
             log.error("statementHeader {}", ex);
             requestResponse.setError(ex.getMessage());
         }
+        log.debug("statementHeader requestResponse: {}", statementHeader.getLoanId());
         return requestResponse;
     }
 

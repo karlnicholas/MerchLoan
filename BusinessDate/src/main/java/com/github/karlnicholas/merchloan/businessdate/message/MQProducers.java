@@ -90,6 +90,7 @@ public class MQProducers {
     }
 
     public void serviceRequestBillLoan(BillingCycle billingCycle) throws ActiveMQException {
+        log.debug("serviceRequestBillLoan {}", billingCycle.getLoanId());
         ClientMessage message = clientSession.createMessage(false);
         message.getBodyBuffer().writeBytes(SerializationUtils.serialize(billingCycle));
         serviceRequestBillLoanProducer.send(message);

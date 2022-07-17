@@ -32,7 +32,11 @@ public class MQConsumers {
     private final ObjectMapper objectMapper;
     private final MQProducers mqProducers;
     private final MQConsumerUtils mqConsumerUtils;
-    private final ClientProducer accountProducer;
+    private final ClientProducer statementHeaderReplyProducer;
+    private final ClientProducer loansToCyceReplyProducer;
+    private final ClientProducer billingCycleChargeReplyProducer;
+    private final ClientProducer queryAccountIdReplyProducer;
+    private final ClientProducer queryLoanIdReplyProducer;
     private final ClientConsumer accountCreateAccountQueue;
     private final ClientConsumer accountFundingQueue;
     private final ClientConsumer accountValidateCreditQueue;
@@ -73,7 +77,11 @@ public class MQConsumers {
         accountQueryAccountIdQueue = mqConsumerUtils.bindConsumer(clientSession, SimpleString.toSimpleString(mqConsumerUtils.getAccountQueryAccountIdQueue()), false, this::receivedQueryAccountIdMessage);
         accountQueryLoanIdQueue = mqConsumerUtils.bindConsumer(clientSession, SimpleString.toSimpleString(mqConsumerUtils.getAccountQueryLoanIdQueue()), false, this::receivedQueryLoanIdMessage);
 
-        accountProducer = clientSession.createProducer();
+        statementHeaderReplyProducer = clientSession.createProducer();
+        loansToCyceReplyProducer = clientSession.createProducer();
+        billingCycleChargeReplyProducer = clientSession.createProducer();
+        queryAccountIdReplyProducer = clientSession.createProducer();
+        queryLoanIdReplyProducer = clientSession.createProducer();
 
         clientSession.start();
     }
@@ -111,34 +119,41 @@ public class MQConsumers {
             byte[] mo = new byte[message.getBodyBuffer().readableBytes()];
             message.getBodyBuffer().readBytes(mo);
             StatementHeader statementHeader = (StatementHeader) SerializationUtils.deserialize(mo);
-            log.debug("receivedStatementHeaderMessage {}", statementHeader);
+            log.debug("receivedStatementHeaderMessage loanId: {}", statementHeader.getLoanId());
             ServiceRequestResponse serviceRequestResponse = accountManagementService.statementHeader(statementHeader);
+            log.debug("receivedStatementHeaderMessage serviceRequestResponse: {}", serviceRequestResponse);
             if (serviceRequestResponse.isSuccess())
                 registerManagementService.setStatementHeaderRegisterEntryies(statementHeader);
-            reply(message, statementHeader);
+            ClientMessage replyMessage = clientSession.createMessage(false);
+            replyMessage.getBodyBuffer().writeBytes(SerializationUtils.serialize(statementHeader));
+            statementHeaderReplyProducer.send(message.getReplyTo(), replyMessage, ack->{
+                log.debug("statementHeaderReplyProducer ACK: ", ack);
+            });
         } catch (Exception ex) {
             log.error("receivedStatementHeaderMessage exception {}", ex.getMessage());
         }
     }
 
     public void receivedLoansToCyceMessage(ClientMessage message) {
-        byte[] mo = new byte[message.getBodyBuffer().readableBytes()];
-        message.getBodyBuffer().readBytes(mo);
-        LocalDate businessDate = (LocalDate) SerializationUtils.deserialize(mo);
         try {
+            byte[] mo = new byte[message.getBodyBuffer().readableBytes()];
+            message.getBodyBuffer().readBytes(mo);
+            LocalDate businessDate = (LocalDate) SerializationUtils.deserialize(mo);
             log.debug("receivedLoansToCyceMessage {}", businessDate);
-            reply(message, accountManagementService.loansToCycle(businessDate));
+            ClientMessage replyMessage = clientSession.createMessage(false);
+            replyMessage.getBodyBuffer().writeBytes(SerializationUtils.serialize(accountManagementService.loansToCycle(businessDate)));
+            loansToCyceReplyProducer.send(message.getReplyTo(), replyMessage);
         } catch (Exception ex) {
             log.error("receivedLoansToCyceMessage exception {}", ex.getMessage());
         }
     }
 
     public void receivedBillingCycleChargeMessage(ClientMessage message) {
-        byte[] mo = new byte[message.getBodyBuffer().readableBytes()];
-        message.getBodyBuffer().readBytes(mo);
-        BillingCycleCharge billingCycleCharge = (BillingCycleCharge)  SerializationUtils.deserialize(mo);
         try {
-            log.debug("receivedBillingCycleChargeMessage {}", billingCycleCharge);
+            byte[] mo = new byte[message.getBodyBuffer().readableBytes()];
+            message.getBodyBuffer().readBytes(mo);
+            BillingCycleCharge billingCycleCharge = (BillingCycleCharge)  SerializationUtils.deserialize(mo);
+            log.debug("receivedBillingCycleChargeMessage: loanId: {}", billingCycleCharge.getLoanId());
             RegisterEntry re = registerManagementService.billingCycleCharge(billingCycleCharge);
             RegisterEntryMessage registerEntryMessage = RegisterEntryMessage.builder()
                     .date(re.getDate())
@@ -147,7 +162,9 @@ public class MQConsumers {
                     .description(re.getDescription())
                     .timeStamp(re.getTimeStamp())
                     .build();
-            reply(message, registerEntryMessage);
+            ClientMessage replyMessage = clientSession.createMessage(false);
+            replyMessage.getBodyBuffer().writeBytes(SerializationUtils.serialize(registerEntryMessage));
+            billingCycleChargeReplyProducer.send(message.getReplyTo(), replyMessage);
         } catch (Exception ex) {
             log.error("receivedBillingCycleChargeMessage exception {}", ex.getMessage());
         }
@@ -160,11 +177,15 @@ public class MQConsumers {
         try {
             log.debug("receivedQueryAccountIdMessage {}", id);
             Optional<Account> accountOpt = queryService.queryAccountId(id);
+            String response;
             if (accountOpt.isPresent()) {
-                reply(message, objectMapper.writeValueAsString(accountOpt.get()));
+                response = objectMapper.writeValueAsString(accountOpt.get());
             } else {
-                reply(message, "ERROR: id not found: " + id);
+                response = "ERROR: id not found: " + id;
             }
+            ClientMessage replyMessage = clientSession.createMessage(false);
+            replyMessage.getBodyBuffer().writeBytes(SerializationUtils.serialize(response));
+            queryAccountIdReplyProducer.send(message.getReplyTo(), replyMessage);
         } catch (Exception ex) {
             log.error("receivedQueryAccountIdMessage exception {}", ex.getMessage());
         }
@@ -177,21 +198,19 @@ public class MQConsumers {
         try {
             log.debug("receivedQueryLoanIdMessage {}", id);
             Optional<LoanDto> r = queryService.queryLoanId(id);
+            String response;
             if (r.isPresent()) {
-                reply(message, objectMapper.writeValueAsString(r.get()));
+                response = objectMapper.writeValueAsString(r.get());
             } else {
-                reply(message, ("ERROR: Loan not found for id: " + id));
+                response = "ERROR: Loan not found for id: " + id;
             }
+            ClientMessage replyMessage = clientSession.createMessage(false);
+            replyMessage.getBodyBuffer().writeBytes(SerializationUtils.serialize(response));
+            queryLoanIdReplyProducer.send(message.getReplyTo(), replyMessage);
         } catch (Exception ex) {
             log.error("receivedQueryLoanIdMessage exception {}", ex.getMessage());
             Thread.currentThread().interrupt();
         }
-    }
-
-    private void reply(ClientMessage origMessage, Object data) throws ActiveMQException {
-        ClientMessage message = clientSession.createMessage(false);
-        message.getBodyBuffer().writeBytes(SerializationUtils.serialize(data));
-        accountProducer.send(origMessage.getReplyTo(), message);
     }
 
     public void receivedCreateAccountMessage(ClientMessage message) {
@@ -203,7 +222,7 @@ public class MQConsumers {
         }
         ServiceRequestResponse requestResponse = ServiceRequestResponse.builder().id(createAccount.getId()).build();
         try {
-            log.debug("receivedCreateAccountMessage{}", createAccount);
+            log.debug("receivedCreateAccountMessage{}", createAccount.getId());
             accountManagementService.createAccount(createAccount, requestResponse);
         } catch (Exception e) {
             log.error("receivedCreateAccountMessage exception {}", e.getMessage());
@@ -234,7 +253,7 @@ public class MQConsumers {
                 .id(fundLoan.getId())
                 .build();
         try {
-            log.debug("receivedFundingMessage {} ", fundLoan);
+            log.debug("receivedFundingMessage: accountId: {} ", fundLoan.getAccountId());
             accountManagementService.fundAccount(fundLoan, requestResponse);
             if (requestResponse.isSuccess()) {
                 registerManagementService.fundLoan(
@@ -270,7 +289,7 @@ public class MQConsumers {
                 .id(creditLoan.getId())
                 .build();
         try {
-            log.debug("receivedValidateCreditMessage {} ", creditLoan);
+            log.debug("receivedValidateCreditMessage: loanId {} ", creditLoan.getLoanId());
             accountManagementService.validateLoan(creditLoan.getLoanId(), requestResponse);
             if (requestResponse.isSuccess()) {
                 registerManagementService.creditLoan(CreditLoan.builder()
@@ -304,7 +323,7 @@ public class MQConsumers {
                 .id(debitLoan.getId())
                 .build();
         try {
-            log.debug("receivedValidateDebitMessage {} ", debitLoan);
+            log.debug("receivedValidateDebitMessage: loanId: {} ", debitLoan.getLoanId());
             accountManagementService.validateLoan(debitLoan.getLoanId(), requestResponse);
             if (requestResponse.isSuccess()) {
                 registerManagementService.debitLoan(DebitLoan.builder()
@@ -337,7 +356,7 @@ public class MQConsumers {
         }
         ServiceRequestResponse requestResponse = ServiceRequestResponse.builder().id(closeLoan.getId()).build();
         try {
-            log.debug("receivedCloseLoanMessage {} ", closeLoan);
+            log.debug("receivedCloseLoanMessage: loanId: {} ", closeLoan.getLoanId());
             Optional<LoanDto> loanOpt = queryService.queryLoanId(closeLoan.getLoanId());
             if (loanOpt.isPresent()) {
                 if (closeLoan.getAmount().compareTo(loanOpt.get().getPayoffAmount()) == 0) {
@@ -400,7 +419,7 @@ public class MQConsumers {
         }
         ServiceRequestResponse requestResponse = ServiceRequestResponse.builder().id(statementHeader.getId()).build();
         try {
-            log.debug("receivedLoanClosedMessage {} ", statementHeader);
+            log.debug("receivedLoanClosedMessage: loanId: {} ", statementHeader.getLoanId());
             accountManagementService.closeLoan(statementHeader.getLoanId());
             requestResponse.setSuccess();
         } catch (Exception e) {

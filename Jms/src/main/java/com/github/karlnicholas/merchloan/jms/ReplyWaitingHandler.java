@@ -24,7 +24,7 @@ public class ReplyWaitingHandler {
             while (repliesWaiting.containsKey(responseKey) && repliesWaiting.get(responseKey).checkReply().isEmpty()) {
                 repliesWaiting.wait(RESPONSE_TIMEOUT);
                 if (System.nanoTime() - repliesWaiting.get(responseKey).getNanoTime() > TIMEOUT_MAX) {
-                    log.error("getReply timeout");
+                    log.error("getReply timeout {}", responseKey);
                     break;
                 }
             }
