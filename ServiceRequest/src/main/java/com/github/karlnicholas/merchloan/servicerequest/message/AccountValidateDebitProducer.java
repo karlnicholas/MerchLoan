@@ -10,21 +10,30 @@ import org.apache.activemq.artemis.api.core.client.ClientMessage;
 import org.apache.activemq.artemis.api.core.client.ClientProducer;
 import org.apache.activemq.artemis.api.core.client.ClientSession;
 
+import java.io.IOException;
+
 @Slf4j
 public class AccountValidateDebitProducer implements QueueMessageHandlerProducer {
     private final SimpleString queue;
+    private final MQConsumerUtils mqConsumerUtils;
 
     public AccountValidateDebitProducer(MQConsumerUtils mqConsumerUtils) {
+        this.mqConsumerUtils = mqConsumerUtils;
         this.queue = SimpleString.toSimpleString(mqConsumerUtils.getAccountValidateDebitQueue());
     }
 
     @Override
     public Object sendMessage(ClientSession clientSession, ClientProducer producer, Object data) throws ActiveMQException {
-        DebitLoan debitLoan = (DebitLoan) data;
-        log.debug("accountValidateDebit: {}", debitLoan);
-        ClientMessage message = clientSession.createMessage(false);
-        message.getBodyBuffer().writeBytes(SerializationUtils.serialize(debitLoan));
-        producer.send(queue, message);
+        try {
+            DebitLoan debitLoan = (DebitLoan) data;
+            log.debug("accountValidateDebit: {}", debitLoan);
+            ClientMessage message = clientSession.createMessage(false);
+            mqConsumerUtils.serializeToMessage(message, debitLoan);
+            producer.send(queue, message);
+            return null;
+        } catch (IOException e) {
+            log.error("AccountValidateDebitProducer ", e);
+        }
         return null;
     }
     @Override

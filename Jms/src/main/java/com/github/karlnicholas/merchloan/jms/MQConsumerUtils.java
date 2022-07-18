@@ -2,20 +2,14 @@ package com.github.karlnicholas.merchloan.jms;
 
 
 import lombok.Data;
-import org.apache.activemq.artemis.api.core.ActiveMQException;
-import org.apache.activemq.artemis.api.core.QueueConfiguration;
-import org.apache.activemq.artemis.api.core.RoutingType;
-import org.apache.activemq.artemis.api.core.SimpleString;
+import org.apache.activemq.artemis.api.core.*;
 import org.apache.activemq.artemis.api.core.client.ClientConsumer;
+import org.apache.activemq.artemis.api.core.client.ClientMessage;
 import org.apache.activemq.artemis.api.core.client.ClientSession;
 import org.apache.activemq.artemis.api.core.client.MessageHandler;
-import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.PropertySource;
 
-@Configuration
-@ConfigurationProperties(prefix = "rabbitmq")
-@PropertySource(value = "classpath:rabbitmq-config.properties")
+import java.io.*;
+
 @Data
 public class MQConsumerUtils {
 
@@ -34,7 +28,7 @@ public class MQConsumerUtils {
         return clientConsumer;
     }
 
-    public static ClientConsumer createTemporaryQueue(ClientSession clientSession, SimpleString replyQueueName) throws ActiveMQException {
+    public ClientConsumer createTemporaryQueue(ClientSession clientSession, SimpleString replyQueueName) throws ActiveMQException {
         QueueConfiguration queueConfiguration = new QueueConfiguration(replyQueueName);
         queueConfiguration.setDurable(false);
         queueConfiguration.setAutoDelete(true);
@@ -44,6 +38,22 @@ public class MQConsumerUtils {
         return clientSession.createConsumer(replyQueueName);
     }
 
+    public void serializeToMessage(ClientMessage message, Object data) throws IOException {
+        try ( ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+            try (ObjectOutputStream oos = new ObjectOutputStream(baos)) {
+                oos.writeObject(data);
+                message.getBodyBuffer().writeBytes(baos.toByteArray());
+            }
+        }
+    }
+
+    public Object deserialize(ClientMessage reply) throws IOException, ClassNotFoundException {
+        try ( ByteArrayInputStream bais = new ByteArrayInputStream(reply.getDataBuffer().toByteBuffer().array())) {
+            try ( ObjectInputStream ois = new ObjectInputStream(bais) ) {
+                return ois.readObject();
+            }
+        }
+    }
     private String exchange;
 
     private String accountCreateAccountQueue;

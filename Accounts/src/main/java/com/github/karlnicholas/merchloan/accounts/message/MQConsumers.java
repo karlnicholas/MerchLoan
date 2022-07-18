@@ -10,19 +10,19 @@ import com.github.karlnicholas.merchloan.accounts.service.RegisterManagementServ
 import com.github.karlnicholas.merchloan.dto.LoanDto;
 import com.github.karlnicholas.merchloan.jms.MQConsumerUtils;
 import com.github.karlnicholas.merchloan.jmsmessage.*;
+import jakarta.annotation.PreDestroy;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.activemq.artemis.api.core.ActiveMQException;
 import org.apache.activemq.artemis.api.core.SimpleString;
 import org.apache.activemq.artemis.api.core.client.*;
-import org.springframework.stereotype.Component;
-import org.springframework.util.SerializationUtils;
 
-import javax.annotation.PreDestroy;
 import java.time.LocalDate;
 import java.util.Optional;
 import java.util.UUID;
 
-@Component
+@ApplicationScoped
 @Slf4j
 public class MQConsumers {
     private final ClientSession clientSession;
@@ -51,6 +51,7 @@ public class MQConsumers {
 
     private static final String NULL_ERROR_MESSAGE = "Message body null";
 
+    @Inject
     public MQConsumers(ServerLocator locator, MQProducers mqProducers, MQConsumerUtils mqConsumerUtils, AccountManagementService accountManagementService, RegisterManagementService registerManagementService, QueryService queryService) throws Exception {
         ClientSessionFactory producerFactory =  locator.createSessionFactory();
         clientSession = producerFactory.createSession();

@@ -6,9 +6,9 @@ import com.github.karlnicholas.merchloan.accounts.model.Account;
 import com.github.karlnicholas.merchloan.accounts.model.Loan;
 import com.github.karlnicholas.merchloan.jmsmessage.*;
 import com.github.karlnicholas.merchloan.sqlutil.SqlUtils;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
 
 import javax.sql.DataSource;
 import java.math.BigDecimal;
@@ -17,14 +17,14 @@ import java.sql.SQLException;
 import java.time.LocalDate;
 import java.util.*;
 
-@Service
+@ApplicationScoped
 @Slf4j
 public class AccountManagementService {
     private final DataSource dataSource;
     private final AccountDao accountDao;
     private final LoanDao loanDao;
 
-    @Autowired
+    @Inject
     public AccountManagementService(DataSource dataSource, AccountDao accountDao, LoanDao loanDao) {
         this.dataSource = dataSource;
         this.accountDao = accountDao;

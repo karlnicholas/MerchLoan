@@ -3,20 +3,19 @@ package com.github.karlnicholas.merchloan.accounts.message;
 import com.github.karlnicholas.merchloan.jms.MQConsumerUtils;
 import com.github.karlnicholas.merchloan.jmsmessage.ServiceRequestResponse;
 import com.github.karlnicholas.merchloan.jmsmessage.StatementHeader;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.activemq.artemis.api.core.ActiveMQException;
 import org.apache.activemq.artemis.api.core.QueueConfiguration;
 import org.apache.activemq.artemis.api.core.RoutingType;
 import org.apache.activemq.artemis.api.core.SimpleString;
 import org.apache.activemq.artemis.api.core.client.*;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-import org.springframework.util.SerializationUtils;
 
 import javax.annotation.PreDestroy;
 import java.util.UUID;
 
-@Service
+@ApplicationScoped
 @Slf4j
 public class MQProducers {
     private final ClientSessionFactory producerFactory;
@@ -27,7 +26,7 @@ public class MQProducers {
     private final ClientProducer statementCloseStatementProducer;
     private final ClientProducer servicerequestProducer;
 
-    @Autowired
+    @Inject
     public MQProducers(ServerLocator locator, MQConsumerUtils mqConsumerUtils) throws Exception {
         producerFactory = locator.createSessionFactory();
         clientSession = producerFactory.createSession();

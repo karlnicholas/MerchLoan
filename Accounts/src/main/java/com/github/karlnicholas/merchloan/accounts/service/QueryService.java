@@ -10,10 +10,10 @@ import com.github.karlnicholas.merchloan.accounts.model.RegisterEntry;
 import com.github.karlnicholas.merchloan.dto.LoanDto;
 import com.github.karlnicholas.merchloan.jmsmessage.MostRecentStatement;
 import com.github.karlnicholas.merchloan.jmsmessage.StatementHeader;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.activemq.artemis.api.core.ActiveMQException;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
 
 import javax.sql.DataSource;
 import java.math.BigDecimal;
@@ -25,7 +25,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-@Service
+@ApplicationScoped
 @Slf4j
 public class QueryService {
     private final DataSource dataSource;
@@ -34,7 +34,7 @@ public class QueryService {
     private final RegisterEntryDao registerEntryDao;
     private final MQProducers mqProducers;
 
-    @Autowired
+    @Inject
     public QueryService(DataSource dataSource, AccountDao accountDao, LoanDao loanDao, RegisterEntryDao registerEntryDao, MQProducers mqProducers) {
         this.dataSource = dataSource;
         this.accountDao = accountDao;

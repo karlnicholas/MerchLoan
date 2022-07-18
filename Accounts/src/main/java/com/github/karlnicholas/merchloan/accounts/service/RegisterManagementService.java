@@ -4,9 +4,9 @@ import com.github.karlnicholas.merchloan.accounts.dao.RegisterEntryDao;
 import com.github.karlnicholas.merchloan.accounts.model.RegisterEntry;
 import com.github.karlnicholas.merchloan.jmsmessage.*;
 import com.github.karlnicholas.merchloan.sqlutil.SqlUtils;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
@@ -14,13 +14,14 @@ import java.sql.SQLException;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-@Service
+@ApplicationScoped
 @Slf4j
-@Transactional
+//@Transactional
 public class RegisterManagementService {
     private final DataSource dataSource;
     private final RegisterEntryDao registerEntryDao;
 
+    @Inject
     public RegisterManagementService(DataSource dataSource, RegisterEntryDao registerEntryDao) {
         this.dataSource = dataSource;
         this.registerEntryDao = registerEntryDao;

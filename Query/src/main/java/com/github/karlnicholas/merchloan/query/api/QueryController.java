@@ -3,18 +3,20 @@ package com.github.karlnicholas.merchloan.query.api;
 import com.github.karlnicholas.merchloan.jms.MQConsumerUtils;
 import com.github.karlnicholas.merchloan.jms.queue.QueueMessageService;
 import com.github.karlnicholas.merchloan.query.message.*;
+import jakarta.annotation.PreDestroy;
+import jakarta.enterprise.context.RequestScoped;
+import jakarta.inject.Inject;
+import jakarta.ws.rs.*;
+import jakarta.ws.rs.core.MediaType;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.activemq.artemis.api.core.ActiveMQException;
 import org.apache.activemq.artemis.api.core.client.ServerLocator;
-import org.springframework.http.MediaType;
-import org.springframework.web.bind.annotation.*;
 
-import javax.annotation.PreDestroy;
 import java.util.Optional;
 import java.util.UUID;
 
-@RestController
-@RequestMapping(value = "/api/query")
+@Path("api")
+@RequestScoped
 @Slf4j
 public class QueryController {
     private final QueueMessageService queueMessageService;
@@ -25,6 +27,8 @@ public class QueryController {
     private final QueryStatementsProducer queryStatementsProducer;
     private final QueryCheckRequestProducer queryCheckRequestProducer;
 
+
+    @Inject
     public QueryController(ServerLocator locator, MQConsumerUtils mqConsumerUtils, QueueMessageService queueMessageService) throws Exception {
         this.queueMessageService = queueMessageService;
 
@@ -49,42 +53,54 @@ public class QueryController {
         queueMessageService.close();
     }
 
-    @GetMapping(value = "/request/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
-    public String queryRequestId(@PathVariable UUID id) throws Exception {
+    @GET
+    @Path("request/{id}")
+    @Produces(MediaType.APPLICATION_JSON)
+    public String queryRequestId(@PathParam("id") UUID id) throws Exception {
         log.debug("request: {}", id);
         String responseKey = UUID.randomUUID().toString();
         queueMessageService.addMessage(queryServiceRequestProducer, Optional.of(responseKey), id);
         return queueMessageService.getReply(responseKey).toString();
     }
-    @GetMapping(value = "/account/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
-    public String queryAccountId(@PathVariable UUID id) throws Exception {
+    @GET
+    @Path("account/{id}")
+    @Produces(MediaType.APPLICATION_JSON)
+    public String queryAccountId(@PathParam("id") UUID id) throws Exception {
         log.debug("account: {}", id);
         String responseKey = UUID.randomUUID().toString();
         queueMessageService.addMessage(queryAccountProducer, Optional.of(responseKey), id);
         return queueMessageService.getReply(responseKey).toString();
     }
-    @GetMapping(value = "/loan/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
-    public String queryLoanId(@PathVariable UUID id) throws Exception {
+    @GET
+    @Path("loan/{id}")
+    @Produces(MediaType.APPLICATION_JSON)
+    public String queryLoanId(@PathParam("id") UUID id) throws Exception {
         log.debug("loan: {}", id);
         String responseKey = UUID.randomUUID().toString();
         queueMessageService.addMessage(queryLoanProducer, Optional.of(responseKey), id);
         return queueMessageService.getReply(responseKey).toString();
     }
-    @GetMapping(value = "/statement/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
-    public String queryStatementId(@PathVariable UUID id) throws Exception {
+    @GET
+    @Path("statement/{id}")
+    @Produces(MediaType.APPLICATION_JSON)
+    public String queryStatementId(@PathParam("id") UUID id) throws Exception {
         log.debug("statement: {}", id);
         String responseKey = UUID.randomUUID().toString();
         queueMessageService.addMessage(queryStatementProducer, Optional.of(responseKey), id);
         return queueMessageService.getReply(responseKey).toString();
     }
-    @GetMapping(value = "/statements/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
-    public String queryStatementsId(@PathVariable UUID id) throws Exception {
+    @GET
+    @Path("statements/{id}")
+    @Produces(MediaType.APPLICATION_JSON)
+    public String queryStatementsId(@PathParam("id") UUID id) throws Exception {
         log.debug("statements: {}", id);
         String responseKey = UUID.randomUUID().toString();
         queueMessageService.addMessage(queryCheckRequestProducer, Optional.of(responseKey), id);
         return queueMessageService.getReply(responseKey).toString();
     }
-    @GetMapping(value = "/checkrequests", produces = MediaType.APPLICATION_JSON_VALUE)
+    @GET
+    @Path("checkrequests")
+    @Produces(MediaType.APPLICATION_JSON)
     public Boolean queryCheckRequests() throws Exception {
         log.debug("checkrequests");
         String responseKey = UUID.randomUUID().toString();

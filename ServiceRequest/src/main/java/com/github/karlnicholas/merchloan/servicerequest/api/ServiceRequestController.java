@@ -2,45 +2,62 @@ package com.github.karlnicholas.merchloan.servicerequest.api;
 
 import com.github.karlnicholas.merchloan.apimessage.message.*;
 import com.github.karlnicholas.merchloan.servicerequest.component.ServiceRequestRouter;
+import jakarta.enterprise.context.RequestScoped;
+import jakarta.inject.Inject;
+import jakarta.ws.rs.*;
+import jakarta.ws.rs.core.MediaType;
 import lombok.extern.slf4j.Slf4j;
 
-@RestController
-@RequestMapping(value = "/api/v1/service/")
 @Slf4j
+@Path("api")
+@RequestScoped
 public class ServiceRequestController {
     private final ServiceRequestRouter serviceRequestRouter;
 
-    @Autowired
+    @Inject
     public ServiceRequestController(ServiceRequestRouter serviceRequestRouter) {
         this.serviceRequestRouter = serviceRequestRouter;
     }
-    @PostMapping(value = "accountRequest", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.TEXT_PLAIN_VALUE)
-    public String createAccountRequest(@RequestBody AccountRequest accountRequest) throws Exception {
+    @POST
+    @Path("accountRequest")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.TEXT_PLAIN)
+    public String createAccountRequest(@BeanParam AccountRequest accountRequest) throws Exception {
         log.debug("accountRequest: {}", accountRequest);
         return serviceRequestRouter.routeRequest(accountRequest.getClass().getName(), accountRequest, Boolean.FALSE, null).toString();
     }
-    @PostMapping(value = "fundingRequest", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.TEXT_PLAIN_VALUE)
-    public String fundingRequest(@RequestBody FundingRequest fundingRequest) throws Exception {
+    @Path("fundingRequest")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.TEXT_PLAIN)
+    public String fundingRequest(@BeanParam FundingRequest fundingRequest) throws Exception {
         log.debug("fundingRequest: {}", fundingRequest);
         return serviceRequestRouter.routeRequest(fundingRequest.getClass().getName(), fundingRequest, Boolean.FALSE, null).toString();
     }
-    @PostMapping(value = "creditRequest", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.TEXT_PLAIN_VALUE)
-    public String creditRequest(@RequestBody CreditRequest creditRequest) throws Exception {
+    @Path("creditRequest")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.TEXT_PLAIN)
+    public String creditRequest(@BeanParam CreditRequest creditRequest) throws Exception {
         log.debug("creditRequest: {}", creditRequest);
         return serviceRequestRouter.routeRequest(creditRequest.getClass().getName(), creditRequest, Boolean.FALSE, null).toString();
     }
-    @PostMapping(value = "debitRequest", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.TEXT_PLAIN_VALUE)
-    public String debitRequest(@RequestBody DebitRequest debitRequest) throws Exception {
+    @Path("debitRequest")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.TEXT_PLAIN)
+    public String debitRequest(@BeanParam DebitRequest debitRequest) throws Exception {
         log.debug("debitRequest: {}", debitRequest);
         return serviceRequestRouter.routeRequest(debitRequest.getClass().getName(), debitRequest, Boolean.FALSE, null).toString();
     }
-    @PostMapping(value = "statementRequest", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-    public String statementRequest(@RequestBody StatementRequest statementRequest) throws Exception {
+    @Path("statementRequest")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.TEXT_PLAIN)
+    public String statementRequest(@BeanParam StatementRequest statementRequest) throws Exception {
         log.debug("statementRequest: {}", statementRequest);
         return serviceRequestRouter.routeRequest(statementRequest.getClass().getName(), statementRequest, Boolean.FALSE, null).toString();
     }
-    @PostMapping(value = "closeRequest", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.TEXT_PLAIN_VALUE)
-    public String fundingRequest(@RequestBody CloseRequest closeRequest) throws Exception {
+    @Path("closeRequest")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.TEXT_PLAIN)
+    public String fundingRequest(@BeanParam CloseRequest closeRequest) throws Exception {
         log.debug("closeRequest: {}", closeRequest);
         return serviceRequestRouter.routeRequest(closeRequest.getClass().getName(), closeRequest, Boolean.FALSE, null).toString();
     }

@@ -11,6 +11,7 @@ import com.github.karlnicholas.merchloan.jmsmessage.StatementCompleteResponse;
 import com.github.karlnicholas.merchloan.servicerequest.model.ServiceRequest;
 import com.github.karlnicholas.merchloan.servicerequest.service.QueryService;
 import com.github.karlnicholas.merchloan.servicerequest.service.ServiceRequestService;
+import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.activemq.artemis.api.core.ActiveMQException;
 import org.apache.activemq.artemis.api.core.SimpleString;
@@ -78,9 +79,7 @@ public class MQConsumers {
 
     public void receivedServiceRequestQueryIdMessage(ClientMessage message) {
         try {
-            byte[] mo = new byte[message.getBodyBuffer().readableBytes()];
-            message.getBodyBuffer().readBytes(mo);
-            UUID id = (UUID) SerializationUtils.deserialize(mo);
+            UUID id = (UUID) mqConsumerUtils.deserialize(message);
             log.debug("ServiceRequestQueryId Received {}", id);
             Optional<ServiceRequest> requestOpt = queryService.getServiceRequest(id);
             String response;
@@ -96,7 +95,7 @@ public class MQConsumers {
                 response = "ERROR: id not found: " + id;
             }
             ClientMessage replyMessage = clientSession.createMessage(false);
-            replyMessage.writeBodyBufferBytes(SerializationUtils.serialize(response));
+            mqConsumerUtils.serializeToMessage(replyMessage, response);
             serviceRequestQueryIdReplyProducer.send(message.getReplyTo(), replyMessage);
         } catch (Exception e) {
             log.error("receivedCheckRequestMessage", e);
@@ -108,7 +107,7 @@ public class MQConsumers {
         try {
             log.debug("CheckRequest Received");
             ClientMessage replyMessage = clientSession.createMessage(false);
-            replyMessage.writeBodyBufferBytes(SerializationUtils.serialize(queryService.checkRequest()));
+            mqConsumerUtils.serializeToMessage(replyMessage, queryService.checkRequest());
             checkRequestReplyProducer.send(message.getReplyTo(), replyMessage);
         } catch (Exception e) {
             log.error("receivedCheckRequestMessage", e);
@@ -117,9 +116,7 @@ public class MQConsumers {
 
     public void receivedServiceRequestMessage(ClientMessage message) {
         try {
-            byte[] mo = new byte[message.getBodyBuffer().readableBytes()];
-            message.getBodyBuffer().readBytes(mo);
-            ServiceRequestResponse serviceRequest = (ServiceRequestResponse) SerializationUtils.deserialize(mo);
+            ServiceRequestResponse serviceRequest = (ServiceRequestResponse) mqConsumerUtils.deserialize(message);
             log.debug("ServiceRequestResponse Received {}", serviceRequest);
             serviceRequestService.completeServiceRequest(serviceRequest);
         } catch (Exception ex) {
@@ -129,9 +126,7 @@ public class MQConsumers {
 
     public void receivedServiceRequestBillloanMessage(ClientMessage message) {
         try {
-            byte[] mo = new byte[message.getBodyBuffer().readableBytes()];
-            message.getBodyBuffer().readBytes(mo);
-            BillingCycle billingCycle = (BillingCycle) SerializationUtils.deserialize(mo);
+            BillingCycle billingCycle = (BillingCycle) mqConsumerUtils.deserialize(message);
             if ( billingCycle == null ) {
                 throw new IllegalStateException("Message body null");
             }
@@ -150,9 +145,7 @@ public class MQConsumers {
 
     public void receivedServiceStatementCompleteMessage(ClientMessage message) {
         try {
-            byte[] mo = new byte[message.getBodyBuffer().readableBytes()];
-            message.getBodyBuffer().readBytes(mo);
-            StatementCompleteResponse statementCompleteResponse = (StatementCompleteResponse) SerializationUtils.deserialize(mo);
+            StatementCompleteResponse statementCompleteResponse = (StatementCompleteResponse) mqConsumerUtils.deserialize(message);
             log.debug("StatementComplete Received {}", statementCompleteResponse);
             serviceRequestService.statementComplete(statementCompleteResponse);
         } catch (Exception ex) {

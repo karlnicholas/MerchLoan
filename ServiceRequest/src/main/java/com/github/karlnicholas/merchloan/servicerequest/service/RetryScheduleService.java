@@ -3,15 +3,14 @@ package com.github.karlnicholas.merchloan.servicerequest.service;
 import com.github.karlnicholas.merchloan.apimessage.message.ServiceRequestMessage;
 import com.github.karlnicholas.merchloan.servicerequest.dao.ServiceRequestDao;
 import com.github.karlnicholas.merchloan.servicerequest.model.ServiceRequest;
-import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.stereotype.Service;
+import jakarta.enterprise.context.ApplicationScoped;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.List;
 
-@Service
+@ApplicationScoped
 public class RetryScheduleService {
     private final ServiceRequestDao serviceRequestDao;
     private final RetryService retryService;
@@ -23,7 +22,7 @@ public class RetryScheduleService {
         this.dataSource = dataSource;
     }
 
-    @Scheduled(initialDelay = 5000, fixedDelay = 5000)
+//    @Scheduled(initialDelay = 5000, fixedDelay = 5000)
     public void retryService() throws SQLException {
         try (Connection con = dataSource.getConnection()) {
             List<ServiceRequest> serviceRequests = serviceRequestDao.findByStatus(con, ServiceRequestMessage.STATUS.ERROR);

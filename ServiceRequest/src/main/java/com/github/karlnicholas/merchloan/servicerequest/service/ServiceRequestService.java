@@ -11,13 +11,13 @@ import com.github.karlnicholas.merchloan.servicerequest.component.ServiceRequest
 import com.github.karlnicholas.merchloan.servicerequest.dao.ServiceRequestDao;
 import com.github.karlnicholas.merchloan.servicerequest.message.*;
 import com.github.karlnicholas.merchloan.servicerequest.model.ServiceRequest;
+import jakarta.annotation.PreDestroy;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.activemq.artemis.api.core.ActiveMQException;
 import org.apache.activemq.artemis.api.core.client.ServerLocator;
-import org.springframework.dao.DuplicateKeyException;
-import org.springframework.stereotype.Service;
 
-import javax.annotation.PreDestroy;
 import javax.sql.DataSource;
 import java.io.IOException;
 import java.sql.Connection;
@@ -26,7 +26,7 @@ import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.UUID;
 
-@Service
+@ApplicationScoped
 @Slf4j
 public class ServiceRequestService {
     private final QueueMessageService queueMessageService;
@@ -41,6 +41,7 @@ public class ServiceRequestService {
     private final RedisComponent redisComponent;
     private final DataSource dataSource;
 
+    @Inject
     public ServiceRequestService(ServerLocator locator, QueueMessageService queueMessageService, MQConsumerUtils mqConsumerUtils, ServiceRequestDao serviceRequestDao, ObjectMapper objectMapper, RedisComponent redisComponent, DataSource dataSource) throws Exception {
         this.queueMessageService = queueMessageService;
         this.serviceRequestDao = serviceRequestDao;
@@ -217,7 +218,7 @@ public class ServiceRequestService {
             boolean retry;
             do {
                 retry = false;
-                try {
+//                try {
                     serviceRequestDao.insert(con,
                             ServiceRequest.builder()
                                     .id(id)
@@ -228,10 +229,10 @@ public class ServiceRequestService {
                                     .retryCount(0)
                                     .build()
                     );
-                } catch (DuplicateKeyException dke) {
-                    id = UUID.randomUUID();
-                    retry = true;
-                }
+//                } catch (DuplicateKeyException dke) {
+//                    id = UUID.randomUUID();
+//                    retry = true;
+//                }
             } while (retry);
         }
 

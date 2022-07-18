@@ -1,15 +1,15 @@
 package com.github.karlnicholas.merchloan.jms.queue;
 
 import com.github.karlnicholas.merchloan.jms.ReplyWaitingHandler;
+import jakarta.enterprise.context.ApplicationScoped;
 import org.apache.activemq.artemis.api.core.ActiveMQException;
 import org.apache.activemq.artemis.api.core.client.ServerLocator;
-import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-@Service
+@ApplicationScoped
 public class QueueMessageService {
     private static final int MAX_CAPACITY = 5;
     private List<QueueMessage> messsageQueue;

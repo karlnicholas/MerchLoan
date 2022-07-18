@@ -5,10 +5,7 @@ import com.github.karlnicholas.merchloan.apimessage.message.ServiceRequestMessag
 import com.github.karlnicholas.merchloan.servicerequest.component.ServiceRequestRouter;
 import com.github.karlnicholas.merchloan.servicerequest.model.ServiceRequest;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.scheduling.annotation.Async;
-import org.springframework.stereotype.Service;
 
-@Service
 @Slf4j
 public class RetryService {
     private final ServiceRequestRouter serviceRequestRouter;
@@ -19,7 +16,6 @@ public class RetryService {
         this.objectMapper = objectMapper;
     }
 
-    @Async
     public void retryServiceRequest(ServiceRequest serviceRequest, String requestType)  {
         try {
             Class<? extends ServiceRequestMessage> messageClass = (Class<? extends ServiceRequestMessage>) Class.forName(requestType);

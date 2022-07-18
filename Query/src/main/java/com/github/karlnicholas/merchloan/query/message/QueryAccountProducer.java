@@ -6,12 +6,13 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.activemq.artemis.api.core.ActiveMQException;
 import org.apache.activemq.artemis.api.core.SimpleString;
 import org.apache.activemq.artemis.api.core.client.*;
-import org.springframework.util.SerializationUtils;
 
+import java.io.IOException;
 import java.util.UUID;
 
 @Slf4j
 public class QueryAccountProducer implements QueueMessageHandlerProducer {
+    private final MQConsumerUtils mqConsumerUtils;
     private final ClientSessionFactory sessionFactory;
     private final ClientSession clientSession;
     private final SimpleString queue;
@@ -19,27 +20,30 @@ public class QueryAccountProducer implements QueueMessageHandlerProducer {
     private final ClientConsumer replyConsumer;
 
     public QueryAccountProducer(ServerLocator locator, MQConsumerUtils mqConsumerUtils) throws Exception {
+        this.mqConsumerUtils = mqConsumerUtils;
         sessionFactory = locator.createSessionFactory();
         clientSession = sessionFactory.createSession();
         this.queue = SimpleString.toSimpleString(mqConsumerUtils.getAccountQueryAccountIdQueue());
         replyQueueName = SimpleString.toSimpleString("queryAccount" + UUID.randomUUID());
-        replyConsumer = MQConsumerUtils.createTemporaryQueue(clientSession, replyQueueName);
+        replyConsumer = mqConsumerUtils.createTemporaryQueue(clientSession, replyQueueName);
 
         clientSession.start();
     }
 
     @Override
     public Object sendMessage(ClientSession clientSession, ClientProducer producer, Object data) throws ActiveMQException {
-        UUID id = (UUID) data;
-        log.debug("queryAccount: {}", id);
-        ClientMessage message = clientSession.createMessage(false);
-        message.setReplyTo(replyQueueName);
-        message.getBodyBuffer().writeBytes(SerializationUtils.serialize(id));
-        producer.send(queue, message);
-        ClientMessage reply = replyConsumer.receive();
-        byte[] mo = new byte[reply.getBodyBuffer().readableBytes()];
-        reply.getBodyBuffer().readBytes(mo);
-        return SerializationUtils.deserialize(mo);
+        try {
+            UUID id = (UUID) data;
+            log.debug("queryAccount: {}", id);
+            ClientMessage message = clientSession.createMessage(false);
+            message.setReplyTo(replyQueueName);
+            mqConsumerUtils.serializeToMessage(message, id);
+            producer.send(queue, message);
+            return mqConsumerUtils.deserialize(replyConsumer.receive());
+        } catch (IOException | ClassNotFoundException e) {
+            log.error("QueryAccountProducer ", e);
+        }
+        return null;
     }
 
     @Override
