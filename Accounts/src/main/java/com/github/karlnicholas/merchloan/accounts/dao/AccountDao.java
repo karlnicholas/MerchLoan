@@ -2,8 +2,8 @@ package com.github.karlnicholas.merchloan.accounts.dao;
 
 import com.github.karlnicholas.merchloan.accounts.model.Account;
 import com.github.karlnicholas.merchloan.sqlutil.SqlUtils;
+import jakarta.enterprise.context.ApplicationScoped;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -12,7 +12,7 @@ import java.sql.SQLException;
 import java.util.Optional;
 import java.util.UUID;
 
-@Service
+@ApplicationScoped
 @Slf4j
 public class AccountDao {
     public void createAccount(Connection con, Account account) throws SQLException {

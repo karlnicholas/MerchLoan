@@ -1,7 +1,5 @@
 package com.github.karlnicholas.merchloan.statement.message;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
 import com.github.karlnicholas.merchloan.apimessage.message.ServiceRequestMessage;
 import com.github.karlnicholas.merchloan.jms.MQConsumerUtils;
 import com.github.karlnicholas.merchloan.jmsmessage.*;
@@ -13,16 +11,13 @@ import org.apache.activemq.artemis.api.core.ActiveMQException;
 import org.apache.activemq.artemis.api.core.SimpleString;
 import org.apache.activemq.artemis.api.core.client.*;
 import org.apache.activemq.artemis.core.remoting.FailureListener;
-import org.springframework.stereotype.Component;
-import org.springframework.util.SerializationUtils;
 
-import javax.annotation.PreDestroy;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.Optional;
 import java.util.UUID;
 
-@Component
+@Applicat
 @Slf4j
 public class MQConsumers {
     private final ClientSession clientSession;
