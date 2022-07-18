@@ -16,7 +16,6 @@ import java.util.stream.Collectors;
 
 @Service
 @Slf4j
-@Transactional
 public class RegisterManagementService {
     private final DataSource dataSource;
     private final RegisterEntryDao registerEntryDao;
