@@ -1,6 +1,7 @@
 package com.github.karlnicholas.merchloan.statement.message;
 
 import com.github.karlnicholas.merchloan.jms.MQConsumerUtils;
+import com.github.karlnicholas.merchloan.jms.ReplyWaitingHandler;
 import com.github.karlnicholas.merchloan.jmsmessage.BillingCycleCharge;
 import com.github.karlnicholas.merchloan.jmsmessage.ServiceRequestResponse;
 import com.github.karlnicholas.merchloan.jmsmessage.StatementCompleteResponse;
@@ -28,9 +29,11 @@ public class MQProducers {
     private final ClientProducer accountBillingCycleChargeProducer;
     private final SimpleString billingCycleChargeQueueName;
     private final ClientConsumer billingCycleChargeConsumer;
+    private final ReplyWaitingHandler billingCycleChargeReplyHandler;
     private final ClientProducer accountQueryStatementHeaderProducer;
     private final SimpleString queryStatementHeaderReplyQueueName;
     private final ClientConsumer queryStatementHeaderConsumer;
+    private final ReplyWaitingHandler queryStatementHeaderReplyHandler;
     private final ClientProducer serviceRequestStatementCompleteProducer;
 
     @Autowired
@@ -52,6 +55,12 @@ public class MQProducers {
         queueConfiguration.setRoutingType(RoutingType.ANYCAST);
         clientSession.createQueue(queueConfiguration);
         billingCycleChargeConsumer = clientSession.createConsumer(billingCycleChargeQueueName);
+        billingCycleChargeReplyHandler = new ReplyWaitingHandler();
+        billingCycleChargeConsumer.setMessageHandler(message->{
+            byte[] mo = new byte[message.getBodyBuffer().readableBytes()];
+            message.getBodyBuffer().readBytes(mo);
+            billingCycleChargeReplyHandler.handleReply((String)message.getCorrelationID(), SerializationUtils.deserialize(mo));
+        });
 
 
         accountQueryStatementHeaderProducer = clientSession.createProducer(mqConsumerUtils.getAccountQueryStatementHeaderQueue());
@@ -63,6 +72,12 @@ public class MQProducers {
         queueConfiguration.setRoutingType(RoutingType.ANYCAST);
         clientSession.createQueue(queueConfiguration);
         queryStatementHeaderConsumer = clientSession.createConsumer(queryStatementHeaderReplyQueueName);
+        queryStatementHeaderReplyHandler = new ReplyWaitingHandler();
+        queryStatementHeaderConsumer.setMessageHandler(message->{
+            byte[] mo = new byte[message.getBodyBuffer().readableBytes()];
+            message.getBodyBuffer().readBytes(mo);
+            queryStatementHeaderReplyHandler.handleReply((String)message.getCorrelationID(), SerializationUtils.deserialize(mo));
+        });
 
         clientSession.start();
 
@@ -75,30 +90,31 @@ public class MQProducers {
     }
     public Object accountBillingCycleCharge(BillingCycleCharge billingCycleCharge) throws InterruptedException, ActiveMQException {
         log.debug("accountBillingCycleCharge: {}", billingCycleCharge);
+        String responseKey = UUID.randomUUID().toString();
+        billingCycleChargeReplyHandler.put(responseKey);
         ClientMessage message = clientSession.createMessage(false);
         message.setReplyTo(billingCycleChargeQueueName);
+        message.setCorrelationID(responseKey);
         message.getBodyBuffer().writeBytes(SerializationUtils.serialize(billingCycleCharge));
         accountBillingCycleChargeProducer.send(message, ack->{
             log.debug("accountBillingCycleChargeProducer ACK: {}", ack);
         });
-        ClientMessage reply = billingCycleChargeConsumer.receive();
-        byte[] mo = new byte[reply.getBodyBuffer().readableBytes()];
-        reply.getBodyBuffer().readBytes(mo);
-        return SerializationUtils.deserialize(mo);
+
+        return billingCycleChargeReplyHandler.getReply(responseKey);
     }
 
     public Object accountQueryStatementHeader(StatementHeader statementHeader) throws InterruptedException, ActiveMQException {
         log.debug("accountQueryStatementHeader: {}", statementHeader);
+        String responseKey = UUID.randomUUID().toString();
+        queryStatementHeaderReplyHandler.put(responseKey);
         ClientMessage message = clientSession.createMessage(false);
+        message.setCorrelationID(responseKey);
         message.setReplyTo(queryStatementHeaderReplyQueueName);
         message.getBodyBuffer().writeBytes(SerializationUtils.serialize(statementHeader));
         accountQueryStatementHeaderProducer.send(message, ack->{
             log.debug("accountQueryStatementHeaderProducer ACK: ", ack);
         });
-        ClientMessage reply = queryStatementHeaderConsumer.receive();
-        byte[] mo = new byte[reply.getBodyBuffer().readableBytes()];
-        reply.getBodyBuffer().readBytes(mo);
-        return SerializationUtils.deserialize(mo);
+        return queryStatementHeaderReplyHandler.getReply(responseKey);
     }
 
     public void serviceRequestServiceRequest(ServiceRequestResponse serviceRequest) throws ActiveMQException {

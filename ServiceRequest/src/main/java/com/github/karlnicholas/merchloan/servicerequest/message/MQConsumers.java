@@ -100,6 +100,7 @@ public class MQConsumers {
                 response = "ERROR: id not found: " + id;
             }
             ClientMessage replyMessage = clientSession.createMessage(false);
+            replyMessage.setCorrelationID(message.getCorrelationID());
             replyMessage.writeBodyBufferBytes(SerializationUtils.serialize(response));
             serviceRequestQueryIdReplyProducer.send(message.getReplyTo(), replyMessage);
         } catch (Exception e) {
@@ -112,6 +113,7 @@ public class MQConsumers {
         try {
             log.debug("CheckRequest Received");
             ClientMessage replyMessage = clientSession.createMessage(false);
+            replyMessage.setCorrelationID(message.getCorrelationID());
             replyMessage.writeBodyBufferBytes(SerializationUtils.serialize(queryService.checkRequest()));
             checkRequestReplyProducer.send(message.getReplyTo(), replyMessage);
         } catch (Exception e) {

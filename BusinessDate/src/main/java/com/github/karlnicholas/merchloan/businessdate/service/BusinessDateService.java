@@ -68,7 +68,7 @@ public class BusinessDateService {
         }
     }
 
-    public void startBillingCycle(LocalDate priorBusinessDate) throws ActiveMQException {
+    public void startBillingCycle(LocalDate priorBusinessDate) throws ActiveMQException, InterruptedException {
         log.debug("startBillingCycle: {}", priorBusinessDate);
         List<BillingCycle> loansToCycle = (List<BillingCycle>) mqProducers.acccountQueryLoansToCycle(priorBusinessDate);
         log.debug("startBillingCycle - loansToCycle: {}", loansToCycle.stream().map(BillingCycle::getLoanId).collect(Collectors.toList()));

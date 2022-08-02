@@ -126,6 +126,7 @@ public class MQConsumers {
                 registerManagementService.setStatementHeaderRegisterEntryies(statementHeader);
             ClientMessage replyMessage = clientSession.createMessage(false);
             replyMessage.getBodyBuffer().writeBytes(SerializationUtils.serialize(statementHeader));
+            replyMessage.setCorrelationID(message.getCorrelationID());
             statementHeaderReplyProducer.send(message.getReplyTo(), replyMessage, ack->{
                 log.debug("statementHeaderReplyProducer ACK: ", ack);
             });
@@ -142,6 +143,7 @@ public class MQConsumers {
             log.debug("receivedLoansToCyceMessage {}", businessDate);
             ClientMessage replyMessage = clientSession.createMessage(false);
             replyMessage.getBodyBuffer().writeBytes(SerializationUtils.serialize(accountManagementService.loansToCycle(businessDate)));
+            replyMessage.setCorrelationID(message.getCorrelationID());
             loansToCyceReplyProducer.send(message.getReplyTo(), replyMessage);
         } catch (Exception ex) {
             log.error("receivedLoansToCyceMessage exception {}", ex.getMessage());
@@ -164,6 +166,7 @@ public class MQConsumers {
                     .build();
             ClientMessage replyMessage = clientSession.createMessage(false);
             replyMessage.getBodyBuffer().writeBytes(SerializationUtils.serialize(registerEntryMessage));
+            replyMessage.setCorrelationID(message.getCorrelationID());
             billingCycleChargeReplyProducer.send(message.getReplyTo(), replyMessage);
         } catch (Exception ex) {
             log.error("receivedBillingCycleChargeMessage exception {}", ex.getMessage());
@@ -186,6 +189,7 @@ public class MQConsumers {
             ClientMessage replyMessage = clientSession.createMessage(false);
             replyMessage.getBodyBuffer().writeBytes(SerializationUtils.serialize(response));
             queryAccountIdReplyProducer.send(message.getReplyTo(), replyMessage);
+            replyMessage.setCorrelationID(message.getCorrelationID());
         } catch (Exception ex) {
             log.error("receivedQueryAccountIdMessage exception {}", ex.getMessage());
         }
@@ -206,6 +210,7 @@ public class MQConsumers {
             }
             ClientMessage replyMessage = clientSession.createMessage(false);
             replyMessage.getBodyBuffer().writeBytes(SerializationUtils.serialize(response));
+            replyMessage.setCorrelationID(message.getCorrelationID());
             queryLoanIdReplyProducer.send(message.getReplyTo(), replyMessage);
         } catch (Exception ex) {
             log.error("receivedQueryLoanIdMessage exception {}", ex.getMessage());

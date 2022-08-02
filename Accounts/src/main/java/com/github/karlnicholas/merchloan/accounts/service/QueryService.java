@@ -90,7 +90,7 @@ public class QueryService {
         }
     }
 
-    private void computeLoanValues(Connection con, UUID loanId, Loan loan, LoanDto loanDto) throws SQLException, ActiveMQException {
+    private void computeLoanValues(Connection con, UUID loanId, Loan loan, LoanDto loanDto) throws SQLException, ActiveMQException, InterruptedException {
         // get most recent statement
         MostRecentStatement mostRecentStatement = (MostRecentStatement) mqProducers.queryMostRecentStatement(loanId);
         // generate a simulated new statement for current period

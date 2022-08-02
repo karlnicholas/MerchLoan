@@ -1,6 +1,5 @@
 package com.github.karlnicholas.merchloan.jms.queue;
 
-import com.github.karlnicholas.merchloan.jms.ReplyWaitingHandler;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.activemq.artemis.api.core.ActiveMQException;
 import org.apache.activemq.artemis.api.core.client.ClientProducer;
@@ -16,12 +15,12 @@ class QueueMessageHandler extends Thread implements Runnable {
     private final ClientSessionFactory sessionFactory;
     private final ClientSession clientSession;
     private final ClientProducer producer;
-    private final ReplyWaitingHandler replyWaitingHandler;
+    private final QueueWaitingHandler queueWaitingHandler;
     private boolean run;
 
 
-    public QueueMessageHandler(ServerLocator locator, String queueName, List<QueueMessage> messsageQueue, ReplyWaitingHandler replyWaitingHandler) throws Exception {
-        this.replyWaitingHandler = replyWaitingHandler;
+    public QueueMessageHandler(ServerLocator locator, String queueName, List<QueueMessage> messsageQueue, QueueWaitingHandler queueWaitingHandler) throws Exception {
+        this.queueWaitingHandler = queueWaitingHandler;
         run = true;
         this.messsageQueue = messsageQueue;
         sessionFactory = locator.createSessionFactory();
@@ -52,7 +51,7 @@ class QueueMessageHandler extends Thread implements Runnable {
                     QueueMessage queueMessage = messsageQueue.remove(0);
                     messsageQueue.notifyAll();
                     Object reply = queueMessage.getProducer().sendMessage(clientSession, producer, queueMessage.getMessage());
-                    queueMessage.getResponseKeyOpt().ifPresent(key->replyWaitingHandler.handleReply(key, reply));
+                    queueMessage.getResponseKeyOpt().ifPresent(key-> queueWaitingHandler.handleReply(key, reply));
                 }
             } catch (InterruptedException ex) {
                 if ( run ) ex.printStackTrace();

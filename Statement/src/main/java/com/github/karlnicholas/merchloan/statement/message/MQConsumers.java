@@ -1,7 +1,5 @@
 package com.github.karlnicholas.merchloan.statement.message;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
 import com.github.karlnicholas.merchloan.apimessage.message.ServiceRequestMessage;
 import com.github.karlnicholas.merchloan.jms.MQConsumerUtils;
 import com.github.karlnicholas.merchloan.jmsmessage.*;
@@ -123,6 +121,7 @@ public class MQConsumers {
             String result = queryService.findById(loanId).map(Statement::getStatementDoc).orElse("ERROR: No statement found for id " + loanId);
             ClientMessage replyMessage = clientSession.createMessage(false);
             replyMessage.getBodyBuffer().writeBytes(SerializationUtils.serialize(result));
+            replyMessage.setCorrelationID(message.getCorrelationID());
             queryStatementProducer.send(message.getReplyTo(), replyMessage);
         } catch (Exception ex) {
             log.error("receivedQueryStatementMessage exception {}", ex.getMessage());
@@ -146,6 +145,7 @@ public class MQConsumers {
                     .orElse(MostRecentStatement.builder().loanId(loanId).build());
             ClientMessage replyMessage = clientSession.createMessage(false);
             replyMessage.getBodyBuffer().writeBytes(SerializationUtils.serialize(mostRecentStatement));
+            replyMessage.setCorrelationID(message.getCorrelationID());
             queryMostRecentStatementProducer.send(message.getReplyTo(), replyMessage);
         } catch (Exception ex) {
             log.error("receivedQueryMostRecentStatementMessage exception {}", ex.getMessage());
@@ -161,6 +161,7 @@ public class MQConsumers {
 //            reply(message, objectMapper.writeValueAsString(queryService.findByLoanId(id)));
             ClientMessage replyMessage = clientSession.createMessage(false);
             replyMessage.getBodyBuffer().writeBytes(SerializationUtils.serialize(queryService.findByLoanId(id)));
+            replyMessage.setCorrelationID(message.getCorrelationID());
             queryStatementsProducer.send(message.getReplyTo(), replyMessage);
         } catch (Exception ex) {
             log.error("receivedQueryStatementsMessage exception {}", ex.getMessage());

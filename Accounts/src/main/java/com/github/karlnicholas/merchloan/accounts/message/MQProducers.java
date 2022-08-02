@@ -1,6 +1,7 @@
 package com.github.karlnicholas.merchloan.accounts.message;
 
 import com.github.karlnicholas.merchloan.jms.MQConsumerUtils;
+import com.github.karlnicholas.merchloan.jms.ReplyWaitingHandler;
 import com.github.karlnicholas.merchloan.jmsmessage.ServiceRequestResponse;
 import com.github.karlnicholas.merchloan.jmsmessage.StatementHeader;
 import lombok.extern.slf4j.Slf4j;
@@ -23,9 +24,11 @@ public class MQProducers {
     private final ClientSession clientSession;
     private final ClientProducer statementQueryMostRecentStatementProducer;
     private final SimpleString mostRecentStatementReplyQueueName;
-    private final ClientConsumer mostRecentStatementReplyConsumer;
     private final ClientProducer statementCloseStatementProducer;
     private final ClientProducer servicerequestProducer;
+    private final ReplyWaitingHandler replyWaitingHandlerMostRecentStatement;
+    private final ClientConsumer mostRecentStatementReplyConsumer;
+
 
     @Autowired
     public MQProducers(ServerLocator locator, MQConsumerUtils mqConsumerUtils) throws Exception {
@@ -46,6 +49,12 @@ public class MQProducers {
         clientSession.createQueue(queueConfiguration);
         mostRecentStatementReplyConsumer = clientSession.createConsumer(mostRecentStatementReplyQueueName);
 
+        replyWaitingHandlerMostRecentStatement = new ReplyWaitingHandler();
+        mostRecentStatementReplyConsumer.setMessageHandler(message->{
+            byte[] mo = new byte[message.getBodyBuffer().readableBytes()];
+            message.getBodyBuffer().readBytes(mo);
+            replyWaitingHandlerMostRecentStatement.handleReply((String)message.getCorrelationID(), SerializationUtils.deserialize(mo));
+        });
         clientSession.start();
     }
 
@@ -70,18 +79,22 @@ public class MQProducers {
         statementCloseStatementProducer.send(message);
     }
 
-    public Object queryMostRecentStatement(UUID loanId) throws ActiveMQException {
+    public Object queryMostRecentStatement(UUID loanId) throws ActiveMQException, InterruptedException {
         log.debug("queryMostRecentStatement: {}", loanId);
+        String responseKey = UUID.randomUUID().toString();
+        replyWaitingHandlerMostRecentStatement.put(responseKey);
         ClientMessage message = clientSession.createMessage(false);
         message.setReplyTo(mostRecentStatementReplyQueueName);
+        message.setCorrelationID(responseKey);
         message.getBodyBuffer().writeBytes(SerializationUtils.serialize(loanId));
         statementQueryMostRecentStatementProducer.send(message, ack->{
             log.debug("ACK {}", ack);
         });
-        ClientMessage reply = mostRecentStatementReplyConsumer.receive();
-        byte[] mo = new byte[reply.getBodyBuffer().readableBytes()];
-        reply.getBodyBuffer().readBytes(mo);
-        return SerializationUtils.deserialize(mo);
+        return replyWaitingHandlerMostRecentStatement.getReply(responseKey);
+//        ClientMessage reply = mostRecentStatementReplyConsumer.receive();
+//        byte[] mo = new byte[reply.getBodyBuffer().readableBytes()];
+//        reply.getBodyBuffer().readBytes(mo);
+//        return SerializationUtils.deserialize(mo);
     }
 
 }

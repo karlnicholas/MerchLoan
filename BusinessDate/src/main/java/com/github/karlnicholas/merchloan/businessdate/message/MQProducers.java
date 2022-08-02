@@ -1,6 +1,8 @@
 package com.github.karlnicholas.merchloan.businessdate.message;
 
 import com.github.karlnicholas.merchloan.jms.MQConsumerUtils;
+import com.github.karlnicholas.merchloan.jms.ReplyWaiting;
+import com.github.karlnicholas.merchloan.jms.ReplyWaitingHandler;
 import com.github.karlnicholas.merchloan.jmsmessage.BillingCycle;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.activemq.artemis.api.core.ActiveMQException;
@@ -25,9 +27,11 @@ public class MQProducers {
     private final ClientProducer serviceRequestCheckRequestProducer;
     private final SimpleString checkRequestReplyQueueName;
     private final ClientConsumer checkRequestReplyConsumer;
+    private final ReplyWaitingHandler checkRequestReplyHandler;
     private final ClientProducer accountQueryLoansToCycleProducer;
     private final SimpleString loansToCycleQueueName;
     private final ClientConsumer loansToCycleConsumer;
+    private final ReplyWaitingHandler loansToCycleReplyHandler;
     @Autowired
     public MQProducers(ServerLocator locator, MQConsumerUtils mqConsumerUtils) throws Exception {
         producerFactory =  locator.createSessionFactory();
@@ -45,6 +49,13 @@ public class MQProducers {
         queueConfiguration.setRoutingType(RoutingType.ANYCAST);
         clientSession.createQueue(queueConfiguration);
         checkRequestReplyConsumer = clientSession.createConsumer(checkRequestReplyQueueName);
+        checkRequestReplyHandler = new ReplyWaitingHandler();
+        checkRequestReplyConsumer.setMessageHandler(message->{
+            byte[] mo = new byte[message.getBodyBuffer().readableBytes()];
+            message.getBodyBuffer().readBytes(mo);
+            checkRequestReplyHandler.handleReply(message.getCorrelationID().toString(), SerializationUtils.deserialize(mo));
+        });
+
 
         accountQueryLoansToCycleProducer = clientSession.createProducer(mqConsumerUtils.getAccountQueryLoansToCycleQueue());
         loansToCycleQueueName = SimpleString.toSimpleString("loansToCycle"+UUID.randomUUID());
@@ -55,6 +66,12 @@ public class MQProducers {
         queueConfiguration.setRoutingType(RoutingType.ANYCAST);
         clientSession.createQueue(queueConfiguration);
         loansToCycleConsumer = clientSession.createConsumer(loansToCycleQueueName);
+        loansToCycleReplyHandler = new ReplyWaitingHandler();
+        loansToCycleConsumer.setMessageHandler(message -> {
+            byte[] mo = new byte[message.getBodyBuffer().readableBytes()];
+            message.getBodyBuffer().readBytes(mo);
+            loansToCycleReplyHandler.handleReply(message.getCorrelationID().toString(), SerializationUtils.deserialize(mo));
+        });
 
         clientSession.start();
 
@@ -65,28 +82,34 @@ public class MQProducers {
         clientSession.close();
         producerFactory.close();
     }
-    public Object servicerequestCheckRequest() throws ActiveMQException {
+    public Object servicerequestCheckRequest() throws ActiveMQException, InterruptedException {
         log.debug("servicerequestCheckRequest:");
+        String responseKey = UUID.randomUUID().toString();
         ClientMessage message = clientSession.createMessage(false);
+        message.setCorrelationID(responseKey);
         message.setReplyTo(checkRequestReplyQueueName);
         message.getBodyBuffer().writeBytes(SerializationUtils.serialize(new byte[0]));
         serviceRequestCheckRequestProducer.send(message);
-        ClientMessage reply = checkRequestReplyConsumer.receive();
-        byte[] mo = new byte[reply.getBodyBuffer().readableBytes()];
-        reply.getBodyBuffer().readBytes(mo);
-        return SerializationUtils.deserialize(mo);
+        return checkRequestReplyHandler.getReply(responseKey);
+//        ClientMessage reply = checkRequestReplyConsumer.receive();
+//        byte[] mo = new byte[reply.getBodyBuffer().readableBytes()];
+//        reply.getBodyBuffer().readBytes(mo);
+//        return SerializationUtils.deserialize(mo);
     }
 
-    public Object acccountQueryLoansToCycle(LocalDate businessDate) throws ActiveMQException {
+    public Object acccountQueryLoansToCycle(LocalDate businessDate) throws ActiveMQException, InterruptedException {
         log.debug("acccountQueryLoansToCycle: {}", businessDate);
+        String responseKey = UUID.randomUUID().toString();
         ClientMessage message = clientSession.createMessage(false);
+        message.setCorrelationID(responseKey);
         message.setReplyTo(loansToCycleQueueName);
         message.getBodyBuffer().writeBytes(SerializationUtils.serialize(businessDate));
         accountQueryLoansToCycleProducer.send(message);
-        ClientMessage reply = loansToCycleConsumer.receive();
-        byte[] mo = new byte[reply.getBodyBuffer().readableBytes()];
-        reply.getBodyBuffer().readBytes(mo);
-        return SerializationUtils.deserialize(mo);
+        return loansToCycleReplyHandler.getReply(responseKey);
+//        ClientMessage reply = loansToCycleConsumer.receive();
+//        byte[] mo = new byte[reply.getBodyBuffer().readableBytes()];
+//        reply.getBodyBuffer().readBytes(mo);
+//        return SerializationUtils.deserialize(mo);
     }
 
     public void serviceRequestBillLoan(BillingCycle billingCycle) throws ActiveMQException {

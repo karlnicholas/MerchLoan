@@ -1,6 +1,5 @@
 package com.github.karlnicholas.merchloan.jms.queue;
 
-import com.github.karlnicholas.merchloan.jms.ReplyWaitingHandler;
 import org.apache.activemq.artemis.api.core.ActiveMQException;
 import org.apache.activemq.artemis.api.core.client.ServerLocator;
 import org.springframework.stereotype.Service;
@@ -13,15 +12,15 @@ import java.util.Optional;
 public class QueueMessageService {
     private static final int MAX_CAPACITY = 5;
     private List<QueueMessage> messsageQueue;
-    private ReplyWaitingHandler replyWaitingHandler;
+    private QueueWaitingHandler queueWaitingHandler;
     private List<QueueMessageHandler> handlers;
 
     public void initialize(ServerLocator locator, String queueName) throws Exception {
-        this.replyWaitingHandler = new ReplyWaitingHandler();
+        this.queueWaitingHandler = new QueueWaitingHandler();
         messsageQueue = new ArrayList<>();
         handlers = new ArrayList<>();
         for ( int i = 0 ; i < MAX_CAPACITY; ++i) {
-            QueueMessageHandler queueMessageHandler = new QueueMessageHandler(locator, queueName+i, messsageQueue, replyWaitingHandler);
+            QueueMessageHandler queueMessageHandler = new QueueMessageHandler(locator, queueName+i, messsageQueue, queueWaitingHandler);
             handlers.add(queueMessageHandler);
             queueMessageHandler.start();
         }
@@ -39,7 +38,7 @@ public class QueueMessageService {
             while(messsageQueue.size() >= MAX_CAPACITY) {
                 messsageQueue.wait();
             }
-            responseKeyOpt.ifPresent(replyWaitingHandler::put);
+            responseKeyOpt.ifPresent(queueWaitingHandler::put);
             QueueMessage queueMessage = new QueueMessage(data, producer, responseKeyOpt);
             messsageQueue.add(queueMessage);
             messsageQueue.notifyAll();
@@ -47,6 +46,6 @@ public class QueueMessageService {
     }
 
     public Object getReply(String responseKey) throws InterruptedException {
-        return replyWaitingHandler.getReply(responseKey);
+        return queueWaitingHandler.getReply(responseKey);
     }
 }
