@@ -41,7 +41,7 @@ public class BusinessDateService {
                 Instant start = Instant.now();
                 BusinessDate priorBusinessDate = BusinessDate.builder().date(existingBusinessDate.get().getDate()).build();
                 Object stillProcessing = mqProducers.servicerequestCheckRequest();
-                if (stillProcessing == null || ((Boolean)stillProcessing).booleanValue()) {
+                if (stillProcessing == null || ((Boolean)stillProcessing)) {
                     throw new IllegalStateException("Still processing prior business date" + priorBusinessDate.getDate());
                 }
                 businessDateDao.updateDate(con, BusinessDate.builder().id(1L).date(businessDate).build());
