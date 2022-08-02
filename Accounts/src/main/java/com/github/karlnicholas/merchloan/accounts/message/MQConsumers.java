@@ -188,8 +188,8 @@ public class MQConsumers {
             }
             ClientMessage replyMessage = clientSession.createMessage(false);
             replyMessage.getBodyBuffer().writeBytes(SerializationUtils.serialize(response));
-            queryAccountIdReplyProducer.send(message.getReplyTo(), replyMessage);
             replyMessage.setCorrelationID(message.getCorrelationID());
+            queryAccountIdReplyProducer.send(message.getReplyTo(), replyMessage);
         } catch (Exception ex) {
             log.error("receivedQueryAccountIdMessage exception {}", ex.getMessage());
         }

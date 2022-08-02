@@ -53,7 +53,7 @@ public class MQProducers {
         mostRecentStatementReplyConsumer.setMessageHandler(message->{
             byte[] mo = new byte[message.getBodyBuffer().readableBytes()];
             message.getBodyBuffer().readBytes(mo);
-            replyWaitingHandlerMostRecentStatement.handleReply((String)message.getCorrelationID(), SerializationUtils.deserialize(mo));
+            replyWaitingHandlerMostRecentStatement.handleReply(message.getCorrelationID().toString(), SerializationUtils.deserialize(mo));
         });
         clientSession.start();
     }

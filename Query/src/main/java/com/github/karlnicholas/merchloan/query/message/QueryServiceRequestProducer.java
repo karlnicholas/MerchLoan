@@ -45,6 +45,7 @@ public class QueryServiceRequestProducer implements QueueMessageHandlerProducer 
         replyWaitingHandler.put(responseKey);
         ClientMessage message = clientSession.createMessage(false);
         message.setReplyTo(replyQueueName);
+        message.setCorrelationID(responseKey);
         message.getBodyBuffer().writeBytes(SerializationUtils.serialize(id));
         producer.send(queue, message);
         return replyWaitingHandler.getReply(responseKey);
