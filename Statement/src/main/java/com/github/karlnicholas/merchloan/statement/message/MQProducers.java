@@ -59,7 +59,7 @@ public class MQProducers {
         billingCycleChargeConsumer.setMessageHandler(message->{
             byte[] mo = new byte[message.getBodyBuffer().readableBytes()];
             message.getBodyBuffer().readBytes(mo);
-            billingCycleChargeReplyHandler.handleReply((String)message.getCorrelationID(), SerializationUtils.deserialize(mo));
+            billingCycleChargeReplyHandler.handleReply(message.getCorrelationID().toString(), SerializationUtils.deserialize(mo));
         });
 
 
@@ -76,7 +76,7 @@ public class MQProducers {
         queryStatementHeaderConsumer.setMessageHandler(message->{
             byte[] mo = new byte[message.getBodyBuffer().readableBytes()];
             message.getBodyBuffer().readBytes(mo);
-            queryStatementHeaderReplyHandler.handleReply((String)message.getCorrelationID(), SerializationUtils.deserialize(mo));
+            queryStatementHeaderReplyHandler.handleReply(message.getCorrelationID().toString(), SerializationUtils.deserialize(mo));
         });
 
         clientSession.start();

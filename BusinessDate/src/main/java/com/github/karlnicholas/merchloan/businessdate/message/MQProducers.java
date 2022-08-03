@@ -85,6 +85,7 @@ public class MQProducers {
     public Object servicerequestCheckRequest() throws ActiveMQException, InterruptedException {
         log.debug("servicerequestCheckRequest:");
         String responseKey = UUID.randomUUID().toString();
+        checkRequestReplyHandler.put(responseKey);
         ClientMessage message = clientSession.createMessage(false);
         message.setCorrelationID(responseKey);
         message.setReplyTo(checkRequestReplyQueueName);
@@ -100,6 +101,7 @@ public class MQProducers {
     public Object acccountQueryLoansToCycle(LocalDate businessDate) throws ActiveMQException, InterruptedException {
         log.debug("acccountQueryLoansToCycle: {}", businessDate);
         String responseKey = UUID.randomUUID().toString();
+        loansToCycleReplyHandler.put(responseKey);
         ClientMessage message = clientSession.createMessage(false);
         message.setCorrelationID(responseKey);
         message.setReplyTo(loansToCycleQueueName);
