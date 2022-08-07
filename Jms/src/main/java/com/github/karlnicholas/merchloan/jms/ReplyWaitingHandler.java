@@ -2,6 +2,7 @@ package com.github.karlnicholas.merchloan.jms;
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -15,8 +16,8 @@ public class ReplyWaitingHandler {
         repliesWaiting = new ConcurrentHashMap<>();
     }
 
-    public void put(String responseKey) {
-        repliesWaiting.put(responseKey, ReplyWaiting.builder().nanoTime(System.nanoTime()).reply(null).build());
+    public void put(String responseKey, UUID loanId) {
+        repliesWaiting.put(responseKey, ReplyWaiting.builder().nanoTime(System.nanoTime()).loanId(loanId).reply(null).build());
     }
 
     public Object getReply(String responseKey) throws InterruptedException {
@@ -24,8 +25,8 @@ public class ReplyWaitingHandler {
             while (repliesWaiting.containsKey(responseKey) && repliesWaiting.get(responseKey).checkReply().isEmpty()) {
                 repliesWaiting.wait(RESPONSE_TIMEOUT);
                 if (System.nanoTime() - repliesWaiting.get(responseKey).getNanoTime() > TIMEOUT_MAX) {
-                    log.error("getReply timeout {}", responseKey);
-                    break;
+                    log.error("getReply timeout {}, {}", repliesWaiting, responseKey);
+                    throw new RuntimeException(repliesWaiting.toString());
                 }
             }
         }

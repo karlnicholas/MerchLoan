@@ -53,8 +53,8 @@ public class ClientApplication {
         loans = new ArrayList<>();
         for ( int i =0; i < 4; ++i ) {
 //            int plusDays = ThreadLocalRandom.current().nextInt(30);
-            int plusDays = 0;
-//            int plusDays = i;
+//            int plusDays = 0;
+            int plusDays = i;
             loans.add(new LoanCycle(creditComponent, accountComponent, loanComponent, loanStateComponent, requestStatusComponent, LocalDate.now().plusDays(plusDays), "Client " + i));
         }
     }

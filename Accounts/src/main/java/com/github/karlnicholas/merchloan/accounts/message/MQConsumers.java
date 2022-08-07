@@ -127,11 +127,9 @@ public class MQConsumers {
             ClientMessage replyMessage = clientSession.createMessage(false);
             replyMessage.getBodyBuffer().writeBytes(SerializationUtils.serialize(statementHeader));
             replyMessage.setCorrelationID(message.getCorrelationID());
-            statementHeaderReplyProducer.send(message.getReplyTo(), replyMessage, ack->{
-                log.debug("statementHeaderReplyProducer ACK: ", ack);
-            });
+            statementHeaderReplyProducer.send(message.getReplyTo(), replyMessage);
         } catch (Exception ex) {
-            log.error("receivedStatementHeaderMessage exception {}", ex.getMessage());
+            log.error("receivedStatementHeaderMessage exception", ex);
         }
     }
 
@@ -146,7 +144,7 @@ public class MQConsumers {
             replyMessage.setCorrelationID(message.getCorrelationID());
             loansToCyceReplyProducer.send(message.getReplyTo(), replyMessage);
         } catch (Exception ex) {
-            log.error("receivedLoansToCyceMessage exception {}", ex.getMessage());
+            log.error("receivedLoansToCyceMessage exception", ex);
         }
     }
 
@@ -169,7 +167,7 @@ public class MQConsumers {
             replyMessage.setCorrelationID(message.getCorrelationID());
             billingCycleChargeReplyProducer.send(message.getReplyTo(), replyMessage);
         } catch (Exception ex) {
-            log.error("receivedBillingCycleChargeMessage exception {}", ex.getMessage());
+            log.error("receivedBillingCycleChargeMessage exception", ex);
         }
     }
 
@@ -191,7 +189,7 @@ public class MQConsumers {
             replyMessage.setCorrelationID(message.getCorrelationID());
             queryAccountIdReplyProducer.send(message.getReplyTo(), replyMessage);
         } catch (Exception ex) {
-            log.error("receivedQueryAccountIdMessage exception {}", ex.getMessage());
+            log.error("receivedQueryAccountIdMessage exception", ex);
         }
     }
 
@@ -213,7 +211,7 @@ public class MQConsumers {
             replyMessage.setCorrelationID(message.getCorrelationID());
             queryLoanIdReplyProducer.send(message.getReplyTo(), replyMessage);
         } catch (Exception ex) {
-            log.error("receivedQueryLoanIdMessage exception {}", ex.getMessage());
+            log.error("receivedQueryLoanIdMessage exception", ex);
             Thread.currentThread().interrupt();
         }
     }
@@ -230,13 +228,13 @@ public class MQConsumers {
             log.debug("receivedCreateAccountMessage{}", createAccount.getId());
             accountManagementService.createAccount(createAccount, requestResponse);
         } catch (Exception e) {
-            log.error("receivedCreateAccountMessage exception {}", e.getMessage());
+            log.error("receivedCreateAccountMessage exception", e);
             requestResponse.setError(e.getMessage());
         } finally {
             try {
                 mqProducers.serviceRequestServiceRequest(requestResponse);
             } catch (ActiveMQException e) {
-                log.error("receivedCreateAccountMessage exception {}", e.getMessage());
+                log.error("receivedCreateAccountMessage exception", e);
             }
         }
     }
@@ -272,13 +270,13 @@ public class MQConsumers {
                         requestResponse);
             }
         } catch (Exception e) {
-            log.error("receivedFundingMessage exception {}", e.getMessage());
+            log.error("receivedFundingMessage exception", e);
             requestResponse.setError(e.getMessage());
         } finally {
             try {
                 mqProducers.serviceRequestServiceRequest(requestResponse);
             } catch (ActiveMQException e) {
-                log.error("receivedFundingMessage exception {}", e.getMessage());
+                log.error("receivedFundingMessage exception", e);
             }
         }
     }
@@ -306,13 +304,13 @@ public class MQConsumers {
                         .build(), requestResponse);
             }
         } catch (Exception e) {
-            log.error("receivedValidateCreditMessage exception {}", e.getMessage());
+            log.error("receivedValidateCreditMessage exception", e);
             requestResponse.setError(e.getMessage());
         } finally {
             try {
                 mqProducers.serviceRequestServiceRequest(requestResponse);
             } catch (ActiveMQException e) {
-                log.error("receivedValidateCreditMessage exception {}", e.getMessage());
+                log.error("receivedValidateCreditMessage exception", e);
             }
         }
     }
@@ -341,13 +339,13 @@ public class MQConsumers {
                         requestResponse);
             }
         } catch (Exception e) {
-            log.error("receivedValidateDebitMessage exception {}", e.getMessage());
+            log.error("receivedValidateDebitMessage exception", e);
             requestResponse.setError(e.getMessage());
         } finally {
             try {
                 mqProducers.serviceRequestServiceRequest(requestResponse);
             } catch (ActiveMQException e) {
-                log.error("receivedValidateDebitMessage exception {}", e.getMessage());
+                log.error("receivedValidateDebitMessage exception", e);
             }
         }
     }
@@ -401,16 +399,16 @@ public class MQConsumers {
                 requestResponse.setFailure("loan not found for id: " + closeLoan.getLoanId());
             }
         } catch (InterruptedException e) {
-            log.error("receivedCloseLoanMessage exception {}", e.getMessage());
+            log.error("receivedCloseLoanMessage exception", e);
             Thread.currentThread().interrupt();
         } catch (Exception e) {
-            log.error("receivedCloseLoanMessage exception {}", e.getMessage());
+            log.error("receivedCloseLoanMessage exception", e);
             requestResponse.setError("receivedCloseLoanMessage exception " + e.getMessage());
         } finally {
             try {
                 mqProducers.serviceRequestServiceRequest(requestResponse);
             } catch (ActiveMQException e) {
-                log.error("receivedCloseLoanMessage exception {}", e.getMessage());
+                log.error("receivedCloseLoanMessage exception", e);
             }
         }
     }
@@ -428,13 +426,13 @@ public class MQConsumers {
             accountManagementService.closeLoan(statementHeader.getLoanId());
             requestResponse.setSuccess();
         } catch (Exception e) {
-            log.error("receivedLoanClosedMessage exception {}", e.getMessage());
-            requestResponse.setError("receivedLoanClosedMessage excepion: " + e.getMessage());
+            log.error("receivedLoanClosedMessage exception", e);
+            requestResponse.setError("receivedLoanClosedMessage exception: " + e.getMessage());
         } finally {
             try {
                 mqProducers.serviceRequestServiceRequest(requestResponse);
             } catch (ActiveMQException e) {
-                log.error("receivedLoanClosedMessage exception {}", e.getMessage());
+                log.error("receivedLoanClosedMessage exception", e);
             }
         }
     }

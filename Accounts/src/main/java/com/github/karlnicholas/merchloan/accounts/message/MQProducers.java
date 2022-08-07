@@ -82,14 +82,12 @@ public class MQProducers {
     public Object queryMostRecentStatement(UUID loanId) throws ActiveMQException, InterruptedException {
         log.debug("queryMostRecentStatement: {}", loanId);
         String responseKey = UUID.randomUUID().toString();
-        replyWaitingHandlerMostRecentStatement.put(responseKey);
+        replyWaitingHandlerMostRecentStatement.put(responseKey, loanId);
         ClientMessage message = clientSession.createMessage(false);
         message.setReplyTo(mostRecentStatementReplyQueueName);
         message.setCorrelationID(responseKey);
         message.getBodyBuffer().writeBytes(SerializationUtils.serialize(loanId));
-        statementQueryMostRecentStatementProducer.send(message, ack->{
-            log.debug("ACK {}", ack);
-        });
+        statementQueryMostRecentStatementProducer.send(message);
         return replyWaitingHandlerMostRecentStatement.getReply(responseKey);
 //        ClientMessage reply = mostRecentStatementReplyConsumer.receive();
 //        byte[] mo = new byte[reply.getBodyBuffer().readableBytes()];

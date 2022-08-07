@@ -41,7 +41,7 @@ public class QueryCheckRequestProducer implements QueueMessageHandlerProducer {
     public Object sendMessage(ClientSession clientSession, ClientProducer producer, Object data) throws ActiveMQException, InterruptedException {
         log.debug("queryCheckRequest:");
         String responseKey = UUID.randomUUID().toString();
-        replyWaitingHandler.put(responseKey);
+        replyWaitingHandler.put(responseKey, null);
         ClientMessage message = clientSession.createMessage(false);
         message.setReplyTo(replyQueueName);
         message.setCorrelationID(responseKey);

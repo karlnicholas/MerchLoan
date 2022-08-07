@@ -58,36 +58,7 @@ public class MQConsumers {
         statementQueryStatementQueue = mqConsumerUtils.bindConsumer(clientSession, SimpleString.toSimpleString(mqConsumerUtils.getStatementQueryStatementQueue()), false, this::receivedQueryStatementMessage);
         statementQueryStatementsQueue = mqConsumerUtils.bindConsumer(clientSession, SimpleString.toSimpleString(mqConsumerUtils.getStatementQueryStatementsQueue()), false, this::receivedQueryStatementsMessage);
         statementQueryMostRecentStatementQueue = mqConsumerUtils.bindConsumer(clientSession, SimpleString.toSimpleString(mqConsumerUtils.getStatementQueryMostRecentStatementQueue()), false, this::receivedQueryMostRecentStatementMessage);
-        producerFactory.getConnection().addFailureListener(new FailureListener() {
-            @Override
-            public void connectionFailed(ActiveMQException exception, boolean failedOver) {
-                log.error("F1 ", exception);
-            }
 
-            @Override
-            public void connectionFailed(ActiveMQException exception, boolean failedOver, String scaleDownTargetNodeID) {
-                log.error("F2 ", exception);
-            }
-        });
-
-        clientSession.addFailureListener(new SessionFailureListener() {
-
-            @Override
-            public void connectionFailed(ActiveMQException exception, boolean failedOver) {
-                log.error("F2 ", exception);
-            }
-
-            @Override
-            public void connectionFailed(ActiveMQException exception, boolean failedOver, String scaleDownTargetNodeID) {
-                log.error("F3 ", exception);
-            }
-
-            @Override
-            public void beforeReconnect(ActiveMQException exception) {
-                log.error("F4 ", exception);
-
-            }
-        });
         queryStatementProducer = clientSession.createProducer();
         queryMostRecentStatementProducer = clientSession.createProducer();
         queryStatementsProducer  = clientSession.createProducer();
@@ -124,7 +95,7 @@ public class MQConsumers {
             replyMessage.setCorrelationID(message.getCorrelationID());
             queryStatementProducer.send(message.getReplyTo(), replyMessage);
         } catch (Exception ex) {
-            log.error("receivedQueryStatementMessage exception {}", ex.getMessage());
+            log.error("receivedQueryStatementMessage exception", ex);
         }
     }
 
@@ -148,7 +119,7 @@ public class MQConsumers {
             replyMessage.setCorrelationID(message.getCorrelationID());
             queryMostRecentStatementProducer.send(message.getReplyTo(), replyMessage);
         } catch (Exception ex) {
-            log.error("receivedQueryMostRecentStatementMessage exception {}", ex.getMessage());
+            log.error("receivedQueryMostRecentStatementMessage exception", ex);
         }
     }
 
@@ -164,7 +135,7 @@ public class MQConsumers {
             replyMessage.setCorrelationID(message.getCorrelationID());
             queryStatementsProducer.send(message.getReplyTo(), replyMessage);
         } catch (Exception ex) {
-            log.error("receivedQueryStatementsMessage exception {}", ex.getMessage());
+            log.error("receivedQueryStatementsMessage exception", ex);
         }
     }
 
@@ -245,10 +216,10 @@ public class MQConsumers {
                 loanClosed = true;
             }
         } catch (InterruptedException iex) {
-            log.error("receivedStatementMessage {}", iex);
+            log.error("receivedStatementMessage", iex);
             Thread.currentThread().interrupt();
         } catch (Exception ex) {
-            log.error("receivedStatementMessage {}", ex);
+            log.error("receivedStatementMessage", ex);
             requestResponse.setError(ex.getMessage());
         } finally {
             if (!loanClosed) {
@@ -290,7 +261,7 @@ public class MQConsumers {
             statementHeader.setRegisterEntries(null);
             mqProducers.accountLoanClosed(statementHeader);
         } catch (Exception ex) {
-            log.error("receivedCloseStatementMessage{}", ex.getMessage());
+            log.error("receivedCloseStatementMessage", ex);
             try {
                 ServiceRequestResponse requestResponse = new ServiceRequestResponse(statementHeader.getId(), ServiceRequestMessage.STATUS.ERROR, ex.getMessage());
                 mqProducers.serviceRequestServiceRequest(requestResponse);

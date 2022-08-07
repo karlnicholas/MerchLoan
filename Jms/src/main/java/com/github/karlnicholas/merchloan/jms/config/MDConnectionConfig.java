@@ -23,7 +23,7 @@ public class MDConnectionConfig {
 
     @Bean
     public ServerLocator getServerLocator() throws Exception {
-        ServerLocator locator = ActiveMQClient.createServerLocator("tcp://localhost:61616");
+        ServerLocator locator = ActiveMQClient.createServerLocator("tcp://localhost:61616?consumerWindowSize=0");
 //        locator.setUseGlobalPools(false);
 //        locator.setThreadPoolMaxSize(100);
         return locator;

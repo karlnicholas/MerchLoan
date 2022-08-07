@@ -41,7 +41,7 @@ public class QueryAccountProducer implements QueueMessageHandlerProducer {
         UUID id = (UUID) data;
         log.debug("queryAccount: {}", id);
         String responseKey = UUID.randomUUID().toString();
-        replyWaitingHandler.put(responseKey);
+        replyWaitingHandler.put(responseKey, id);
         ClientMessage message = clientSession.createMessage(false);
         message.setReplyTo(replyQueueName);
         message.setCorrelationID(responseKey);

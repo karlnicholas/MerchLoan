@@ -86,7 +86,7 @@ public class RequestStatusComponent {
         try {
             Thread.sleep(waitTime);
         } catch (InterruptedException ex) {
-            log.error("Sleep while check status interrupted: {}", ex.getMessage());
+            log.error("Sleep while check status interrupted", ex);
             Thread.currentThread().interrupt();
         }
     }

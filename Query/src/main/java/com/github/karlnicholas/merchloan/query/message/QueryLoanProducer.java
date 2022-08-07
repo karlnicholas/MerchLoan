@@ -41,7 +41,7 @@ public class QueryLoanProducer implements QueueMessageHandlerProducer {
         UUID id = (UUID) data;
         log.debug("queryLoan: {}", id);
         String responseKey = UUID.randomUUID().toString();
-        replyWaitingHandler.put(responseKey);
+        replyWaitingHandler.put(responseKey, id);
         ClientMessage message = clientSession.createMessage(false);
         message.setReplyTo(replyQueueName);
         message.setCorrelationID(responseKey);

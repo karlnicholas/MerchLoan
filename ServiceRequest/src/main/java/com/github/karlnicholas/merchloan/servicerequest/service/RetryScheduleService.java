@@ -23,7 +23,7 @@ public class RetryScheduleService {
         this.dataSource = dataSource;
     }
 
-    @Scheduled(initialDelay = 5000, fixedDelay = 5000)
+//    @Scheduled(initialDelay = 5000, fixedDelay = 5000)
     public void retryService() throws SQLException {
         try (Connection con = dataSource.getConnection()) {
             List<ServiceRequest> serviceRequests = serviceRequestDao.findByStatus(con, ServiceRequestMessage.STATUS.ERROR);

@@ -91,14 +91,12 @@ public class MQProducers {
     public Object accountBillingCycleCharge(BillingCycleCharge billingCycleCharge) throws InterruptedException, ActiveMQException {
         log.debug("accountBillingCycleCharge: {}", billingCycleCharge);
         String responseKey = UUID.randomUUID().toString();
-        billingCycleChargeReplyHandler.put(responseKey);
+        billingCycleChargeReplyHandler.put(responseKey, billingCycleCharge.getLoanId());
         ClientMessage message = clientSession.createMessage(false);
         message.setReplyTo(billingCycleChargeQueueName);
         message.setCorrelationID(responseKey);
         message.getBodyBuffer().writeBytes(SerializationUtils.serialize(billingCycleCharge));
-        accountBillingCycleChargeProducer.send(message, ack->{
-            log.debug("accountBillingCycleChargeProducer ACK: {}", ack);
-        });
+        accountBillingCycleChargeProducer.send(message);
 
         return billingCycleChargeReplyHandler.getReply(responseKey);
     }
@@ -106,14 +104,12 @@ public class MQProducers {
     public Object accountQueryStatementHeader(StatementHeader statementHeader) throws InterruptedException, ActiveMQException {
         log.debug("accountQueryStatementHeader: {}", statementHeader);
         String responseKey = UUID.randomUUID().toString();
-        queryStatementHeaderReplyHandler.put(responseKey);
+        queryStatementHeaderReplyHandler.put(responseKey, statementHeader.getLoanId());
         ClientMessage message = clientSession.createMessage(false);
         message.setCorrelationID(responseKey);
         message.setReplyTo(queryStatementHeaderReplyQueueName);
         message.getBodyBuffer().writeBytes(SerializationUtils.serialize(statementHeader));
-        accountQueryStatementHeaderProducer.send(message, ack->{
-            log.debug("accountQueryStatementHeaderProducer ACK: ", ack);
-        });
+        accountQueryStatementHeaderProducer.send(message);
         return queryStatementHeaderReplyHandler.getReply(responseKey);
     }
 
