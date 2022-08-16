@@ -1,6 +1,7 @@
 package com.github.karlnicholas.merchloan.statement.message;
 
 import com.github.karlnicholas.merchloan.apimessage.message.ServiceRequestMessage;
+import com.github.karlnicholas.merchloan.dto.LoanDto;
 import com.github.karlnicholas.merchloan.jms.MQConsumerUtils;
 import com.github.karlnicholas.merchloan.jmsmessage.*;
 import com.github.karlnicholas.merchloan.statement.model.Statement;
@@ -17,6 +18,10 @@ import org.springframework.util.SerializationUtils;
 import javax.annotation.PreDestroy;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -35,6 +40,7 @@ public class MQConsumers {
     private final ClientConsumer statementQueryStatementQueue;
     private final ClientConsumer statementQueryStatementsQueue;
     private final ClientConsumer statementQueryMostRecentStatementQueue;
+    private final ClientConsumer statementLoanIdQueue;
     private final StatementService statementService;
     private final MQProducers mqProducers;
     private final BigDecimal interestRate = new BigDecimal("0.10");
@@ -42,7 +48,7 @@ public class MQConsumers {
 
 
     public MQConsumers(ServerLocator locator, MQConsumerUtils mqConsumerUtils, MQProducers mqProducers, StatementService statementService, QueryService queryService) throws Exception {
-        producerFactory =  locator.createSessionFactory();
+        producerFactory = locator.createSessionFactory();
         clientSession = producerFactory.createSession();
         clientSession.addMetaData(ClientSession.JMS_SESSION_IDENTIFIER_PROPERTY, "jms-client-id");
         clientSession.addMetaData("jms-client-id", "statement-consumers");
@@ -58,10 +64,11 @@ public class MQConsumers {
         statementQueryStatementQueue = mqConsumerUtils.bindConsumer(clientSession, SimpleString.toSimpleString(mqConsumerUtils.getStatementQueryStatementQueue()), false, this::receivedQueryStatementMessage);
         statementQueryStatementsQueue = mqConsumerUtils.bindConsumer(clientSession, SimpleString.toSimpleString(mqConsumerUtils.getStatementQueryStatementsQueue()), false, this::receivedQueryStatementsMessage);
         statementQueryMostRecentStatementQueue = mqConsumerUtils.bindConsumer(clientSession, SimpleString.toSimpleString(mqConsumerUtils.getStatementQueryMostRecentStatementQueue()), false, this::receivedQueryMostRecentStatementMessage);
+        statementLoanIdQueue = mqConsumerUtils.bindConsumer(clientSession, SimpleString.toSimpleString(mqConsumerUtils.getStatementLoanIdQueue()), false, this::receivedQueryMostRecentStatementMessage);
 
         queryStatementProducer = clientSession.createProducer();
         queryMostRecentStatementProducer = clientSession.createProducer();
-        queryStatementsProducer  = clientSession.createProducer();
+        queryStatementsProducer = clientSession.createProducer();
         clientSession.start();
     }
 
@@ -72,12 +79,14 @@ public class MQConsumers {
         statementQueryStatementQueue.close();
         statementQueryStatementsQueue.close();
         statementQueryMostRecentStatementQueue.close();
+        statementLoanIdQueue.close();
 
         clientSession.deleteQueue(mqConsumerUtils.getStatementStatementQueue());
         clientSession.deleteQueue(mqConsumerUtils.getStatementCloseStatementQueue());
         clientSession.deleteQueue(mqConsumerUtils.getStatementQueryStatementQueue());
         clientSession.deleteQueue(mqConsumerUtils.getStatementQueryStatementsQueue());
         clientSession.deleteQueue(mqConsumerUtils.getStatementQueryMostRecentStatementQueue());
+        clientSession.deleteQueue(mqConsumerUtils.getStatementLoanIdQueue());
 
         clientSession.close();
         producerFactory.close();
@@ -104,20 +113,17 @@ public class MQConsumers {
         try {
             byte[] mo = new byte[message.getBodyBuffer().readableBytes()];
             message.getBodyBuffer().readBytes(mo);
-            UUID loanId = (UUID) SerializationUtils.deserialize(mo);
-            log.debug("receivedQueryMostRecentStatementMessage {}", loanId);
-            MostRecentStatement mostRecentStatement = queryService.findMostRecentStatement(loanId).map(statement -> MostRecentStatement.builder()
-                            .id(statement.getId())
-                            .loanId(loanId)
-                            .statementDate(statement.getStatementDate())
-                            .endingBalance(statement.getEndingBalance())
-                            .startingBalance(statement.getStartingBalance())
-                            .build())
-                    .orElse(MostRecentStatement.builder().loanId(loanId).build());
+            LoanDto loanDto = (LoanDto) SerializationUtils.deserialize(mo);
+            log.debug("receivedQueryMostRecentStatementMessage {}", loanDto);
+            queryService.findMostRecentStatement(loanDto.getLoanId()).ifPresent(statement -> {
+                loanDto.setLastStatementDate(statement.getStatementDate());
+                loanDto.setLastStatementBalance(statement.getEndingBalance());
+
+            });
             ClientMessage replyMessage = clientSession.createMessage(false);
-            replyMessage.getBodyBuffer().writeBytes(SerializationUtils.serialize(mostRecentStatement));
+            replyMessage.getBodyBuffer().writeBytes(SerializationUtils.serialize(loanDto));
             replyMessage.setCorrelationID(message.getCorrelationID());
-            queryMostRecentStatementProducer.send(message.getReplyTo(), replyMessage);
+            queryMostRecentStatementProducer.send(mqConsumerUtils.getAccountLoanIdComputeQueue(), replyMessage);
         } catch (Exception ex) {
             log.error("receivedQueryMostRecentStatementMessage exception", ex);
         }
@@ -270,4 +276,68 @@ public class MQConsumers {
             }
         }
     }
+
+//    private void receiveStatementLoadIdMessage(ClientMessage message) throws SQLException, ActiveMQException, InterruptedException {
+//        // get most recent statement
+//        MostRecentStatement mostRecentStatement = (MostRecentStatement) mqProducers.queryMostRecentStatement(loanDto.getLoanId());
+//        // generate a simulated new statement for current period
+//        StatementHeader statementHeader = StatementHeader.builder().build();
+//        statementHeader.setLoanId(loanDto.getLoanId());
+//        List<RegisterEntry> registerEntries;
+//        if (mostRecentStatement.getStatementDate() == null) {
+//            statementHeader.setEndDate(loanDto.getStatementDates().get(0));
+//            statementHeader.setStartDate(loanDto.getStartDate());
+//            registerEntries = registerEntryDao.findByLoanIdAndDateBetweenOrderByTimestamp(con, statementHeader.getLoanId(), statementHeader.getStartDate(), statementHeader.getEndDate());
+//        } else {
+//            int index = loanDto.getStatementDates().indexOf(mostRecentStatement.getStatementDate());
+//            if (index + 1 < loanDto.getStatementDates().size()) {
+//                statementHeader.setEndDate(loanDto.getStatementDates().get(index + 1));
+//                statementHeader.setStartDate(loanDto.getStatementDates().get(index).plusDays(1));
+//                registerEntries = registerEntryDao.findByLoanIdAndDateBetweenOrderByTimestamp(con, statementHeader.getLoanId(), statementHeader.getStartDate(), statementHeader.getEndDate());
+//            } else {
+//                registerEntries = new ArrayList<>();
+//            }
+//        }
+//        // determine current balance, payoff amount
+//        BigDecimal startingBalance;
+//        BigDecimal interestBalance;
+//        if (mostRecentStatement.getStatementDate() == null) {
+//            startingBalance = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_EVEN);
+//            interestBalance = loanDto.getFunding();
+//        } else {
+//            startingBalance = mostRecentStatement.getEndingBalance();
+//            interestBalance = mostRecentStatement.getEndingBalance();
+//        }
+//        BigDecimal currentBalance = startingBalance;
+//        // determine current payoff amount
+//        BigDecimal currentInterest = interestBalance.multiply(loanDto.getInterestRate()).divide(BigDecimal.valueOf(loanDto.getMonths()), RoundingMode.HALF_EVEN);
+//        for (RegisterEntry re : registerEntries) {
+//            if (re.getDebit() != null) {
+//                currentBalance = currentBalance.add(re.getDebit());
+//            } else if (re.getCredit() != null) {
+//                currentBalance = currentBalance.subtract(re.getCredit());
+//            }
+//        }
+//        BigDecimal payoffAmount = currentInterest.add(currentBalance).setScale(2, RoundingMode.HALF_EVEN);
+//        // compute current Payment
+//        // must first compute expected balance
+//        // what is number of months?
+//        int nMonths = loanDto.getStatementDates().indexOf(statementHeader.getEndDate()) + 1;
+//        BigDecimal computeAmount = loanDto.getFunding();
+//        for (int i = 0; i < nMonths; ++i) {
+//            BigDecimal computeInterest = computeAmount.multiply(loanDto.getInterestRate()).divide(BigDecimal.valueOf(loanDto.getMonths()), RoundingMode.HALF_EVEN);
+//            computeAmount = computeAmount.add(computeInterest).subtract(loanDto.getMonthlyPayments()).setScale(2, RoundingMode.HALF_EVEN);
+//        }
+//        // fill out additional response
+//        BigDecimal currentPayment = currentBalance.add(currentInterest).setScale(2, RoundingMode.HALF_EVEN).subtract(computeAmount);
+//        loanDto.setCurrentPayment(currentPayment.compareTo(payoffAmount) < 0 ? currentPayment : payoffAmount);
+//        loanDto.setCurrentInterest(currentInterest.setScale(2, RoundingMode.HALF_EVEN));
+//        loanDto.setPayoffAmount(payoffAmount);
+//        loanDto.setCurrentBalance(currentBalance);
+//        if (mostRecentStatement.getStatementDate() != null) {
+//            loanDto.setLastStatementDate(mostRecentStatement.getStatementDate());
+//            loanDto.setLastStatementBalance(mostRecentStatement.getEndingBalance());
+//        }
+//    }
+
 }

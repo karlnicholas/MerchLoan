@@ -14,27 +14,13 @@ import java.util.UUID;
 @Slf4j
 public class QueryStatementsProducer implements QueueMessageHandlerProducer {
     private final SimpleString queue;
-    private final ClientSessionFactory sessionFactory;
-    private final ClientSession clientSession;
-    private final SimpleString replyQueueName;
-    private final ClientConsumer replyConsumer;
     private final ReplyWaitingHandler replyWaitingHandler;
+    private final SimpleString replyToQueue;
 
-    public QueryStatementsProducer(ServerLocator locator, MQConsumerUtils mqConsumerUtils) throws Exception {
+    public QueryStatementsProducer(MQConsumerUtils mqConsumerUtils, ReplyWaitingHandler replyWaitingHandler, SimpleString replyToQueue) {
         this.queue = SimpleString.toSimpleString(mqConsumerUtils.getStatementQueryStatementsQueue());
-
-        sessionFactory = locator.createSessionFactory();
-        clientSession = sessionFactory.createSession();
-        replyQueueName = SimpleString.toSimpleString("queryLoanReply" + UUID.randomUUID());
-        replyConsumer = MQConsumerUtils.createTemporaryQueue(clientSession, replyQueueName);
-        replyWaitingHandler = new ReplyWaitingHandler();
-        replyConsumer.setMessageHandler(message->{
-            byte[] mo = new byte[message.getBodyBuffer().readableBytes()];
-            message.getBodyBuffer().readBytes(mo);
-            replyWaitingHandler.handleReply(message.getCorrelationID().toString(), SerializationUtils.deserialize(mo));
-        });
-
-        clientSession.start();
+        this.replyWaitingHandler = replyWaitingHandler;
+        this.replyToQueue = replyToQueue;
     }
     @Override
     public Object sendMessage(ClientSession clientSession, ClientProducer producer, Object data) throws ActiveMQException, InterruptedException {
@@ -43,8 +29,8 @@ public class QueryStatementsProducer implements QueueMessageHandlerProducer {
         String responseKey = UUID.randomUUID().toString();
         replyWaitingHandler.put(responseKey, id);
         ClientMessage message = clientSession.createMessage(false);
-        message.setReplyTo(replyQueueName);
         message.setCorrelationID(responseKey);
+        message.setReplyTo(replyToQueue);
         message.getBodyBuffer().writeBytes(SerializationUtils.serialize(id));
         producer.send(queue, message);
         return replyWaitingHandler.getReply(responseKey);
@@ -53,9 +39,5 @@ public class QueryStatementsProducer implements QueueMessageHandlerProducer {
 //        reply.getBodyBuffer().readBytes(mo);
 //        return SerializationUtils.deserialize(mo);
     }
-    @Override
-    public void close() throws ActiveMQException {
-        clientSession.close();
-        sessionFactory.close();
-    }
+
 }

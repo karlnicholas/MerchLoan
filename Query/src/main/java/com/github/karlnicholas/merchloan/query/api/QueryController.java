@@ -1,12 +1,20 @@
 package com.github.karlnicholas.merchloan.query.api;
 
 import com.github.karlnicholas.merchloan.jms.MQConsumerUtils;
+import com.github.karlnicholas.merchloan.jms.ReplyWaitingHandler;
 import com.github.karlnicholas.merchloan.jms.queue.QueueMessageService;
 import com.github.karlnicholas.merchloan.query.message.*;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.activemq.artemis.api.core.ActiveMQException;
+import org.apache.activemq.artemis.api.core.QueueConfiguration;
+import org.apache.activemq.artemis.api.core.RoutingType;
+import org.apache.activemq.artemis.api.core.SimpleString;
+import org.apache.activemq.artemis.api.core.client.ClientConsumer;
+import org.apache.activemq.artemis.api.core.client.ClientSession;
+import org.apache.activemq.artemis.api.core.client.ClientSessionFactory;
 import org.apache.activemq.artemis.api.core.client.ServerLocator;
 import org.springframework.http.MediaType;
+import org.springframework.util.SerializationUtils;
 import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.PreDestroy;
@@ -17,36 +25,46 @@ import java.util.UUID;
 @RequestMapping(value = "/api/query")
 @Slf4j
 public class QueryController {
+    private final ClientSessionFactory sessionFactory;
+    private final ClientSession clientSession;
     private final QueueMessageService queueMessageService;
     private final QueryServiceRequestProducer queryServiceRequestProducer;
     private final QueryAccountProducer queryAccountProducer;
     private final QueryLoanProducer queryLoanProducer;
     private final QueryStatementProducer queryStatementProducer;
     private final QueryStatementsProducer queryStatementsProducer;
-    private final QueryCheckRequestProducer queryCheckRequestProducer;
-
     public QueryController(ServerLocator locator, MQConsumerUtils mqConsumerUtils, QueueMessageService queueMessageService) throws Exception {
         this.queueMessageService = queueMessageService;
 
-        queryServiceRequestProducer = new QueryServiceRequestProducer(locator, mqConsumerUtils);
-        queryAccountProducer = new QueryAccountProducer(locator, mqConsumerUtils);
-        queryLoanProducer = new QueryLoanProducer(locator, mqConsumerUtils);
-        queryStatementProducer = new QueryStatementProducer(locator, mqConsumerUtils);
-        queryStatementsProducer = new QueryStatementsProducer(locator, mqConsumerUtils);
-        queryCheckRequestProducer = new QueryCheckRequestProducer(locator, mqConsumerUtils);
+        sessionFactory = locator.createSessionFactory();
+        clientSession = sessionFactory.createSession();
+        SimpleString replyQueue = SimpleString.toSimpleString("QueryReply-" + UUID.randomUUID());
+
+        ReplyWaitingHandler replyWaitingHandler = new ReplyWaitingHandler();
+        mqConsumerUtils.bindConsumer(clientSession, replyQueue, true, message -> {
+            byte[] mo = new byte[message.getBodyBuffer().readableBytes()];
+            message.getBodyBuffer().readBytes(mo);
+            replyWaitingHandler.handleReply(message.getCorrelationID().toString(), SerializationUtils.deserialize(mo));
+        });
+
+        queryServiceRequestProducer = new QueryServiceRequestProducer(mqConsumerUtils, replyWaitingHandler, replyQueue);
+        queryAccountProducer = new QueryAccountProducer(mqConsumerUtils, replyWaitingHandler, replyQueue);
+        queryLoanProducer = new QueryLoanProducer(mqConsumerUtils, replyWaitingHandler, replyQueue);
+        queryStatementProducer = new QueryStatementProducer(mqConsumerUtils, replyWaitingHandler, replyQueue);
+        queryStatementsProducer = new QueryStatementsProducer(mqConsumerUtils, replyWaitingHandler, replyQueue);
+        queryCheckRequestProducer = new QueryCheckRequestProducer(mqConsumerUtils, replyWaitingHandler, replyQueue);
 
         queueMessageService.initialize(locator, "Query");
+        clientSession.start();
     }
+
+    private final QueryCheckRequestProducer queryCheckRequestProducer;
 
     @PreDestroy
     public void preDestroy() throws ActiveMQException, InterruptedException {
-        queryServiceRequestProducer.close();
-        queryAccountProducer.close();
-        queryLoanProducer.close();
-        queryStatementProducer.close();
-        queryStatementsProducer.close();
-        queryCheckRequestProducer.close();
         queueMessageService.close();
+        clientSession.close();
+        sessionFactory.close();
     }
 
     @GetMapping(value = "/request/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -81,7 +99,7 @@ public class QueryController {
     public String queryStatementsId(@PathVariable UUID id) throws Exception {
         log.debug("statements: {}", id);
         String responseKey = UUID.randomUUID().toString();
-        queueMessageService.addMessage(queryCheckRequestProducer, Optional.of(responseKey), id);
+        queueMessageService.addMessage(queryStatementsProducer, Optional.of(responseKey), id);
         return queueMessageService.getReply(responseKey).toString();
     }
     @GetMapping(value = "/checkrequests", produces = MediaType.APPLICATION_JSON_VALUE)

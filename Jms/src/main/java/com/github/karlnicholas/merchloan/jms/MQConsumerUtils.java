@@ -57,6 +57,9 @@ public class MQConsumerUtils {
     private String accountQueryAccountIdQueue;
     private String accountQueryLoanIdQueue;
     private String accountBillingCycleChargeQueue;
+    public String accountLoanIdComputeQueue;
+
+    private String queryResponseQueue;
 
     private String servicerequestQueue;
     private String servicerequestQueryIdQueue;
@@ -69,4 +72,6 @@ public class MQConsumerUtils {
     private String statementQueryStatementQueue;
     private String statementQueryStatementsQueue;
     private String statementQueryMostRecentStatementQueue;
+    private String statementLoanIdQueue;
+
 }

@@ -3,7 +3,6 @@ package com.github.karlnicholas.merchloan.accounts.service;
 import com.github.karlnicholas.merchloan.accounts.dao.AccountDao;
 import com.github.karlnicholas.merchloan.accounts.dao.LoanDao;
 import com.github.karlnicholas.merchloan.accounts.dao.RegisterEntryDao;
-import com.github.karlnicholas.merchloan.accounts.message.MQProducers;
 import com.github.karlnicholas.merchloan.accounts.model.Account;
 import com.github.karlnicholas.merchloan.accounts.model.Loan;
 import com.github.karlnicholas.merchloan.accounts.model.RegisterEntry;
@@ -32,15 +31,13 @@ public class QueryService {
     private final AccountDao accountDao;
     private final LoanDao loanDao;
     private final RegisterEntryDao registerEntryDao;
-    private final MQProducers mqProducers;
 
     @Autowired
-    public QueryService(DataSource dataSource, AccountDao accountDao, LoanDao loanDao, RegisterEntryDao registerEntryDao, MQProducers mqProducers) {
+    public QueryService(DataSource dataSource, AccountDao accountDao, LoanDao loanDao, RegisterEntryDao registerEntryDao) {
         this.dataSource = dataSource;
         this.accountDao = accountDao;
         this.loanDao = loanDao;
         this.registerEntryDao = registerEntryDao;
-        this.mqProducers = mqProducers;
     }
 
     public Optional<Account> queryAccountId(UUID id) throws SQLException {
@@ -77,9 +74,9 @@ public class QueryService {
                             .monthlyPayments(loan.getMonthlyPayments())
                             .months(loan.getMonths())
                             .build();
-                    if (loan.getLoanState() != Loan.LOAN_STATE.CLOSED) {
-                        computeLoanValues(con, loanId, loan, loanDto);
-                    }
+//                    if (loan.getLoanState() != Loan.LOAN_STATE.CLOSED) {
+//                        computeLoanValues(con, loanDto);
+//                    }
                     return Optional.of(loanDto);
                 } else {
                     return Optional.empty();
@@ -90,40 +87,41 @@ public class QueryService {
         }
     }
 
-    private void computeLoanValues(Connection con, UUID loanId, Loan loan, LoanDto loanDto) throws SQLException, ActiveMQException, InterruptedException {
+    public void computeLoanValues(LoanDto loanDto) throws SQLException {
         // get most recent statement
-        MostRecentStatement mostRecentStatement = (MostRecentStatement) mqProducers.queryMostRecentStatement(loanId);
         // generate a simulated new statement for current period
         StatementHeader statementHeader = StatementHeader.builder().build();
-        statementHeader.setLoanId(loanId);
+        statementHeader.setLoanId(loanDto.getLoanId());
         List<RegisterEntry> registerEntries;
-        if (mostRecentStatement.getStatementDate() == null) {
-            statementHeader.setEndDate(loan.getStatementDates().get(0));
-            statementHeader.setStartDate(loan.getStartDate());
-            registerEntries = registerEntryDao.findByLoanIdAndDateBetweenOrderByTimestamp(con, statementHeader.getLoanId(), statementHeader.getStartDate(), statementHeader.getEndDate());
-        } else {
-            int index = loan.getStatementDates().indexOf(mostRecentStatement.getStatementDate());
-            if (index + 1 < loan.getStatementDates().size()) {
-                statementHeader.setEndDate(loan.getStatementDates().get(index + 1));
-                statementHeader.setStartDate(loan.getStatementDates().get(index).plusDays(1));
+        try (Connection con = dataSource.getConnection()) {
+            if (loanDto.getLastStatementDate() == null) {
+                statementHeader.setEndDate(loanDto.getStatementDates().get(0));
+                statementHeader.setStartDate(loanDto.getStartDate());
                 registerEntries = registerEntryDao.findByLoanIdAndDateBetweenOrderByTimestamp(con, statementHeader.getLoanId(), statementHeader.getStartDate(), statementHeader.getEndDate());
             } else {
-                registerEntries = new ArrayList<>();
+                int index = loanDto.getStatementDates().indexOf(loanDto.getLastStatementDate());
+                if (index + 1 < loanDto.getStatementDates().size()) {
+                    statementHeader.setEndDate(loanDto.getStatementDates().get(index + 1));
+                    statementHeader.setStartDate(loanDto.getStatementDates().get(index).plusDays(1));
+                    registerEntries = registerEntryDao.findByLoanIdAndDateBetweenOrderByTimestamp(con, statementHeader.getLoanId(), statementHeader.getStartDate(), statementHeader.getEndDate());
+                } else {
+                    registerEntries = new ArrayList<>();
+                }
             }
         }
         // determine current balance, payoff amount
         BigDecimal startingBalance;
         BigDecimal interestBalance;
-        if (mostRecentStatement.getStatementDate() == null) {
+        if (loanDto.getLastStatementDate() == null) {
             startingBalance = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_EVEN);
-            interestBalance = loan.getFunding();
+            interestBalance = loanDto.getFunding();
         } else {
-            startingBalance = mostRecentStatement.getEndingBalance();
-            interestBalance = mostRecentStatement.getEndingBalance();
+            startingBalance = loanDto.getLastStatementBalance();
+            interestBalance = loanDto.getLastStatementBalance();
         }
         BigDecimal currentBalance = startingBalance;
         // determine current payoff amount
-        BigDecimal currentInterest = interestBalance.multiply(loan.getInterestRate()).divide(BigDecimal.valueOf(loan.getMonths()), RoundingMode.HALF_EVEN);
+        BigDecimal currentInterest = interestBalance.multiply(loanDto.getInterestRate()).divide(BigDecimal.valueOf(loanDto.getMonths()), RoundingMode.HALF_EVEN);
         for (RegisterEntry re : registerEntries) {
             if (re.getDebit() != null) {
                 currentBalance = currentBalance.add(re.getDebit());
@@ -135,11 +133,11 @@ public class QueryService {
         // compute current Payment
         // must first compute expected balance
         // what is number of months?
-        int nMonths = loan.getStatementDates().indexOf(statementHeader.getEndDate()) + 1;
-        BigDecimal computeAmount = loan.getFunding();
+        int nMonths = loanDto.getStatementDates().indexOf(statementHeader.getEndDate()) + 1;
+        BigDecimal computeAmount = loanDto.getFunding();
         for (int i = 0; i < nMonths; ++i) {
-            BigDecimal computeInterest = computeAmount.multiply(loan.getInterestRate()).divide(BigDecimal.valueOf(loan.getMonths()), RoundingMode.HALF_EVEN);
-            computeAmount = computeAmount.add(computeInterest).subtract(loan.getMonthlyPayments()).setScale(2, RoundingMode.HALF_EVEN);
+            BigDecimal computeInterest = computeAmount.multiply(loanDto.getInterestRate()).divide(BigDecimal.valueOf(loanDto.getMonths()), RoundingMode.HALF_EVEN);
+            computeAmount = computeAmount.add(computeInterest).subtract(loanDto.getMonthlyPayments()).setScale(2, RoundingMode.HALF_EVEN);
         }
         // fill out additional response
         BigDecimal currentPayment = currentBalance.add(currentInterest).setScale(2, RoundingMode.HALF_EVEN).subtract(computeAmount);
@@ -147,11 +145,74 @@ public class QueryService {
         loanDto.setCurrentInterest(currentInterest.setScale(2, RoundingMode.HALF_EVEN));
         loanDto.setPayoffAmount(payoffAmount);
         loanDto.setCurrentBalance(currentBalance);
-        if (mostRecentStatement.getStatementDate() != null) {
-            loanDto.setLastStatementDate(mostRecentStatement.getStatementDate());
-            loanDto.setLastStatementBalance(mostRecentStatement.getEndingBalance());
+        if (loanDto.getLastStatementDate() != null) {
+            loanDto.setLastStatementDate(loanDto.getLastStatementDate());
+            loanDto.setLastStatementBalance(loanDto.getLastStatementBalance());
         }
     }
+
+//    private void computeLoanValues(Connection con, LoanDto loanDto) throws SQLException, ActiveMQException, InterruptedException {
+//        // get most recent statement
+//        MostRecentStatementDto mostRecentStatementDto = (MostRecentStatementDto) mqProducers.queryMostRecentStatement(loanDto.getLoanId());
+//        // generate a simulated new statement for current period
+//        StatementHeader statementHeader = StatementHeader.builder().build();
+//        statementHeader.setLoanId(loanDto.getLoanId());
+//        List<RegisterEntry> registerEntries;
+//        if (mostRecentStatementDto.getStatementDate() == null) {
+//            statementHeader.setEndDate(loanDto.getStatementDates().get(0));
+//            statementHeader.setStartDate(loanDto.getStartDate());
+//            registerEntries = registerEntryDao.findByLoanIdAndDateBetweenOrderByTimestamp(con, statementHeader.getLoanId(), statementHeader.getStartDate(), statementHeader.getEndDate());
+//        } else {
+//            int index = loanDto.getStatementDates().indexOf(mostRecentStatementDto.getStatementDate());
+//            if (index + 1 < loanDto.getStatementDates().size()) {
+//                statementHeader.setEndDate(loanDto.getStatementDates().get(index + 1));
+//                statementHeader.setStartDate(loanDto.getStatementDates().get(index).plusDays(1));
+//                registerEntries = registerEntryDao.findByLoanIdAndDateBetweenOrderByTimestamp(con, statementHeader.getLoanId(), statementHeader.getStartDate(), statementHeader.getEndDate());
+//            } else {
+//                registerEntries = new ArrayList<>();
+//            }
+//        }
+//        // determine current balance, payoff amount
+//        BigDecimal startingBalance;
+//        BigDecimal interestBalance;
+//        if (mostRecentStatementDto.getStatementDate() == null) {
+//            startingBalance = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_EVEN);
+//            interestBalance = loanDto.getFunding();
+//        } else {
+//            startingBalance = mostRecentStatementDto.getEndingBalance();
+//            interestBalance = mostRecentStatementDto.getEndingBalance();
+//        }
+//        BigDecimal currentBalance = startingBalance;
+//        // determine current payoff amount
+//        BigDecimal currentInterest = interestBalance.multiply(loanDto.getInterestRate()).divide(BigDecimal.valueOf(loanDto.getMonths()), RoundingMode.HALF_EVEN);
+//        for (RegisterEntry re : registerEntries) {
+//            if (re.getDebit() != null) {
+//                currentBalance = currentBalance.add(re.getDebit());
+//            } else if (re.getCredit() != null) {
+//                currentBalance = currentBalance.subtract(re.getCredit());
+//            }
+//        }
+//        BigDecimal payoffAmount = currentInterest.add(currentBalance).setScale(2, RoundingMode.HALF_EVEN);
+//        // compute current Payment
+//        // must first compute expected balance
+//        // what is number of months?
+//        int nMonths = loanDto.getStatementDates().indexOf(statementHeader.getEndDate()) + 1;
+//        BigDecimal computeAmount = loanDto.getFunding();
+//        for (int i = 0; i < nMonths; ++i) {
+//            BigDecimal computeInterest = computeAmount.multiply(loanDto.getInterestRate()).divide(BigDecimal.valueOf(loanDto.getMonths()), RoundingMode.HALF_EVEN);
+//            computeAmount = computeAmount.add(computeInterest).subtract(loanDto.getMonthlyPayments()).setScale(2, RoundingMode.HALF_EVEN);
+//        }
+//        // fill out additional response
+//        BigDecimal currentPayment = currentBalance.add(currentInterest).setScale(2, RoundingMode.HALF_EVEN).subtract(computeAmount);
+//        loanDto.setCurrentPayment(currentPayment.compareTo(payoffAmount) < 0 ? currentPayment : payoffAmount);
+//        loanDto.setCurrentInterest(currentInterest.setScale(2, RoundingMode.HALF_EVEN));
+//        loanDto.setPayoffAmount(payoffAmount);
+//        loanDto.setCurrentBalance(currentBalance);
+//        if (mostRecentStatementDto.getStatementDate() != null) {
+//            loanDto.setLastStatementDate(mostRecentStatementDto.getStatementDate());
+//            loanDto.setLastStatementBalance(mostRecentStatementDto.getEndingBalance());
+//        }
+//    }
 
     public List<RegisterEntry> queryRegisterByLoanId(UUID id) throws SQLException {
         try (Connection con = dataSource.getConnection()) {

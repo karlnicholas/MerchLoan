@@ -28,8 +28,4 @@ public class AccountValidateDebitProducer implements QueueMessageHandlerProducer
         producer.send(queue, message);
         return null;
     }
-    @Override
-    public void close() {
-        // nothing to close
-    }
 }

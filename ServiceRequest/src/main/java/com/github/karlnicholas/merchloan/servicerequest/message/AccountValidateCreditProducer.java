@@ -27,8 +27,4 @@ public class AccountValidateCreditProducer implements QueueMessageHandlerProduce
         producer.send(queue, message);
         return null;
     }
-    @Override
-    public void close() {
-        // nothing to close
-    }
 }
