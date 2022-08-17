@@ -109,7 +109,7 @@ public class MQConsumers {
         clientSession.deleteQueue(mqConsumerUtils.getAccountValidateDebitQueue());
         clientSession.deleteQueue(mqConsumerUtils.getAccountCloseLoanQueue());
         clientSession.deleteQueue(mqConsumerUtils.getAccountLoanClosedQueue());
-        clientSession.deleteQueue(mqConsumerUtils.getAccountQueryStatementHeaderQueue());
+//        clientSession.deleteQueue(mqConsumerUtils.getAccountQueryStatementHeaderQueue());
         clientSession.deleteQueue(mqConsumerUtils.getAccountBillingCycleChargeQueue());
         clientSession.deleteQueue(mqConsumerUtils.getAccountQueryLoansToCycleQueue());
         clientSession.deleteQueue(mqConsumerUtils.getAccountQueryAccountIdQueue());
@@ -152,11 +152,13 @@ public class MQConsumers {
                 // down the chain
                 ClientMessage forwardMessage = clientSession.createMessage(false);
                 forwardMessage.getBodyBuffer().writeBytes(SerializationUtils.serialize(r.get()));
+                forwardMessage.setReplyTo(message.getReplyTo());
                 forwardMessage.setCorrelationID(message.getCorrelationID());
                 queryLoanIdReplyProducer.send(mqConsumerUtils.getStatementQueryMostRecentStatementQueue(), forwardMessage);
             } else {
                 ClientMessage forwardMessage = clientSession.createMessage(false);
                 forwardMessage.getBodyBuffer().writeBytes(SerializationUtils.serialize("ERROR: Loan not found for id: " + id));
+//                forwardMessage.setReplyTo(message.getReplyTo());
                 forwardMessage.setCorrelationID(message.getCorrelationID());
                 queryLoanIdReplyProducer.send(message.getReplyTo(), forwardMessage);
             }
@@ -174,9 +176,9 @@ public class MQConsumers {
             log.debug("receivedAccountLoanIdComputeMessage loanId: {}", loanDto.getLoanId());
             queryService.computeLoanValues(loanDto);
             ClientMessage replyMessage = clientSession.createMessage(false);
-            replyMessage.getBodyBuffer().writeBytes(SerializationUtils.serialize(loanDto));
+            replyMessage.getBodyBuffer().writeBytes(SerializationUtils.serialize(objectMapper.writeValueAsString(loanDto)));
             replyMessage.setCorrelationID(message.getCorrelationID());
-            loanIdComputeProducer.send(replyMessage.getReplyTo(), replyMessage);
+            loanIdComputeProducer.send(message.getReplyTo(), replyMessage);
         } catch (Exception ex) {
             log.error("receivedAccountLoanIdComputeMessage exception", ex);
         }

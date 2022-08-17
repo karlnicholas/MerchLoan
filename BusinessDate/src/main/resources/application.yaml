@@ -9,4 +9,4 @@ logging:
     com:
       github:
         karlnicholas:
-          merchloan: info
+          merchloan: debug

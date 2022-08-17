@@ -18,7 +18,7 @@ public class QueryLoanProducer implements QueueMessageHandlerProducer {
     private final SimpleString replyToQueue;
 
     public QueryLoanProducer(MQConsumerUtils mqConsumerUtils, ReplyWaitingHandler replyWaitingHandler, SimpleString replyToQueue) {
-        this.queue = SimpleString.toSimpleString(mqConsumerUtils.getAccountQueryLoanIdQueue());
+        queue = SimpleString.toSimpleString(mqConsumerUtils.getAccountQueryLoanIdQueue());
         this.replyWaitingHandler = replyWaitingHandler;
         this.replyToQueue = replyToQueue;
     }

@@ -122,6 +122,7 @@ public class MQConsumers {
             });
             ClientMessage replyMessage = clientSession.createMessage(false);
             replyMessage.getBodyBuffer().writeBytes(SerializationUtils.serialize(loanDto));
+            replyMessage.setReplyTo(message.getReplyTo());
             replyMessage.setCorrelationID(message.getCorrelationID());
             queryMostRecentStatementProducer.send(mqConsumerUtils.getAccountLoanIdComputeQueue(), replyMessage);
         } catch (Exception ex) {
