@@ -33,6 +33,7 @@ public class MQConsumers {
     private final ClientProducer statementContinueProducer;
     private final ClientProducer statementContinue2Producer;
     private final ClientProducer statementContinue3Producer;
+    private final ClientProducer closeStatementProducer;
     //    private final ClientConsumer statementStatementQueue;
     private final ClientConsumer statementContinueQueue;
     private final ClientConsumer statementContinue2Queue;
@@ -43,19 +44,17 @@ public class MQConsumers {
     private final ClientConsumer statementQueryMostRecentStatementQueue;
     private final ClientConsumer statementLoanIdQueue;
     private final StatementService statementService;
-    private final MQProducers mqProducers;
     private final BigDecimal interestRate = new BigDecimal("0.10");
     private final BigDecimal interestMonths = new BigDecimal("12");
 
 
-    public MQConsumers(ServerLocator locator, MQConsumerUtils mqConsumerUtils, MQProducers mqProducers, StatementService statementService, QueryService queryService) throws Exception {
+    public MQConsumers(ServerLocator locator, MQConsumerUtils mqConsumerUtils, StatementService statementService, QueryService queryService) throws Exception {
         producerFactory = locator.createSessionFactory();
         clientSession = producerFactory.createSession();
         clientSession.addMetaData(ClientSession.JMS_SESSION_IDENTIFIER_PROPERTY, "jms-client-id");
         clientSession.addMetaData("jms-client-id", "statement-consumers");
         this.mqConsumerUtils = mqConsumerUtils;
         this.statementService = statementService;
-        this.mqProducers = mqProducers;
         this.queryService = queryService;
 //        objectMapper = new ObjectMapper().findAndRegisterModules()
 //                .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
@@ -76,6 +75,7 @@ public class MQConsumers {
         statementContinueProducer = clientSession.createProducer();
         statementContinue2Producer = clientSession.createProducer();
         statementContinue3Producer = clientSession.createProducer();
+        closeStatementProducer = clientSession.createProducer();
         clientSession.start();
     }
 
@@ -211,7 +211,7 @@ public class MQConsumers {
                                         + " and statement date "
                                         + statementHeaderWork.getStatementHeader().getStatementDate()
                         );
-                mqProducers.serviceRequestServiceRequest(requestResponse);
+                serviceRequestServiceRequest(requestResponse, statementContinueProducer);
                 return;
             }
             // determine interest balance
@@ -244,7 +244,7 @@ public class MQConsumers {
             log.error("receivedStatementContinueMessage", ex);
             try {
                 ServiceRequestResponse requestResponse = new ServiceRequestResponse(statementHeaderWork.getStatementHeader().getId(), ServiceRequestMessage.STATUS.ERROR, ex.getMessage());
-                mqProducers.serviceRequestServiceRequest(requestResponse);
+                serviceRequestServiceRequest(requestResponse, statementContinueProducer);
             } catch (Exception innerEx) {
                 log.error("ERROR SENDING ERROR", innerEx);
             }
@@ -286,7 +286,7 @@ public class MQConsumers {
             log.error("receivedStatementContinueMessage", ex);
             try {
                 ServiceRequestResponse requestResponse = new ServiceRequestResponse(statementHeaderWork.getStatementHeader().getId(), ServiceRequestMessage.STATUS.ERROR, ex.getMessage());
-                mqProducers.serviceRequestServiceRequest(requestResponse);
+                serviceRequestServiceRequest(requestResponse, statementContinue2Producer);
             } catch (Exception innerEx) {
                 log.error("ERROR SENDING ERROR", innerEx);
             }
@@ -313,21 +313,30 @@ public class MQConsumers {
             }
             // so, done with interest and fee calculations here?
             statementService.saveStatement(statementHeaderWork.getStatementHeader(), startingBalance, endingBalance);
+            ServiceRequestResponse requestResponse = ServiceRequestResponse.builder().id(statementHeaderWork.getStatementHeader().getId()).build();
             requestResponse.setSuccess();
             log.debug("receivedStatementMessage: requestResponse: {}", requestResponse);
             if (endingBalance.compareTo(BigDecimal.ZERO) <= 0) {
-                mqProducers.accountLoanClosed(statementHeader);
-                loanClosed = true;
+                sendAccountLoanClosed(statementHeaderWork.getStatementHeader(), statementContinue3Producer);
+                return;
             }
+            serviceRequestServiceRequest(requestResponse, statementContinue3Producer);
         } catch (Exception ex) {
             log.error("receivedStatementContinueMessage", ex);
             try {
-                ServiceRequestResponse requestResponse = new ServiceRequestResponse(statementHeader.getId(), ServiceRequestMessage.STATUS.ERROR, ex.getMessage());
-                mqProducers.serviceRequestServiceRequest(requestResponse);
+                ServiceRequestResponse requestResponse = new ServiceRequestResponse(statementHeaderWork.getStatementHeader().getId(), ServiceRequestMessage.STATUS.ERROR, ex.getMessage());
+                serviceRequestServiceRequest(requestResponse, statementContinue3Producer);
             } catch (Exception innerEx) {
                 log.error("ERROR SENDING ERROR", innerEx);
             }
         }
+    }
+
+    private void sendAccountLoanClosed(StatementHeader statementHeader, ClientProducer producer) throws ActiveMQException {
+        log.debug("accountLoanClosed: {}", statementHeader);
+        ClientMessage loanClosedMessage = clientSession.createMessage(false);
+        loanClosedMessage.getBodyBuffer().writeBytes(SerializationUtils.serialize(statementHeader));
+        producer.send(mqConsumerUtils.getAccountLoanClosedQueue(), loanClosedMessage);
     }
 
     public void receivedCloseStatementMessage(ClientMessage message) {
@@ -357,16 +366,22 @@ public class MQConsumers {
             }
             // just to save bandwidth
             statementHeader.setRegisterEntries(null);
-            mqProducers.accountLoanClosed(statementHeader);
+            sendAccountLoanClosed(statementHeader, closeStatementProducer);
         } catch (Exception ex) {
             log.error("receivedCloseStatementMessage", ex);
             try {
                 ServiceRequestResponse requestResponse = new ServiceRequestResponse(statementHeader.getId(), ServiceRequestMessage.STATUS.ERROR, ex.getMessage());
-                mqProducers.serviceRequestServiceRequest(requestResponse);
+                serviceRequestServiceRequest(requestResponse, closeStatementProducer);
             } catch (Exception innerEx) {
                 log.error("ERROR SENDING ERROR", innerEx);
             }
         }
+    }
+    public void serviceRequestServiceRequest(ServiceRequestResponse serviceRequest, ClientProducer producer) throws ActiveMQException {
+        log.debug("serviceRequestServiceRequest: {}", serviceRequest);
+        ClientMessage message = clientSession.createMessage(false);
+        message.getBodyBuffer().writeBytes(SerializationUtils.serialize(serviceRequest));
+        producer.send(message);
     }
 
 //    private void receiveStatementLoadIdMessage(ClientMessage message) throws SQLException, ActiveMQException, InterruptedException {
