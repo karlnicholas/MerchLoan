@@ -52,12 +52,14 @@ public class MQConsumerUtils {
     private String accountValidateDebitQueue;
     private String accountCloseLoanQueue;
     private String accountLoanClosedQueue;
-    private String accountQueryStatementHeaderQueue;
     private String accountQueryLoansToCycleQueue;
     private String accountQueryAccountIdQueue;
     private String accountQueryLoanIdQueue;
     private String accountBillingCycleChargeQueue;
-    public String accountLoanIdComputeQueue;
+    private String accountLoanIdComputeQueue;
+    private String accountStatementStatementHeaderQueue;
+    private String accountFeeChargeQueue;
+    private String accountInterestChargeQueue;
 
     private String queryResponseQueue;
 
@@ -73,5 +75,8 @@ public class MQConsumerUtils {
     private String statementQueryStatementsQueue;
     private String statementQueryMostRecentStatementQueue;
     private String statementLoanIdQueue;
+    private String statementContinueQueue;
+    private String statementContinue2Queue;
+    private String statementContinue3Queue;
 
 }

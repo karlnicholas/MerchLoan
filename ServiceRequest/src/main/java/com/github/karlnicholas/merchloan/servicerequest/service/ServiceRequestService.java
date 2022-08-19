@@ -57,6 +57,7 @@ public class ServiceRequestService {
 
         queueMessageService.initialize(locator, "ServiceRequest");
     }
+
     @PreDestroy
     public void preDestroy() throws InterruptedException, ActiveMQException {
 //        accountCreateAccountProducer.close();
@@ -138,16 +139,18 @@ public class ServiceRequestService {
             StatementRequest statementRequest = (StatementRequest) serviceRequestMessage;
             UUID id = retry == Boolean.TRUE ? existingId : persistRequest(statementRequest);
             queueMessageService.addMessage(statementStatementProducer, Optional.empty(),
-                    StatementHeader.builder()
-                            .id(id)
-                            .loanId(statementRequest.getLoanId())
-                            .interestChargeId(UUID.randomUUID())
-                            .feeChargeId(UUID.randomUUID())
-                            .statementDate(statementRequest.getStatementDate())
-                            .startDate(statementRequest.getStartDate())
-                            .endDate(statementRequest.getEndDate())
-                            .retry(retry)
-                            .build()
+                    StatementHeaderWork.builder().statementHeader(
+                            StatementHeader.builder()
+                                    .id(id)
+                                    .loanId(statementRequest.getLoanId())
+                                    .interestChargeId(UUID.randomUUID())
+                                    .feeChargeId(UUID.randomUUID())
+                                    .statementDate(statementRequest.getStatementDate())
+                                    .startDate(statementRequest.getStartDate())
+                                    .endDate(statementRequest.getEndDate())
+                                    .retry(retry)
+                                    .build()
+                    )
             );
             return id;
         } catch (SQLException | IOException e) {

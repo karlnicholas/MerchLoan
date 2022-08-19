@@ -11,17 +11,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.activemq.artemis.api.core.ActiveMQException;
 import org.apache.activemq.artemis.api.core.SimpleString;
 import org.apache.activemq.artemis.api.core.client.*;
-import org.apache.activemq.artemis.core.remoting.FailureListener;
 import org.springframework.stereotype.Component;
 import org.springframework.util.SerializationUtils;
 
 import javax.annotation.PreDestroy;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.sql.Connection;
-import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -35,7 +30,13 @@ public class MQConsumers {
     private final ClientProducer queryStatementProducer;
     private final ClientProducer queryMostRecentStatementProducer;
     private final ClientProducer queryStatementsProducer;
-    private final ClientConsumer statementStatementQueue;
+    private final ClientProducer statementContinueProducer;
+    private final ClientProducer statementContinue2Producer;
+    private final ClientProducer statementContinue3Producer;
+    //    private final ClientConsumer statementStatementQueue;
+    private final ClientConsumer statementContinueQueue;
+    private final ClientConsumer statementContinue2Queue;
+    private final ClientConsumer statementContinue3Queue;
     private final ClientConsumer statementCloseStatementQueue;
     private final ClientConsumer statementQueryStatementQueue;
     private final ClientConsumer statementQueryStatementsQueue;
@@ -59,7 +60,10 @@ public class MQConsumers {
 //        objectMapper = new ObjectMapper().findAndRegisterModules()
 //                .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
 
-        statementStatementQueue = mqConsumerUtils.bindConsumer(clientSession, SimpleString.toSimpleString(mqConsumerUtils.getStatementStatementQueue()), false, this::receivedStatementMessage);
+//        statementStatementQueue = mqConsumerUtils.bindConsumer(clientSession, SimpleString.toSimpleString(mqConsumerUtils.getStatementStatementQueue()), false, this::receivedStatementStatementMessage);
+        statementContinueQueue = mqConsumerUtils.bindConsumer(clientSession, SimpleString.toSimpleString(mqConsumerUtils.getStatementStatementQueue()), false, this::receivedStatementContinueMessage);
+        statementContinue2Queue = mqConsumerUtils.bindConsumer(clientSession, SimpleString.toSimpleString(mqConsumerUtils.getStatementContinue2Queue()), false, this::receivedStatementContinue2Message);
+        statementContinue3Queue = mqConsumerUtils.bindConsumer(clientSession, SimpleString.toSimpleString(mqConsumerUtils.getStatementContinue2Queue()), false, this::receivedStatementContinue3Message);
         statementCloseStatementQueue = mqConsumerUtils.bindConsumer(clientSession, SimpleString.toSimpleString(mqConsumerUtils.getStatementCloseStatementQueue()), false, this::receivedCloseStatementMessage);
         statementQueryStatementQueue = mqConsumerUtils.bindConsumer(clientSession, SimpleString.toSimpleString(mqConsumerUtils.getStatementQueryStatementQueue()), false, this::receivedQueryStatementMessage);
         statementQueryStatementsQueue = mqConsumerUtils.bindConsumer(clientSession, SimpleString.toSimpleString(mqConsumerUtils.getStatementQueryStatementsQueue()), false, this::receivedQueryStatementsMessage);
@@ -69,23 +73,33 @@ public class MQConsumers {
         queryStatementProducer = clientSession.createProducer();
         queryMostRecentStatementProducer = clientSession.createProducer();
         queryStatementsProducer = clientSession.createProducer();
+        statementContinueProducer = clientSession.createProducer();
+        statementContinue2Producer = clientSession.createProducer();
+        statementContinue3Producer = clientSession.createProducer();
         clientSession.start();
     }
 
     @PreDestroy
     public void preDestroy() throws ActiveMQException {
-        statementStatementQueue.close();
+//        statementStatementQueue.close();
         statementCloseStatementQueue.close();
         statementQueryStatementQueue.close();
         statementQueryStatementsQueue.close();
         statementQueryMostRecentStatementQueue.close();
         statementLoanIdQueue.close();
+        statementContinueQueue.close();
+        statementContinue2Queue.close();
+        statementContinue3Queue.close();
 
-        clientSession.deleteQueue(mqConsumerUtils.getStatementStatementQueue());
+//        clientSession.deleteQueue(mqConsumerUtils.getStatementStatementQueue());
         clientSession.deleteQueue(mqConsumerUtils.getStatementCloseStatementQueue());
         clientSession.deleteQueue(mqConsumerUtils.getStatementQueryStatementQueue());
         clientSession.deleteQueue(mqConsumerUtils.getStatementQueryStatementsQueue());
         clientSession.deleteQueue(mqConsumerUtils.getStatementQueryMostRecentStatementQueue());
+        clientSession.deleteQueue(mqConsumerUtils.getStatementLoanIdQueue());
+        clientSession.deleteQueue(mqConsumerUtils.getStatementContinueQueue());
+        clientSession.deleteQueue(mqConsumerUtils.getStatementContinue2Queue());
+        clientSession.deleteQueue(mqConsumerUtils.getStatementContinue3Queue());
         clientSession.deleteQueue(mqConsumerUtils.getStatementLoanIdQueue());
 
         clientSession.close();
@@ -146,65 +160,148 @@ public class MQConsumers {
         }
     }
 
-    public void receivedStatementMessage(ClientMessage message) {
+//    public void receivedStatementStatementMessage(ClientMessage message) {
+//        byte[] mo = new byte[message.getBodyBuffer().readableBytes()];
+//        message.getBodyBuffer().readBytes(mo);
+//        StatementHeader statementHeader = (StatementHeader) SerializationUtils.deserialize(mo);
+//        if (statementHeader == null) {
+//            throw new IllegalStateException("Message body null");
+//        }
+//        StatementCompleteResponse requestResponse = StatementCompleteResponse.builder()
+//                .id(statementHeader.getId())
+//                .statementDate(statementHeader.getStatementDate())
+//                .loanId(statementHeader.getLoanId())
+//                .build();
+//        boolean loanClosed = false;
+//        try {
+//            log.debug("receivedStatementMessage: loanId: {}", statementHeader.getLoanId());
+//            statementHeader = (StatementHeader) mqProducers.accountQueryStatementHeader(statementHeader);
+//            log.debug("receivedStatementMessage: statementHeader: {}", statementHeader);
+//        } catch (InterruptedException iex) {
+//            log.error("receivedStatementMessage", iex);
+//            Thread.currentThread().interrupt();
+//        } catch (Exception ex) {
+//            log.error("receivedStatementMessage", ex);
+//            requestResponse.setError(ex.getMessage());
+//        } finally {
+//            if (!loanClosed) {
+//                try {
+//                    mqProducers.serviceRequestStatementComplete(requestResponse);
+//                } catch (ActiveMQException innerEx) {
+//                    log.error("ERROR SENDING ERROR", innerEx);
+//                }
+//            }
+//        }
+//    }
+
+    public void receivedStatementContinueMessage(ClientMessage message) {
         byte[] mo = new byte[message.getBodyBuffer().readableBytes()];
         message.getBodyBuffer().readBytes(mo);
-        StatementHeader statementHeader = (StatementHeader) SerializationUtils.deserialize(mo);
-        if (statementHeader == null) {
-            throw new IllegalStateException("Message body null");
-        }
-        StatementCompleteResponse requestResponse = StatementCompleteResponse.builder()
-                .id(statementHeader.getId())
-                .statementDate(statementHeader.getStatementDate())
-                .loanId(statementHeader.getLoanId())
-                .build();
-        boolean loanClosed = false;
+        StatementHeaderWork statementHeaderWork = (StatementHeaderWork) SerializationUtils.deserialize(mo);
         try {
-            log.debug("receivedStatementMessage: loanId: {}", statementHeader.getLoanId());
-            statementHeader = (StatementHeader) mqProducers.accountQueryStatementHeader(statementHeader);
-            log.debug("receivedStatementMessage: statementHeader: {}", statementHeader);
-            if (statementHeader.getCustomer() == null) {
-                requestResponse.setFailure("ERROR: Account/Loan not found for accountId " + statementHeader.getAccountId() + " and loanId " + statementHeader.getLoanId());
-                return;
-            }
-            Optional<Statement> statementExistsOpt = statementService.findStatement(statementHeader.getLoanId(), statementHeader.getStatementDate());
+            Optional<Statement> statementExistsOpt = statementService.findStatement(
+                    statementHeaderWork.getStatementHeader().getLoanId(),
+                    statementHeaderWork.getStatementHeader().getStatementDate()
+            );
             if (statementExistsOpt.isPresent()) {
-                requestResponse.setFailure("ERROR: Statement already exists for loanId " + statementHeader.getLoanId() + " and statement date " + statementHeader.getStatementDate());
+                ServiceRequestResponse requestResponse =
+                        new ServiceRequestResponse(statementHeaderWork.getStatementHeader().getId(), ServiceRequestMessage.STATUS.ERROR,
+                            "ERROR: Statement already exists for loanId "
+                                        + statementHeaderWork.getStatementHeader().getLoanId()
+                                        + " and statement date "
+                                        + statementHeaderWork.getStatementHeader().getStatementDate()
+                        );
+                mqProducers.serviceRequestServiceRequest(requestResponse);
                 return;
             }
-            Optional<Statement> lastStatement = statementService.findLastStatement(statementHeader.getLoanId());
             // determine interest balance
-            BigDecimal interestBalance = lastStatement.isPresent() ? lastStatement.get().getEndingBalance() : statementHeader.getLoanFunding();
-            boolean paymentCreditFound = statementHeader.getRegisterEntries().stream().anyMatch(re -> re.getCredit() != null);
+            boolean paymentCreditFound = statementHeaderWork.getStatementHeader().getRegisterEntries().stream().anyMatch(re -> re.getCredit() != null);
             // so, let's do interest and fee calculations here.
             if (!paymentCreditFound) {
-                RegisterEntryMessage feeRegisterEntry = (RegisterEntryMessage) mqProducers.accountBillingCycleCharge(BillingCycleCharge.builder()
-                        .id(statementHeader.getFeeChargeId())
-                        .loanId(statementHeader.getLoanId())
-                        .date(statementHeader.getStatementDate())
+                BillingCycleCharge feeCharge = BillingCycleCharge.builder()
+                        .id(statementHeaderWork.getStatementHeader().getFeeChargeId())
+                        .loanId(statementHeaderWork.getStatementHeader().getLoanId())
+                        .date(statementHeaderWork.getStatementHeader().getStatementDate())
                         .debit(new BigDecimal("30.00"))
                         .description("Non payment fee")
-                        .retry(statementHeader.getRetry())
-                        .build()
-                );
-                statementHeader.getRegisterEntries().add(feeRegisterEntry);
+                        .retry(statementHeaderWork.getStatementHeader().getRetry())
+                        .build();
+                log.debug("receivedStatementContinueMessage: {}", feeCharge);
+                ClientMessage feeMessage = clientSession.createMessage(false);
+                feeMessage.setReplyTo(message.getReplyTo());
+                message.setCorrelationID(message.getCorrelationID());
+                message.getBodyBuffer().writeBytes(SerializationUtils.serialize(feeCharge));
+                statementContinueProducer.send(mqConsumerUtils.getAccountFeeChargeQueue(), message);
+//                statementHeader.getRegisterEntries().add(feeRegisterEntry);
+            } else {
+                ClientMessage feeMessage = clientSession.createMessage(false);
+                feeMessage.setReplyTo(message.getReplyTo());
+                message.setCorrelationID(message.getCorrelationID());
+                message.getBodyBuffer().writeBytes(SerializationUtils.serialize(statementHeaderWork));
+                statementContinueProducer.send(mqConsumerUtils.getStatementContinue2Queue(), message);
+            }
+        } catch (Exception ex) {
+            log.error("receivedStatementContinueMessage", ex);
+            try {
+                ServiceRequestResponse requestResponse = new ServiceRequestResponse(statementHeaderWork.getStatementHeader().getId(), ServiceRequestMessage.STATUS.ERROR, ex.getMessage());
+                mqProducers.serviceRequestServiceRequest(requestResponse);
+            } catch (Exception innerEx) {
+                log.error("ERROR SENDING ERROR", innerEx);
+            }
+        }
+    }
+
+    public void receivedStatementContinue2Message(ClientMessage message) {
+        byte[] mo = new byte[message.getBodyBuffer().readableBytes()];
+        message.getBodyBuffer().readBytes(mo);
+        StatementHeaderWork statementHeaderWork = (StatementHeaderWork) SerializationUtils.deserialize(mo);
+        try {
+            Optional<Statement> lastStatement = statementService.findLastStatement(statementHeaderWork.getStatementHeader().getLoanId());
+            BigDecimal interestBalance;
+            if (lastStatement.isPresent()) {
+                interestBalance = lastStatement.get().getEndingBalance();
+                statementHeaderWork.setLastStatementPresent(Boolean.TRUE);
+                statementHeaderWork.setLastStatementEndingBalance(interestBalance);
+            } else {
+                statementHeaderWork.setLastStatementPresent(lastStatement.isPresent());
+                interestBalance = statementHeaderWork.getStatementHeader().getLoanFunding();
+                statementHeaderWork.setLastStatementPresent(Boolean.FALSE);
             }
             BigDecimal interestAmt = interestBalance.multiply(interestRate).divide(interestMonths, 2, RoundingMode.HALF_EVEN);
             log.debug("receivedStatementMessage: interestAmt: {}", interestAmt);
-            RegisterEntryMessage interestRegisterEntry = (RegisterEntryMessage) mqProducers.accountBillingCycleCharge(BillingCycleCharge.builder()
-                    .id(statementHeader.getInterestChargeId())
-                    .loanId(statementHeader.getLoanId())
-                    .date(statementHeader.getStatementDate())
+            BillingCycleCharge interestCharge = BillingCycleCharge.builder()
+                    .id(statementHeaderWork.getStatementHeader().getInterestChargeId())
+                    .loanId(statementHeaderWork.getStatementHeader().getLoanId())
+                    .date(statementHeaderWork.getStatementHeader().getStatementDate())
                     .debit(interestAmt)
                     .description("Interest")
-                    .retry(statementHeader.getRetry())
-                    .build()
-            );
-            log.debug("receivedStatementMessage: interestRegisterEntry: {}", interestRegisterEntry);
-            statementHeader.getRegisterEntries().add(interestRegisterEntry);
-            BigDecimal startingBalance = lastStatement.isPresent() ? lastStatement.get().getEndingBalance() : BigDecimal.ZERO.setScale(2, RoundingMode.HALF_EVEN);
+                    .retry(statementHeaderWork.getStatementHeader().getRetry())
+                    .build();
+            ClientMessage feeMessage = clientSession.createMessage(false);
+            feeMessage.setReplyTo(message.getReplyTo());
+            message.setCorrelationID(message.getCorrelationID());
+            message.getBodyBuffer().writeBytes(SerializationUtils.serialize(interestCharge));
+            statementContinue2Producer.send(mqConsumerUtils.getAccountInterestChargeQueue(), message);
+        } catch (Exception ex) {
+            log.error("receivedStatementContinueMessage", ex);
+            try {
+                ServiceRequestResponse requestResponse = new ServiceRequestResponse(statementHeaderWork.getStatementHeader().getId(), ServiceRequestMessage.STATUS.ERROR, ex.getMessage());
+                mqProducers.serviceRequestServiceRequest(requestResponse);
+            } catch (Exception innerEx) {
+                log.error("ERROR SENDING ERROR", innerEx);
+            }
+        }
+    }
+
+    public void receivedStatementContinue3Message(ClientMessage message) {
+        byte[] mo = new byte[message.getBodyBuffer().readableBytes()];
+        message.getBodyBuffer().readBytes(mo);
+        StatementHeaderWork statementHeaderWork = (StatementHeaderWork) SerializationUtils.deserialize(mo);
+        try {
+            log.debug("receivedStatementMessage: interestRegisterEntry: {}", statementHeaderWork.getStatementHeader());
+            BigDecimal startingBalance = statementHeaderWork.getLastStatementPresent() ? statementHeaderWork.getLastStatementEndingBalance() : BigDecimal.valueOf(0, 2);
             BigDecimal endingBalance = startingBalance;
-            for (RegisterEntryMessage re : statementHeader.getRegisterEntries()) {
+            for (RegisterEntryMessage re : statementHeaderWork.getStatementHeader().getRegisterEntries()) {
                 if (re.getCredit() != null) {
                     endingBalance = endingBalance.subtract(re.getCredit());
                     re.setBalance(endingBalance);
@@ -215,26 +312,20 @@ public class MQConsumers {
                 }
             }
             // so, done with interest and fee calculations here?
-            statementService.saveStatement(statementHeader, startingBalance, endingBalance);
+            statementService.saveStatement(statementHeaderWork.getStatementHeader(), startingBalance, endingBalance);
             requestResponse.setSuccess();
             log.debug("receivedStatementMessage: requestResponse: {}", requestResponse);
             if (endingBalance.compareTo(BigDecimal.ZERO) <= 0) {
                 mqProducers.accountLoanClosed(statementHeader);
                 loanClosed = true;
             }
-        } catch (InterruptedException iex) {
-            log.error("receivedStatementMessage", iex);
-            Thread.currentThread().interrupt();
         } catch (Exception ex) {
-            log.error("receivedStatementMessage", ex);
-            requestResponse.setError(ex.getMessage());
-        } finally {
-            if (!loanClosed) {
-                try {
-                    mqProducers.serviceRequestStatementComplete(requestResponse);
-                } catch (ActiveMQException innerEx) {
-                    log.error("ERROR SENDING ERROR", innerEx);
-                }
+            log.error("receivedStatementContinueMessage", ex);
+            try {
+                ServiceRequestResponse requestResponse = new ServiceRequestResponse(statementHeader.getId(), ServiceRequestMessage.STATUS.ERROR, ex.getMessage());
+                mqProducers.serviceRequestServiceRequest(requestResponse);
+            } catch (Exception innerEx) {
+                log.error("ERROR SENDING ERROR", innerEx);
             }
         }
     }

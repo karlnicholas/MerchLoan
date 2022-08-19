@@ -3,6 +3,7 @@ package com.github.karlnicholas.merchloan.servicerequest.message;
 import com.github.karlnicholas.merchloan.jms.MQConsumerUtils;
 import com.github.karlnicholas.merchloan.jms.queue.QueueMessageHandlerProducer;
 import com.github.karlnicholas.merchloan.jmsmessage.StatementHeader;
+import com.github.karlnicholas.merchloan.jmsmessage.StatementHeaderWork;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.activemq.artemis.api.core.ActiveMQException;
 import org.apache.activemq.artemis.api.core.SimpleString;
@@ -16,15 +17,15 @@ public class StatementStatementProducer implements QueueMessageHandlerProducer {
     private final SimpleString queue;
 
     public StatementStatementProducer(MQConsumerUtils mqConsumerUtils) {
-        this.queue = SimpleString.toSimpleString(mqConsumerUtils.getStatementStatementQueue());
+        this.queue = SimpleString.toSimpleString(mqConsumerUtils.getAccountStatementStatementHeaderQueue());
     }
 
     @Override
     public Object sendMessage(ClientSession clientSession, ClientProducer producer, Object data) throws ActiveMQException {
-        StatementHeader statementHeader = (StatementHeader) data;
-        log.debug("statementStatement: {}", statementHeader);
+        StatementHeaderWork statementHeaderWork = (StatementHeaderWork) data;
+        log.debug("statementStatement: {}", statementHeaderWork);
         ClientMessage message = clientSession.createMessage(false);
-        message.getBodyBuffer().writeBytes(SerializationUtils.serialize(statementHeader));
+        message.getBodyBuffer().writeBytes(SerializationUtils.serialize(statementHeaderWork));
         producer.send(queue, message);
         return null;
     }
