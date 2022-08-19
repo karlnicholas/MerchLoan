@@ -416,6 +416,7 @@ public class MQConsumers {
     public void accountBillingFeeChargeMessage(ClientMessage message) {
         try {
             ClientMessage replyMessage = persistBillingCycleCharge(message);
+            log.debug("accountBillingFeeChargeMessage");
             accountBillingFeeChargeProducer.send(mqConsumerUtils.getStatementContinue2Queue(), replyMessage);
         } catch (Exception ex) {
             log.error("receivedBillingCycleChargeMessage exception", ex);
@@ -425,6 +426,7 @@ public class MQConsumers {
     public void accountBillingInterestChargeMessage(ClientMessage message) {
         try {
             ClientMessage replyMessage = persistBillingCycleCharge(message);
+            log.debug("accountBillingInterestChargeMessage");
             accountBillingInterestChargeProducer.send(mqConsumerUtils.getStatementContinue3Queue(), replyMessage);
         } catch (Exception ex) {
             log.error("receivedBillingCycleChargeMessage exception", ex);
@@ -446,7 +448,7 @@ public class MQConsumers {
                 .build();
         statementHeaderWork.getStatementHeader().getRegisterEntries().add(registerEntryMessage);
         ClientMessage replyMessage = clientSession.createMessage(false);
-        replyMessage.getBodyBuffer().writeBytes(SerializationUtils.serialize(registerEntryMessage));
+        replyMessage.getBodyBuffer().writeBytes(SerializationUtils.serialize(statementHeaderWork));
         replyMessage.setCorrelationID(message.getCorrelationID());
         return replyMessage;
     }

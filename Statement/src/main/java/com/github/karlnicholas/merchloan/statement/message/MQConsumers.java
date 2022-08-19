@@ -60,9 +60,9 @@ public class MQConsumers {
 //                .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
 
 //        statementStatementQueue = mqConsumerUtils.bindConsumer(clientSession, SimpleString.toSimpleString(mqConsumerUtils.getStatementStatementQueue()), false, this::receivedStatementStatementMessage);
-        statementContinueQueue = mqConsumerUtils.bindConsumer(clientSession, SimpleString.toSimpleString(mqConsumerUtils.getStatementStatementQueue()), false, this::receivedStatementContinueMessage);
+        statementContinueQueue = mqConsumerUtils.bindConsumer(clientSession, SimpleString.toSimpleString(mqConsumerUtils.getStatementContinueQueue()), false, this::receivedStatementContinueMessage);
         statementContinue2Queue = mqConsumerUtils.bindConsumer(clientSession, SimpleString.toSimpleString(mqConsumerUtils.getStatementContinue2Queue()), false, this::receivedStatementContinue2Message);
-        statementContinue3Queue = mqConsumerUtils.bindConsumer(clientSession, SimpleString.toSimpleString(mqConsumerUtils.getStatementContinue2Queue()), false, this::receivedStatementContinue3Message);
+        statementContinue3Queue = mqConsumerUtils.bindConsumer(clientSession, SimpleString.toSimpleString(mqConsumerUtils.getStatementContinue3Queue()), false, this::receivedStatementContinue3Message);
         statementCloseStatementQueue = mqConsumerUtils.bindConsumer(clientSession, SimpleString.toSimpleString(mqConsumerUtils.getStatementCloseStatementQueue()), false, this::receivedCloseStatementMessage);
         statementQueryStatementQueue = mqConsumerUtils.bindConsumer(clientSession, SimpleString.toSimpleString(mqConsumerUtils.getStatementQueryStatementQueue()), false, this::receivedQueryStatementMessage);
         statementQueryStatementsQueue = mqConsumerUtils.bindConsumer(clientSession, SimpleString.toSimpleString(mqConsumerUtils.getStatementQueryStatementsQueue()), false, this::receivedQueryStatementsMessage);
@@ -199,6 +199,7 @@ public class MQConsumers {
         message.getBodyBuffer().readBytes(mo);
         StatementHeaderWork statementHeaderWork = (StatementHeaderWork) SerializationUtils.deserialize(mo);
         try {
+            log.debug("receivedStatementContinueMessage: getStatementHeader: {}", statementHeaderWork.getStatementHeader());
             Optional<Statement> statementExistsOpt = statementService.findStatement(
                     statementHeaderWork.getStatementHeader().getLoanId(),
                     statementHeaderWork.getStatementHeader().getStatementDate()
@@ -227,11 +228,12 @@ public class MQConsumers {
                         .retry(statementHeaderWork.getStatementHeader().getRetry())
                         .build();
                 log.debug("receivedStatementContinueMessage: {}", feeCharge);
+                statementHeaderWork.setBillingCycleCharge(feeCharge);
                 ClientMessage feeMessage = clientSession.createMessage(false);
                 feeMessage.setReplyTo(message.getReplyTo());
-                message.setCorrelationID(message.getCorrelationID());
-                message.getBodyBuffer().writeBytes(SerializationUtils.serialize(feeCharge));
-                statementContinueProducer.send(mqConsumerUtils.getAccountFeeChargeQueue(), message);
+                feeMessage.setCorrelationID(message.getCorrelationID());
+                feeMessage.getBodyBuffer().writeBytes(SerializationUtils.serialize(statementHeaderWork));
+                statementContinueProducer.send(mqConsumerUtils.getAccountFeeChargeQueue(), feeMessage);
 //                statementHeader.getRegisterEntries().add(feeRegisterEntry);
             } else {
                 ClientMessage feeMessage = clientSession.createMessage(false);
@@ -256,6 +258,7 @@ public class MQConsumers {
         message.getBodyBuffer().readBytes(mo);
         StatementHeaderWork statementHeaderWork = (StatementHeaderWork) SerializationUtils.deserialize(mo);
         try {
+            log.debug("receivedStatementContinue2Message: getStatementHeader: {}", statementHeaderWork.getStatementHeader());
             Optional<Statement> lastStatement = statementService.findLastStatement(statementHeaderWork.getStatementHeader().getLoanId());
             BigDecimal interestBalance;
             if (lastStatement.isPresent()) {
@@ -277,11 +280,12 @@ public class MQConsumers {
                     .description("Interest")
                     .retry(statementHeaderWork.getStatementHeader().getRetry())
                     .build();
-            ClientMessage feeMessage = clientSession.createMessage(false);
-            feeMessage.setReplyTo(message.getReplyTo());
-            message.setCorrelationID(message.getCorrelationID());
-            message.getBodyBuffer().writeBytes(SerializationUtils.serialize(interestCharge));
-            statementContinue2Producer.send(mqConsumerUtils.getAccountInterestChargeQueue(), message);
+            statementHeaderWork.setBillingCycleCharge(interestCharge);
+            ClientMessage interestMessage = clientSession.createMessage(false);
+            interestMessage.setReplyTo(message.getReplyTo());
+            interestMessage.setCorrelationID(message.getCorrelationID());
+            interestMessage.getBodyBuffer().writeBytes(SerializationUtils.serialize(statementHeaderWork));
+            statementContinue2Producer.send(mqConsumerUtils.getAccountInterestChargeQueue(), interestMessage);
         } catch (Exception ex) {
             log.error("receivedStatementContinueMessage", ex);
             try {
@@ -298,7 +302,7 @@ public class MQConsumers {
         message.getBodyBuffer().readBytes(mo);
         StatementHeaderWork statementHeaderWork = (StatementHeaderWork) SerializationUtils.deserialize(mo);
         try {
-            log.debug("receivedStatementMessage: interestRegisterEntry: {}", statementHeaderWork.getStatementHeader());
+            log.debug("receivedStatementContinue3Message: getStatementHeader: {}", statementHeaderWork.getStatementHeader());
             BigDecimal startingBalance = statementHeaderWork.getLastStatementPresent() ? statementHeaderWork.getLastStatementEndingBalance() : BigDecimal.valueOf(0, 2);
             BigDecimal endingBalance = startingBalance;
             for (RegisterEntryMessage re : statementHeaderWork.getStatementHeader().getRegisterEntries()) {
@@ -315,7 +319,7 @@ public class MQConsumers {
             statementService.saveStatement(statementHeaderWork.getStatementHeader(), startingBalance, endingBalance);
             ServiceRequestResponse requestResponse = ServiceRequestResponse.builder().id(statementHeaderWork.getStatementHeader().getId()).build();
             requestResponse.setSuccess();
-            log.debug("receivedStatementMessage: requestResponse: {}", requestResponse);
+            log.debug("receivedStatementContinue3Message: requestResponse: {}", requestResponse);
             if (endingBalance.compareTo(BigDecimal.ZERO) <= 0) {
                 sendAccountLoanClosed(statementHeaderWork.getStatementHeader(), statementContinue3Producer);
                 return;
@@ -381,7 +385,7 @@ public class MQConsumers {
         log.debug("serviceRequestServiceRequest: {}", serviceRequest);
         ClientMessage message = clientSession.createMessage(false);
         message.getBodyBuffer().writeBytes(SerializationUtils.serialize(serviceRequest));
-        producer.send(message);
+        producer.send(mqConsumerUtils.getServicerequestQueue(), message);
     }
 
 //    private void receiveStatementLoadIdMessage(ClientMessage message) throws SQLException, ActiveMQException, InterruptedException {

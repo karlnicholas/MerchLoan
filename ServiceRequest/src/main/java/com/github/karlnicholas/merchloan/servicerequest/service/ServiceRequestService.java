@@ -150,7 +150,7 @@ public class ServiceRequestService {
                                     .endDate(statementRequest.getEndDate())
                                     .retry(retry)
                                     .build()
-                    )
+                    ).build()
             );
             return id;
         } catch (SQLException | IOException e) {
