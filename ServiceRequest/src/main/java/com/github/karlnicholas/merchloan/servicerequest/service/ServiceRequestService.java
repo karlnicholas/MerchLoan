@@ -60,12 +60,6 @@ public class ServiceRequestService {
 
     @PreDestroy
     public void preDestroy() throws InterruptedException, ActiveMQException {
-//        accountCreateAccountProducer.close();
-//        accountFundingProducer.close();
-//        accountValidateCreditProducer.close();
-//        accountValidateDebitProducer.close();
-//        statementStatementProducer.close();
-//        accountCloseLoanProducer.close();
         queueMessageService.close();
     }
 

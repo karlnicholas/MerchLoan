@@ -37,10 +37,14 @@ public class MQConsumers {
     private final ClientProducer accountBillingInterestChargeProducer;
     private final ClientProducer queryAccountIdReplyProducer;
     private final ClientProducer queryLoanIdReplyProducer;
-    private final ClientProducer servicerequestProducer;
-    private final ClientProducer closeStatementProducer;
+    private final ClientProducer createAccountProducer;
     private final ClientProducer loanIdComputeProducer;
-    private final ClientProducer statementStatementContinueProducer;
+    private final ClientProducer statementStatementHeaderProducer;
+    private final ClientProducer fundingMessageProducer;
+    private final ClientProducer validateCreditProducer;
+    private final ClientProducer validateDebitProducer;
+    private final ClientProducer closeLoanProducer;
+    private final ClientProducer loadClosedProducer;
     private final ClientConsumer accountCreateAccountQueue;
     private final ClientConsumer accountFundingQueue;
     private final ClientConsumer accountValidateCreditQueue;
@@ -84,15 +88,19 @@ public class MQConsumers {
         accountQueryLoanIdQueue = mqConsumerUtils.bindConsumer(clientSession, SimpleString.toSimpleString(mqConsumerUtils.getAccountQueryLoanIdQueue()), false, this::queryLoanIdMessage);
         accountLoanIdComputeQueue = mqConsumerUtils.bindConsumer(clientSession, SimpleString.toSimpleString(mqConsumerUtils.getAccountLoanIdComputeQueue()), false, this::accountLoanIdComputeMessage);
 
+        fundingMessageProducer = clientSession.createProducer();
         loansToCyceReplyProducer = clientSession.createProducer();
         accountBillingFeeChargeProducer = clientSession.createProducer();
         accountBillingInterestChargeProducer = clientSession.createProducer();
         queryAccountIdReplyProducer = clientSession.createProducer();
         queryLoanIdReplyProducer = clientSession.createProducer();
         loanIdComputeProducer = clientSession.createProducer();
-        statementStatementContinueProducer = clientSession.createProducer();
-        servicerequestProducer = clientSession.createProducer(mqConsumerUtils.getServicerequestQueue());
-        closeStatementProducer = clientSession.createProducer(mqConsumerUtils.getStatementCloseStatementQueue());
+        statementStatementHeaderProducer = clientSession.createProducer();
+        createAccountProducer = clientSession.createProducer();
+        validateCreditProducer = clientSession.createProducer();
+        validateDebitProducer = clientSession.createProducer();
+        closeLoanProducer = clientSession.createProducer();
+        loadClosedProducer = clientSession.createProducer();
 
         clientSession.start();
     }
@@ -143,10 +151,10 @@ public class MQConsumers {
             } else {
                 response = "ERROR: id not found: " + id;
             }
-            ClientMessage statementMessage = clientSession.createMessage(false);
-            statementMessage.getBodyBuffer().writeBytes(SerializationUtils.serialize(response));
-            statementMessage.setCorrelationID(message.getCorrelationID());
-            queryAccountIdReplyProducer.send(mqConsumerUtils.getStatementLoanIdQueue(), statementMessage);
+            ClientMessage replyMessage = clientSession.createMessage(false);
+            replyMessage.getBodyBuffer().writeBytes(SerializationUtils.serialize(response));
+            replyMessage.setCorrelationID(message.getCorrelationID());
+            queryAccountIdReplyProducer.send(message.getReplyTo(), replyMessage);
         } catch (Exception ex) {
             log.error("receivedQueryAccountIdMessage exception", ex);
         }
@@ -169,7 +177,6 @@ public class MQConsumers {
             } else {
                 ClientMessage forwardMessage = clientSession.createMessage(false);
                 forwardMessage.getBodyBuffer().writeBytes(SerializationUtils.serialize("ERROR: Loan not found for id: " + id));
-//                forwardMessage.setReplyTo(message.getReplyTo());
                 forwardMessage.setCorrelationID(message.getCorrelationID());
                 queryLoanIdReplyProducer.send(message.getReplyTo(), forwardMessage);
             }
@@ -210,7 +217,13 @@ public class MQConsumers {
             log.error("receivedCreateAccountMessage exception", e);
             requestResponse.setError(e.getMessage());
         } finally {
-            serviceRequestServiceRequest(requestResponse);
+            try {
+                ClientMessage responseMessage = clientSession.createMessage(false);
+                responseMessage.getBodyBuffer().writeBytes(SerializationUtils.serialize(requestResponse));
+                createAccountProducer.send(mqConsumerUtils.getServicerequestQueue(), responseMessage);
+            } catch (ActiveMQException e) {
+                log.error("createAccountMessage", e);
+            }
         }
     }
 
@@ -248,7 +261,13 @@ public class MQConsumers {
             log.error("receivedFundingMessage exception", e);
             requestResponse.setError(e.getMessage());
         } finally {
-            serviceRequestServiceRequest(requestResponse);
+            try {
+                ClientMessage responseMessage = clientSession.createMessage(false);
+                responseMessage.getBodyBuffer().writeBytes(SerializationUtils.serialize(requestResponse));
+                fundingMessageProducer.send(mqConsumerUtils.getServicerequestQueue(), responseMessage);
+            } catch (ActiveMQException e) {
+                log.error("fundingMessage", e);
+            }
         }
     }
 
@@ -278,7 +297,13 @@ public class MQConsumers {
             log.error("receivedValidateCreditMessage exception", e);
             requestResponse.setError(e.getMessage());
         } finally {
-            serviceRequestServiceRequest(requestResponse);
+            try {
+                ClientMessage responseMessage = clientSession.createMessage(false);
+                responseMessage.getBodyBuffer().writeBytes(SerializationUtils.serialize(requestResponse));
+                validateCreditProducer.send(mqConsumerUtils.getServicerequestQueue(), responseMessage);
+            } catch (ActiveMQException e) {
+                log.error("validateCreditMessage", e);
+            }
         }
     }
 
@@ -309,7 +334,13 @@ public class MQConsumers {
             log.error("receivedValidateDebitMessage exception", e);
             requestResponse.setError(e.getMessage());
         } finally {
-            serviceRequestServiceRequest(requestResponse);
+            try {
+                ClientMessage responseMessage = clientSession.createMessage(false);
+                responseMessage.getBodyBuffer().writeBytes(SerializationUtils.serialize(requestResponse));
+                validateDebitProducer.send(mqConsumerUtils.getServicerequestQueue(), responseMessage);
+            } catch (ActiveMQException e) {
+                log.error("validateCreditMessage", e);
+            }
         }
     }
 
@@ -357,7 +388,7 @@ public class MQConsumers {
                     ClientMessage forwardMessage = clientSession.createMessage(false);
                     forwardMessage.getBodyBuffer().writeBytes(SerializationUtils.serialize(statementHeader));
                     forwardMessage.setCorrelationID(message.getCorrelationID());
-                    closeStatementProducer.send(mqConsumerUtils.getStatementCloseStatementQueue(), forwardMessage);
+                    closeLoanProducer.send(mqConsumerUtils.getStatementCloseStatementQueue(), forwardMessage);
                 } else {
                     requestResponse.setFailure("PayoffAmount incorrect. Required: " + loanOpt.get().getPayoffAmount());
                 }
@@ -371,7 +402,13 @@ public class MQConsumers {
             log.error("receivedCloseLoanMessage exception", e);
             requestResponse.setError("receivedCloseLoanMessage exception " + e.getMessage());
         } finally {
-            serviceRequestServiceRequest(requestResponse);
+            try {
+                ClientMessage responseMessage = clientSession.createMessage(false);
+                responseMessage.getBodyBuffer().writeBytes(SerializationUtils.serialize(requestResponse));
+                closeLoanProducer.send(mqConsumerUtils.getServicerequestQueue(), responseMessage);
+            } catch (ActiveMQException e) {
+                log.error("validateCreditMessage", e);
+            }
         }
     }
 
@@ -396,17 +433,20 @@ public class MQConsumers {
             message.getBodyBuffer().readBytes(mo);
             StatementHeaderWork statementHeaderWork = (StatementHeaderWork) SerializationUtils.deserialize(mo);
             log.debug("receivedStatementHeaderMessage loanId: {}", statementHeaderWork.getStatementHeader().getLoanId());
-            ServiceRequestResponse serviceRequestResponse = accountManagementService.statementHeader(statementHeaderWork.getStatementHeader());
-            log.debug("receivedStatementHeaderMessage serviceRequestResponse: {}", serviceRequestResponse);
-            if (serviceRequestResponse.isSuccess()) {
+            ServiceRequestResponse requestResponse = accountManagementService.statementHeader(statementHeaderWork.getStatementHeader());
+            log.debug("receivedStatementHeaderMessage serviceRequestResponse: {}", requestResponse);
+            if (requestResponse.isSuccess()) {
                 registerManagementService.setStatementHeaderRegisterEntryies(statementHeaderWork.getStatementHeader());
                 ClientMessage continueMessage = clientSession.createMessage(false);
                 continueMessage.getBodyBuffer().writeBytes(SerializationUtils.serialize(statementHeaderWork));
                 continueMessage.setReplyTo(message.getReplyTo());
                 continueMessage.setCorrelationID(message.getCorrelationID());
-                statementStatementContinueProducer.send(mqConsumerUtils.getStatementContinueQueue(), continueMessage);
+                statementStatementHeaderProducer.send(mqConsumerUtils.getStatementContinueQueue(), continueMessage);
             } else {
-                serviceRequestServiceRequest(serviceRequestResponse);
+                ClientMessage replyMessage = clientSession.createMessage(false);
+                replyMessage.getBodyBuffer().writeBytes(SerializationUtils.serialize(requestResponse));
+                replyMessage.setCorrelationID(message.getCorrelationID());
+                statementStatementHeaderProducer.send(message.getReplyTo(), replyMessage);
             }
         } catch (Exception ex) {
             log.error("receivedStatementHeaderMessage exception", ex);
@@ -469,7 +509,13 @@ public class MQConsumers {
             log.error("receivedLoanClosedMessage exception", e);
             requestResponse.setError("receivedLoanClosedMessage exception: " + e.getMessage());
         } finally {
-            serviceRequestServiceRequest(requestResponse);
+            try {
+                ClientMessage responseMessage = clientSession.createMessage(false);
+                responseMessage.getBodyBuffer().writeBytes(SerializationUtils.serialize(requestResponse));
+                loadClosedProducer.send(mqConsumerUtils.getServicerequestQueue(), responseMessage);
+            } catch (ActiveMQException e) {
+                log.error("createAccountMessage", e);
+            }
         }
     }
 //    public Object mostRecentStatement(UUID loanId) throws ActiveMQException, InterruptedException {
@@ -487,21 +533,34 @@ public class MQConsumers {
 ////        reply.getBodyBuffer().readBytes(mo);
 ////        return SerializationUtils.deserialize(mo);
 //    }
-    public void closeStatement(StatementHeader statementHeader) throws ActiveMQException {
-        log.debug("statementCloseStatement: loanId: {}", statementHeader.getLoanId());
-        ClientMessage message = clientSession.createMessage(false);
-        message.getBodyBuffer().writeBytes(SerializationUtils.serialize(statementHeader));
-        closeStatementProducer.send(message);
-    }
-    public void serviceRequestServiceRequest(ServiceRequestResponse serviceRequest) {
-        try {
-            log.debug("serviceRequestServiceRequest: {}", serviceRequest.getId());
-            ClientMessage message = clientSession.createMessage(false);
-            message.getBodyBuffer().writeBytes(SerializationUtils.serialize(serviceRequest));
-            servicerequestProducer.send(message);
-        } catch (ActiveMQException e) {
-            log.error("receivedFundingMessage exception", e);
-        }
-    }
-
+//    public void closeStatement(StatementHeader statementHeader) throws ActiveMQException {
+//        log.debug("statementCloseStatement: loanId: {}", statementHeader.getLoanId());
+//        ClientMessage message = clientSession.createMessage(false);
+//        message.getBodyBuffer().writeBytes(SerializationUtils.serialize(statementHeader));
+//        closeStatementProducer.send(message);
+//    }
+//
+//    public void serviceRequestServiceRequest(ClientMessage message, ServiceRequestResponse serviceRequest, ClientProducer producer) {
+//        try {
+//            log.debug("serviceRequestServiceRequest: {}", serviceRequest.getId());
+//            ClientMessage responseMessage = clientSession.createMessage(false);
+//            responseMessage.getBodyBuffer().writeBytes(SerializationUtils.serialize(serviceRequest));
+//            responseMessage.setCorrelationID(message.getCorrelationID());
+//            producer.send(message.getReplyTo(), responseMessage);
+//        } catch (ActiveMQException e) {
+//            log.error("receivedFundingMessage exception", e);
+//        }
+//    }
+//
+//    public void serviceRequestServiceRequest(ClientMessage message, ServiceRequestResponse serviceRequest, ClientProducer producer) {
+//        try {
+//            log.debug("serviceRequestServiceRequest: {}", serviceRequest.getId());
+//            ClientMessage responseMessage = clientSession.createMessage(false);
+//            responseMessage.getBodyBuffer().writeBytes(SerializationUtils.serialize(serviceRequest));
+//            responseMessage.setCorrelationID(message.getCorrelationID());
+//            producer.send(message.getReplyTo(), responseMessage);
+//        } catch (ActiveMQException e) {
+//            log.error("receivedFundingMessage exception", e);
+//        }
+//    }
 }

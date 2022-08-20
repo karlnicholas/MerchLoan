@@ -34,7 +34,6 @@ public class MQConsumers {
     private final ClientProducer statementContinue2Producer;
     private final ClientProducer statementContinue3Producer;
     private final ClientProducer closeStatementProducer;
-    //    private final ClientConsumer statementStatementQueue;
     private final ClientConsumer statementContinueQueue;
     private final ClientConsumer statementContinue2Queue;
     private final ClientConsumer statementContinue3Queue;
@@ -42,7 +41,7 @@ public class MQConsumers {
     private final ClientConsumer statementQueryStatementQueue;
     private final ClientConsumer statementQueryStatementsQueue;
     private final ClientConsumer statementQueryMostRecentStatementQueue;
-    private final ClientConsumer statementLoanIdQueue;
+//    private final ClientConsumer statementLoanIdQueue;
     private final StatementService statementService;
     private final BigDecimal interestRate = new BigDecimal("0.10");
     private final BigDecimal interestMonths = new BigDecimal("12");
@@ -56,10 +55,6 @@ public class MQConsumers {
         this.mqConsumerUtils = mqConsumerUtils;
         this.statementService = statementService;
         this.queryService = queryService;
-//        objectMapper = new ObjectMapper().findAndRegisterModules()
-//                .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
-
-//        statementStatementQueue = mqConsumerUtils.bindConsumer(clientSession, SimpleString.toSimpleString(mqConsumerUtils.getStatementStatementQueue()), false, this::receivedStatementStatementMessage);
         statementContinueQueue = mqConsumerUtils.bindConsumer(clientSession, SimpleString.toSimpleString(mqConsumerUtils.getStatementContinueQueue()), false, this::receivedStatementContinueMessage);
         statementContinue2Queue = mqConsumerUtils.bindConsumer(clientSession, SimpleString.toSimpleString(mqConsumerUtils.getStatementContinue2Queue()), false, this::receivedStatementContinue2Message);
         statementContinue3Queue = mqConsumerUtils.bindConsumer(clientSession, SimpleString.toSimpleString(mqConsumerUtils.getStatementContinue3Queue()), false, this::receivedStatementContinue3Message);
@@ -67,7 +62,7 @@ public class MQConsumers {
         statementQueryStatementQueue = mqConsumerUtils.bindConsumer(clientSession, SimpleString.toSimpleString(mqConsumerUtils.getStatementQueryStatementQueue()), false, this::receivedQueryStatementMessage);
         statementQueryStatementsQueue = mqConsumerUtils.bindConsumer(clientSession, SimpleString.toSimpleString(mqConsumerUtils.getStatementQueryStatementsQueue()), false, this::receivedQueryStatementsMessage);
         statementQueryMostRecentStatementQueue = mqConsumerUtils.bindConsumer(clientSession, SimpleString.toSimpleString(mqConsumerUtils.getStatementQueryMostRecentStatementQueue()), false, this::receivedQueryMostRecentStatementMessage);
-        statementLoanIdQueue = mqConsumerUtils.bindConsumer(clientSession, SimpleString.toSimpleString(mqConsumerUtils.getStatementLoanIdQueue()), false, this::receivedQueryMostRecentStatementMessage);
+//        statementLoanIdQueue = mqConsumerUtils.bindConsumer(clientSession, SimpleString.toSimpleString(mqConsumerUtils.getStatementLoanIdQueue()), false, this::receivedQueryMostRecentStatementMessage);
 
         queryStatementProducer = clientSession.createProducer();
         queryMostRecentStatementProducer = clientSession.createProducer();
@@ -86,7 +81,7 @@ public class MQConsumers {
         statementQueryStatementQueue.close();
         statementQueryStatementsQueue.close();
         statementQueryMostRecentStatementQueue.close();
-        statementLoanIdQueue.close();
+//        statementLoanIdQueue.close();
         statementContinueQueue.close();
         statementContinue2Queue.close();
         statementContinue3Queue.close();
@@ -96,7 +91,7 @@ public class MQConsumers {
         clientSession.deleteQueue(mqConsumerUtils.getStatementQueryStatementQueue());
         clientSession.deleteQueue(mqConsumerUtils.getStatementQueryStatementsQueue());
         clientSession.deleteQueue(mqConsumerUtils.getStatementQueryMostRecentStatementQueue());
-        clientSession.deleteQueue(mqConsumerUtils.getStatementLoanIdQueue());
+//        clientSession.deleteQueue(mqConsumerUtils.getStatementLoanIdQueue());
         clientSession.deleteQueue(mqConsumerUtils.getStatementContinueQueue());
         clientSession.deleteQueue(mqConsumerUtils.getStatementContinue2Queue());
         clientSession.deleteQueue(mqConsumerUtils.getStatementContinue3Queue());
