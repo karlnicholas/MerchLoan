@@ -10,7 +10,7 @@ import java.util.Optional;
 
 @Service
 public class QueueMessageService {
-    private static final int MAX_CAPACITY = 5;
+    private static final int MAX_CAPACITY = 50;
     private List<QueueMessage> messsageQueue;
     private QueueWaitingHandler queueWaitingHandler;
     private List<QueueMessageHandler> handlers;
