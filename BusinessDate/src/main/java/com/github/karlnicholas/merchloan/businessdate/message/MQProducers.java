@@ -1,7 +1,6 @@
 package com.github.karlnicholas.merchloan.businessdate.message;
 
 import com.github.karlnicholas.merchloan.jms.MQConsumerUtils;
-import com.github.karlnicholas.merchloan.jms.ReplyWaiting;
 import com.github.karlnicholas.merchloan.jms.ReplyWaitingHandler;
 import com.github.karlnicholas.merchloan.jmsmessage.BillingCycle;
 import lombok.extern.slf4j.Slf4j;
@@ -30,7 +29,7 @@ public class MQProducers {
     private final ReplyWaitingHandler checkRequestReplyHandler;
     private final ClientProducer accountQueryLoansToCycleProducer;
     private final SimpleString loansToCycleQueueName;
-    private final ClientConsumer loansToCycleConsumer;
+    private final ClientConsumer businessDateReply;
     private final ReplyWaitingHandler loansToCycleReplyHandler;
     @Autowired
     public MQProducers(ServerLocator locator, MQConsumerUtils mqConsumerUtils) throws Exception {
@@ -58,16 +57,16 @@ public class MQProducers {
 
 
         accountQueryLoansToCycleProducer = clientSession.createProducer(mqConsumerUtils.getAccountQueryLoansToCycleQueue());
-        loansToCycleQueueName = SimpleString.toSimpleString("loansToCycle"+UUID.randomUUID());
+        loansToCycleQueueName = SimpleString.toSimpleString("businessDateReply"+UUID.randomUUID());
         queueConfiguration = new QueueConfiguration(loansToCycleQueueName);
         queueConfiguration.setDurable(false);
         queueConfiguration.setAutoDelete(true);
         queueConfiguration.setTemporary(true);
         queueConfiguration.setRoutingType(RoutingType.ANYCAST);
         clientSession.createQueue(queueConfiguration);
-        loansToCycleConsumer = clientSession.createConsumer(loansToCycleQueueName);
+        businessDateReply = clientSession.createConsumer(loansToCycleQueueName);
         loansToCycleReplyHandler = new ReplyWaitingHandler();
-        loansToCycleConsumer.setMessageHandler(message -> {
+        businessDateReply.setMessageHandler(message -> {
             byte[] mo = new byte[message.getBodyBuffer().readableBytes()];
             message.getBodyBuffer().readBytes(mo);
             loansToCycleReplyHandler.handleReply(message.getCorrelationID().toString(), SerializationUtils.deserialize(mo));

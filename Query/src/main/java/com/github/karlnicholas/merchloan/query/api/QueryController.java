@@ -38,21 +38,21 @@ public class QueryController {
 
         sessionFactory = locator.createSessionFactory();
         clientSession = sessionFactory.createSession();
-        SimpleString replyQueue = SimpleString.toSimpleString("QueryReply-" + UUID.randomUUID());
+        SimpleString queryReplyQueue = SimpleString.toSimpleString("queryReply-" + UUID.randomUUID());
 
         ReplyWaitingHandler replyWaitingHandler = new ReplyWaitingHandler();
-        mqConsumerUtils.bindConsumer(clientSession, replyQueue, true, message -> {
+        mqConsumerUtils.bindConsumer(clientSession, queryReplyQueue, true, message -> {
             byte[] mo = new byte[message.getBodyBuffer().readableBytes()];
             message.getBodyBuffer().readBytes(mo);
             replyWaitingHandler.handleReply(message.getCorrelationID().toString(), SerializationUtils.deserialize(mo));
         });
 
-        queryServiceRequestProducer = new QueryServiceRequestProducer(mqConsumerUtils, replyWaitingHandler, replyQueue);
-        queryAccountProducer = new QueryAccountProducer(mqConsumerUtils, replyWaitingHandler, replyQueue);
-        queryLoanProducer = new QueryLoanProducer(mqConsumerUtils, replyWaitingHandler, replyQueue);
-        queryStatementProducer = new QueryStatementProducer(mqConsumerUtils, replyWaitingHandler, replyQueue);
-        queryStatementsProducer = new QueryStatementsProducer(mqConsumerUtils, replyWaitingHandler, replyQueue);
-        queryCheckRequestProducer = new QueryCheckRequestProducer(mqConsumerUtils, replyWaitingHandler, replyQueue);
+        queryServiceRequestProducer = new QueryServiceRequestProducer(mqConsumerUtils, replyWaitingHandler, queryReplyQueue);
+        queryAccountProducer = new QueryAccountProducer(mqConsumerUtils, replyWaitingHandler, queryReplyQueue);
+        queryLoanProducer = new QueryLoanProducer(mqConsumerUtils, replyWaitingHandler, queryReplyQueue);
+        queryStatementProducer = new QueryStatementProducer(mqConsumerUtils, replyWaitingHandler, queryReplyQueue);
+        queryStatementsProducer = new QueryStatementsProducer(mqConsumerUtils, replyWaitingHandler, queryReplyQueue);
+        queryCheckRequestProducer = new QueryCheckRequestProducer(mqConsumerUtils, replyWaitingHandler, queryReplyQueue);
 
         queueMessageService.initialize(locator, "Query");
         clientSession.start();
