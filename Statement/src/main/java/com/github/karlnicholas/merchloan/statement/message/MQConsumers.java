@@ -23,8 +23,8 @@ import java.util.UUID;
 @Component
 @Slf4j
 public class MQConsumers {
-    private final ClientSession clientSession;
-    private final ClientSessionFactory producerFactory;
+    private final ClientSession consumerSession;
+    private final ClientSession producerSession;
     private final MQConsumerUtils mqConsumerUtils;
     private final QueryService queryService;
     private final ClientProducer queryStatementProducer;
@@ -48,57 +48,54 @@ public class MQConsumers {
 
 
     public MQConsumers(ServerLocator locator, MQConsumerUtils mqConsumerUtils, StatementService statementService, QueryService queryService) throws Exception {
-        producerFactory = locator.createSessionFactory();
-        clientSession = producerFactory.createSession();
-        clientSession.addMetaData(ClientSession.JMS_SESSION_IDENTIFIER_PROPERTY, "jms-client-id");
-        clientSession.addMetaData("jms-client-id", "statement-consumers");
         this.mqConsumerUtils = mqConsumerUtils;
         this.statementService = statementService;
         this.queryService = queryService;
-        statementContinueQueue = mqConsumerUtils.bindConsumer(clientSession, SimpleString.toSimpleString(mqConsumerUtils.getStatementContinueQueue()), false, this::receivedStatementContinueMessage);
-        statementContinue2Queue = mqConsumerUtils.bindConsumer(clientSession, SimpleString.toSimpleString(mqConsumerUtils.getStatementContinue2Queue()), false, this::receivedStatementContinue2Message);
-        statementContinue3Queue = mqConsumerUtils.bindConsumer(clientSession, SimpleString.toSimpleString(mqConsumerUtils.getStatementContinue3Queue()), false, this::receivedStatementContinue3Message);
-        statementCloseStatementQueue = mqConsumerUtils.bindConsumer(clientSession, SimpleString.toSimpleString(mqConsumerUtils.getStatementCloseStatementQueue()), false, this::receivedCloseStatementMessage);
-        statementQueryStatementQueue = mqConsumerUtils.bindConsumer(clientSession, SimpleString.toSimpleString(mqConsumerUtils.getStatementQueryStatementQueue()), false, this::receivedQueryStatementMessage);
-        statementQueryStatementsQueue = mqConsumerUtils.bindConsumer(clientSession, SimpleString.toSimpleString(mqConsumerUtils.getStatementQueryStatementsQueue()), false, this::receivedQueryStatementsMessage);
-        statementQueryMostRecentStatementQueue = mqConsumerUtils.bindConsumer(clientSession, SimpleString.toSimpleString(mqConsumerUtils.getStatementQueryMostRecentStatementQueue()), false, this::receivedQueryMostRecentStatementMessage);
-//        statementLoanIdQueue = mqConsumerUtils.bindConsumer(clientSession, SimpleString.toSimpleString(mqConsumerUtils.getStatementLoanIdQueue()), false, this::receivedQueryMostRecentStatementMessage);
 
-        queryStatementProducer = clientSession.createProducer();
-        queryMostRecentStatementProducer = clientSession.createProducer();
-        queryStatementsProducer = clientSession.createProducer();
-        statementContinueProducer = clientSession.createProducer();
-        statementContinue2Producer = clientSession.createProducer();
-        statementContinue3Producer = clientSession.createProducer();
-        closeStatementProducer = clientSession.createProducer();
-        clientSession.start();
+        consumerSession = locator.createSessionFactory().createSession();
+        consumerSession.addMetaData(ClientSession.JMS_SESSION_IDENTIFIER_PROPERTY, "jms-client-id");
+        consumerSession.addMetaData("jms-client-id", "statement-consumers");
+        statementContinueQueue = mqConsumerUtils.bindConsumer(consumerSession, SimpleString.toSimpleString(mqConsumerUtils.getStatementContinueQueue()), false, this::receivedStatementContinueMessage);
+        statementContinue2Queue = mqConsumerUtils.bindConsumer(consumerSession, SimpleString.toSimpleString(mqConsumerUtils.getStatementContinue2Queue()), false, this::receivedStatementContinue2Message);
+        statementContinue3Queue = mqConsumerUtils.bindConsumer(consumerSession, SimpleString.toSimpleString(mqConsumerUtils.getStatementContinue3Queue()), false, this::receivedStatementContinue3Message);
+        statementCloseStatementQueue = mqConsumerUtils.bindConsumer(consumerSession, SimpleString.toSimpleString(mqConsumerUtils.getStatementCloseStatementQueue()), false, this::receivedCloseStatementMessage);
+        statementQueryStatementQueue = mqConsumerUtils.bindConsumer(consumerSession, SimpleString.toSimpleString(mqConsumerUtils.getStatementQueryStatementQueue()), false, this::receivedQueryStatementMessage);
+        statementQueryStatementsQueue = mqConsumerUtils.bindConsumer(consumerSession, SimpleString.toSimpleString(mqConsumerUtils.getStatementQueryStatementsQueue()), false, this::receivedQueryStatementsMessage);
+        statementQueryMostRecentStatementQueue = mqConsumerUtils.bindConsumer(consumerSession, SimpleString.toSimpleString(mqConsumerUtils.getStatementQueryMostRecentStatementQueue()), false, this::receivedQueryMostRecentStatementMessage);
+        consumerSession.start();
+
+        producerSession = locator.createSessionFactory().createSession();
+        consumerSession.addMetaData(ClientSession.JMS_SESSION_IDENTIFIER_PROPERTY, "jms-client-id");
+        consumerSession.addMetaData("jms-client-id", "statement-producers");
+        queryStatementProducer = consumerSession.createProducer();
+        queryMostRecentStatementProducer = consumerSession.createProducer();
+        queryStatementsProducer = consumerSession.createProducer();
+        statementContinueProducer = consumerSession.createProducer();
+        statementContinue2Producer = consumerSession.createProducer();
+        statementContinue3Producer = consumerSession.createProducer();
+        closeStatementProducer = consumerSession.createProducer();
     }
 
     @PreDestroy
     public void preDestroy() throws ActiveMQException {
-//        statementStatementQueue.close();
         statementCloseStatementQueue.close();
         statementQueryStatementQueue.close();
         statementQueryStatementsQueue.close();
         statementQueryMostRecentStatementQueue.close();
-//        statementLoanIdQueue.close();
         statementContinueQueue.close();
         statementContinue2Queue.close();
         statementContinue3Queue.close();
 
-//        clientSession.deleteQueue(mqConsumerUtils.getStatementStatementQueue());
-        clientSession.deleteQueue(mqConsumerUtils.getStatementCloseStatementQueue());
-        clientSession.deleteQueue(mqConsumerUtils.getStatementQueryStatementQueue());
-        clientSession.deleteQueue(mqConsumerUtils.getStatementQueryStatementsQueue());
-        clientSession.deleteQueue(mqConsumerUtils.getStatementQueryMostRecentStatementQueue());
-//        clientSession.deleteQueue(mqConsumerUtils.getStatementLoanIdQueue());
-        clientSession.deleteQueue(mqConsumerUtils.getStatementContinueQueue());
-        clientSession.deleteQueue(mqConsumerUtils.getStatementContinue2Queue());
-        clientSession.deleteQueue(mqConsumerUtils.getStatementContinue3Queue());
-        clientSession.deleteQueue(mqConsumerUtils.getStatementLoanIdQueue());
+        consumerSession.deleteQueue(mqConsumerUtils.getStatementCloseStatementQueue());
+        consumerSession.deleteQueue(mqConsumerUtils.getStatementQueryStatementQueue());
+        consumerSession.deleteQueue(mqConsumerUtils.getStatementQueryStatementsQueue());
+        consumerSession.deleteQueue(mqConsumerUtils.getStatementQueryMostRecentStatementQueue());
+        consumerSession.deleteQueue(mqConsumerUtils.getStatementContinueQueue());
+        consumerSession.deleteQueue(mqConsumerUtils.getStatementContinue2Queue());
+        consumerSession.deleteQueue(mqConsumerUtils.getStatementContinue3Queue());
 
-        clientSession.close();
-        producerFactory.close();
+        consumerSession.close();
+        producerSession.close();
     }
 
     public void receivedQueryStatementMessage(ClientMessage message) {
@@ -108,7 +105,7 @@ public class MQConsumers {
             UUID loanId = (UUID) SerializationUtils.deserialize(mo);
             log.debug("receivedQueryStatementMessage {}", loanId);
             String result = queryService.findById(loanId).map(Statement::getStatementDoc).orElse("ERROR: No statement found for id " + loanId);
-            ClientMessage replyMessage = clientSession.createMessage(false);
+            ClientMessage replyMessage = producerSession.createMessage(false);
             replyMessage.getBodyBuffer().writeBytes(SerializationUtils.serialize(result));
             replyMessage.setCorrelationID(message.getCorrelationID());
             queryStatementProducer.send(message.getReplyTo(), replyMessage);
@@ -129,7 +126,7 @@ public class MQConsumers {
                 loanDto.setLastStatementBalance(statement.getEndingBalance());
 
             });
-            ClientMessage replyMessage = clientSession.createMessage(false);
+            ClientMessage replyMessage = producerSession.createMessage(false);
             replyMessage.getBodyBuffer().writeBytes(SerializationUtils.serialize(loanDto));
             replyMessage.setReplyTo(message.getReplyTo());
             replyMessage.setCorrelationID(message.getCorrelationID());
@@ -146,7 +143,7 @@ public class MQConsumers {
             UUID id = (UUID) SerializationUtils.deserialize(mo);
             log.debug("receivedQueryStatementsMessage Received {}", id);
 //            reply(message, objectMapper.writeValueAsString(queryService.findByLoanId(id)));
-            ClientMessage replyMessage = clientSession.createMessage(false);
+            ClientMessage replyMessage = producerSession.createMessage(false);
             replyMessage.getBodyBuffer().writeBytes(SerializationUtils.serialize(queryService.findByLoanId(id)));
             replyMessage.setCorrelationID(message.getCorrelationID());
             queryStatementsProducer.send(message.getReplyTo(), replyMessage);
@@ -224,14 +221,14 @@ public class MQConsumers {
                         .build();
                 log.debug("receivedStatementContinueMessage: {}", feeCharge);
                 statementHeaderWork.setBillingCycleCharge(feeCharge);
-                ClientMessage feeMessage = clientSession.createMessage(false);
+                ClientMessage feeMessage = producerSession.createMessage(false);
                 feeMessage.setReplyTo(message.getReplyTo());
                 feeMessage.setCorrelationID(message.getCorrelationID());
                 feeMessage.getBodyBuffer().writeBytes(SerializationUtils.serialize(statementHeaderWork));
                 statementContinueProducer.send(mqConsumerUtils.getAccountFeeChargeQueue(), feeMessage);
 //                statementHeader.getRegisterEntries().add(feeRegisterEntry);
             } else {
-                ClientMessage feeMessage = clientSession.createMessage(false);
+                ClientMessage feeMessage = producerSession.createMessage(false);
                 feeMessage.setReplyTo(message.getReplyTo());
                 message.setCorrelationID(message.getCorrelationID());
                 message.getBodyBuffer().writeBytes(SerializationUtils.serialize(statementHeaderWork));
@@ -276,7 +273,7 @@ public class MQConsumers {
                     .retry(statementHeaderWork.getStatementHeader().getRetry())
                     .build();
             statementHeaderWork.setBillingCycleCharge(interestCharge);
-            ClientMessage interestMessage = clientSession.createMessage(false);
+            ClientMessage interestMessage = producerSession.createMessage(false);
             interestMessage.setReplyTo(message.getReplyTo());
             interestMessage.setCorrelationID(message.getCorrelationID());
             interestMessage.getBodyBuffer().writeBytes(SerializationUtils.serialize(statementHeaderWork));
@@ -333,7 +330,7 @@ public class MQConsumers {
 
     private void sendAccountLoanClosed(StatementHeader statementHeader, ClientProducer producer) throws ActiveMQException {
         log.debug("accountLoanClosed: {}", statementHeader);
-        ClientMessage loanClosedMessage = clientSession.createMessage(false);
+        ClientMessage loanClosedMessage = producerSession.createMessage(false);
         loanClosedMessage.getBodyBuffer().writeBytes(SerializationUtils.serialize(statementHeader));
         producer.send(mqConsumerUtils.getAccountLoanClosedQueue(), loanClosedMessage);
     }
@@ -378,7 +375,7 @@ public class MQConsumers {
     }
     public void serviceRequestServiceRequest(ServiceRequestResponse serviceRequest, ClientProducer producer) throws ActiveMQException {
         log.debug("serviceRequestServiceRequest: {}", serviceRequest);
-        ClientMessage message = clientSession.createMessage(false);
+        ClientMessage message = producerSession.createMessage(false);
         message.getBodyBuffer().writeBytes(SerializationUtils.serialize(serviceRequest));
         producer.send(mqConsumerUtils.getServicerequestQueue(), message);
     }
