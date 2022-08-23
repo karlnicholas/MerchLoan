@@ -57,7 +57,7 @@ public class QueryController {
         queryStatementsProducer = new QueryStatementsProducer(SimpleString.toSimpleString(mqConsumerUtils.getStatementQueryStatementsQueue()));
         queryCheckRequestProducer = new QueryCheckRequestProducer(SimpleString.toSimpleString(mqConsumerUtils.getServiceRequestCheckRequestQueue()));
 
-        producerSession = queueMessageService.initialize(locator, "query-producer-", 50).createSession();
+        producerSession = queueMessageService.initialize(locator, "query-producer-", 5).createSession();
     }
 
     @PreDestroy
