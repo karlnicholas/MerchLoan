@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.PreDestroy;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 
 @RestController
 @RequestMapping(value = "/api/query")
@@ -57,7 +58,7 @@ public class QueryController {
         queryStatementsProducer = new QueryStatementsProducer(SimpleString.toSimpleString(mqConsumerUtils.getStatementQueryStatementsQueue()));
         queryCheckRequestProducer = new QueryCheckRequestProducer(SimpleString.toSimpleString(mqConsumerUtils.getServiceRequestCheckRequestQueue()));
 
-        producerSession = queueMessageService.initialize(locator, "query-producer-", 5).createSession();
+        producerSession = queueMessageService.initialize(locator, "query-producer-", 10).createSession();
     }
 
     @PreDestroy
@@ -79,9 +80,25 @@ public class QueryController {
         return handleStringRequest(queryAccountProducer, id);
     }
 
+    int max = 0;
     @GetMapping(value = "/loan/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
     public String queryLoanId(@PathVariable UUID id) throws Exception {
         log.debug("loan: {}", id);
+//        String responseKey = UUID.randomUUID().toString();
+//        queueWaitingHandler.put(responseKey);
+//        ClientMessage message = producerSession.createMessage(false);
+//        message.setCorrelationID(responseKey);
+//        message.setReplyTo(queryReplyQueue);
+//        message.getBodyBuffer().writeBytes(SerializationUtils.serialize(id));
+//        QueueMessage queueMessage = new QueueMessage(queryLoanProducer, message);
+//        queueMessageService.addMessage(queueMessage);
+//        Object result = queueWaitingHandler.getReply(responseKey).toString();
+//        int s = queueWaitingHandler.getRepliesWaitingSize();
+//        if ( s > max) max = s;
+//        if (ThreadLocalRandom.current().nextInt(50) == 0 ) {
+//            log.info("queryLoanId repliesWaitingSize: {} {}", max, s);
+//        }
+//        return (String) result;
         return handleStringRequest(queryLoanProducer, id);
     }
 

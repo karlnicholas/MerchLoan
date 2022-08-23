@@ -32,6 +32,9 @@ public class QueueWaitingHandler {
         return repliesWaiting.remove(responseKey).getReply();
     }
 
+    public int getRepliesWaitingSize() {
+        return repliesWaiting.size();
+    }
     public void handleReply(String key, Object reply) {
         synchronized (repliesWaiting) {
             QueueWaiting rw = repliesWaiting.get(key);

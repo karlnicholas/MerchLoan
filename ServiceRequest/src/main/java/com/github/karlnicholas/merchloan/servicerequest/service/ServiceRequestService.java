@@ -61,7 +61,7 @@ public class ServiceRequestService {
         statementStatementProducer = new StatementStatementProducer(SimpleString.toSimpleString(mqConsumerUtils.getAccountStatementStatementHeaderQueue()));
         accountCloseLoanProducer = new AccountCloseLoanProducer(SimpleString.toSimpleString(mqConsumerUtils.getAccountCloseLoanQueue()));
 
-        producerSession = queueMessageService.initialize(locator, "servicerequest-producer-", 5).createSession();
+        producerSession = queueMessageService.initialize(locator, "servicerequest-producer-", 10).createSession();
 
     }
 
