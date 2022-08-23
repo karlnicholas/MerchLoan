@@ -65,15 +65,15 @@ public class MQConsumers {
         consumerSession.start();
 
         producerSession = locator.createSessionFactory().createSession();
-        consumerSession.addMetaData(ClientSession.JMS_SESSION_IDENTIFIER_PROPERTY, "jms-client-id");
-        consumerSession.addMetaData("jms-client-id", "statement-producers");
-        queryStatementProducer = consumerSession.createProducer();
-        queryMostRecentStatementProducer = consumerSession.createProducer();
-        queryStatementsProducer = consumerSession.createProducer();
-        statementContinueProducer = consumerSession.createProducer();
-        statementContinue2Producer = consumerSession.createProducer();
-        statementContinue3Producer = consumerSession.createProducer();
-        closeStatementProducer = consumerSession.createProducer();
+        producerSession.addMetaData(producerSession.JMS_SESSION_IDENTIFIER_PROPERTY, "jms-client-id");
+        producerSession.addMetaData("jms-client-id", "statement-producers");
+        queryStatementProducer = producerSession.createProducer();
+        queryMostRecentStatementProducer = producerSession.createProducer();
+        queryStatementsProducer = producerSession.createProducer();
+        statementContinueProducer = producerSession.createProducer();
+        statementContinue2Producer = producerSession.createProducer();
+        statementContinue3Producer = producerSession.createProducer();
+        closeStatementProducer = producerSession.createProducer();
     }
 
     @PreDestroy
