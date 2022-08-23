@@ -20,12 +20,11 @@ public class AccountValidateDebitProducer implements QueueMessageHandlerProducer
     }
 
     @Override
-    public Object sendMessage(ClientSession clientSession, ClientProducer producer, Object data) throws ActiveMQException {
+    public void sendMessage(ClientSession clientSession, ClientProducer producer, Object data) throws ActiveMQException {
         DebitLoan debitLoan = (DebitLoan) data;
         log.debug("accountValidateDebit: {}", debitLoan);
         ClientMessage message = clientSession.createMessage(false);
         message.getBodyBuffer().writeBytes(SerializationUtils.serialize(debitLoan));
         producer.send(queue, message);
-        return null;
     }
 }

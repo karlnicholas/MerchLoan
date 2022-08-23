@@ -20,12 +20,11 @@ public class AccountFundLoanProducer implements QueueMessageHandlerProducer {
     }
 
     @Override
-    public Object sendMessage(ClientSession clientSession, ClientProducer producer, Object data) throws ActiveMQException {
+    public void sendMessage(ClientSession clientSession, ClientProducer producer, Object data) throws ActiveMQException {
         FundLoan fundLoan = (FundLoan) data;
         log.debug("accountFundLoan: {}", fundLoan);
         ClientMessage message = clientSession.createMessage(false);
         message.getBodyBuffer().writeBytes(SerializationUtils.serialize(fundLoan));
         producer.send(queue, message);
-        return null;
     }
 }

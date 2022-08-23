@@ -1,6 +1,8 @@
 package com.github.karlnicholas.merchloan.jms.queue;
 
 import org.apache.activemq.artemis.api.core.ActiveMQException;
+import org.apache.activemq.artemis.api.core.client.ClientMessage;
+import org.apache.activemq.artemis.api.core.client.ClientSessionFactory;
 import org.apache.activemq.artemis.api.core.client.ServerLocator;
 import org.springframework.stereotype.Service;
 
@@ -10,17 +12,17 @@ import java.util.Optional;
 
 @Service
 public class QueueMessageService {
-    private static final int MAX_CAPACITY = 50;
     private List<QueueMessage> messsageQueue;
-    private QueueWaitingHandler queueWaitingHandler;
     private List<QueueMessageHandler> handlers;
+    private int capacity;
 
-    public void initialize(ServerLocator locator, String queueName) throws Exception {
-        this.queueWaitingHandler = new QueueWaitingHandler();
+    public void initialize(ServerLocator locator, String queueName, int capacity) throws Exception {
+        this.capacity = capacity;
         messsageQueue = new ArrayList<>();
+        ClientSessionFactory clientSessionFactory = locator.createSessionFactory();
         handlers = new ArrayList<>();
-        for ( int i = 0 ; i < MAX_CAPACITY; ++i) {
-            QueueMessageHandler queueMessageHandler = new QueueMessageHandler(locator, queueName+i, messsageQueue, queueWaitingHandler);
+        for ( int i = 0 ; i < capacity; ++i) {
+            QueueMessageHandler queueMessageHandler = new QueueMessageHandler(clientSessionFactory, messsageQueue, queueName+(i+1));
             handlers.add(queueMessageHandler);
             queueMessageHandler.start();
         }
@@ -33,19 +35,14 @@ public class QueueMessageService {
         }
     }
 
-    public void addMessage(QueueMessageHandlerProducer producer, Optional<String> responseKeyOpt, Object data) throws InterruptedException {
+    public void addMessage(QueueMessageHandlerProducer producer, QueueMessage message) throws InterruptedException {
         synchronized (messsageQueue) {
-            while(messsageQueue.size() >= MAX_CAPACITY) {
+            while(messsageQueue.size() >= capacity) {
                 messsageQueue.wait();
             }
-            responseKeyOpt.ifPresent(queueWaitingHandler::put);
-            QueueMessage queueMessage = new QueueMessage(data, producer, responseKeyOpt);
-            messsageQueue.add(queueMessage);
+            messsageQueue.add(message);
             messsageQueue.notifyAll();
         }
     }
 
-    public Object getReply(String responseKey) throws InterruptedException {
-        return queueWaitingHandler.getReply(responseKey);
-    }
 }

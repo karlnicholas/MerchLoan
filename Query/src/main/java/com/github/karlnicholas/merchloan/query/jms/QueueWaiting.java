@@ -1,4 +1,4 @@
-package com.github.karlnicholas.merchloan.jms.queue;
+package com.github.karlnicholas.merchloan.query.jms;
 
 import lombok.Builder;
 import lombok.Data;

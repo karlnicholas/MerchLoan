@@ -19,13 +19,12 @@ public class AccountCreateAccountProducer implements QueueMessageHandlerProducer
         this.queue = SimpleString.toSimpleString(mqConsumerUtils.getAccountCreateAccountQueue());
     }
     @Override
-    public Object sendMessage(ClientSession clientSession, ClientProducer producer, Object data) throws ActiveMQException {
+    public void sendMessage(ClientSession clientSession, ClientProducer producer, Object data) throws ActiveMQException {
         CreateAccount createAccount = (CreateAccount) data;
         log.debug("accountCreateAccount: {}", createAccount);
         ClientMessage message = clientSession.createMessage(false);
         message.getBodyBuffer().writeBytes(SerializationUtils.serialize(createAccount));
         producer.send(queue, message);
-        return null;
     }
 
 }

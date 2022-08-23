@@ -20,13 +20,11 @@ public class AccountCloseLoanProducer implements QueueMessageHandlerProducer {
     }
 
     @Override
-    public Object sendMessage(ClientSession clientSession, ClientProducer producer, Object data) throws ActiveMQException {
+    public void sendMessage(ClientSession clientSession, ClientProducer producer, Object data) throws ActiveMQException {
         CloseLoan closeLoan = (CloseLoan) data;
         log.debug("accountCloseLoan: {}", closeLoan);
         ClientMessage message = clientSession.createMessage(false);
         message.getBodyBuffer().writeBytes(SerializationUtils.serialize(closeLoan));
         producer.send(queue, message);
-        return null;
     }
-
 }

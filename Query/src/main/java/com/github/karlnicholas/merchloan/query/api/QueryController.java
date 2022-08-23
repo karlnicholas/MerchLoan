@@ -1,24 +1,20 @@
 package com.github.karlnicholas.merchloan.query.api;
 
 import com.github.karlnicholas.merchloan.jms.MQConsumerUtils;
-import com.github.karlnicholas.merchloan.jms.ReplyWaitingHandler;
+import com.github.karlnicholas.merchloan.jms.queue.QueueMessage;
+import com.github.karlnicholas.merchloan.jms.queue.QueueMessageHandlerProducer;
 import com.github.karlnicholas.merchloan.jms.queue.QueueMessageService;
+import com.github.karlnicholas.merchloan.query.jms.QueueWaitingHandler;
 import com.github.karlnicholas.merchloan.query.message.*;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.activemq.artemis.api.core.ActiveMQException;
-import org.apache.activemq.artemis.api.core.QueueConfiguration;
-import org.apache.activemq.artemis.api.core.RoutingType;
 import org.apache.activemq.artemis.api.core.SimpleString;
-import org.apache.activemq.artemis.api.core.client.ClientConsumer;
-import org.apache.activemq.artemis.api.core.client.ClientSession;
-import org.apache.activemq.artemis.api.core.client.ClientSessionFactory;
-import org.apache.activemq.artemis.api.core.client.ServerLocator;
+import org.apache.activemq.artemis.api.core.client.*;
 import org.springframework.http.MediaType;
 import org.springframework.util.SerializationUtils;
 import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.PreDestroy;
-import java.util.Optional;
 import java.util.UUID;
 
 @RestController
@@ -27,38 +23,45 @@ import java.util.UUID;
 public class QueryController {
     private final ClientSessionFactory sessionFactory;
     private final ClientSession clientSession;
+    private final SimpleString queryReplyQueue;
     private final QueueMessageService queueMessageService;
     private final QueryServiceRequestProducer queryServiceRequestProducer;
     private final QueryAccountProducer queryAccountProducer;
     private final QueryLoanProducer queryLoanProducer;
     private final QueryStatementProducer queryStatementProducer;
     private final QueryStatementsProducer queryStatementsProducer;
+    private final QueryCheckRequestProducer queryCheckRequestProducer;
+    private final QueueWaitingHandler queueWaitingHandler;
+
     public QueryController(ServerLocator locator, MQConsumerUtils mqConsumerUtils, QueueMessageService queueMessageService) throws Exception {
         this.queueMessageService = queueMessageService;
+        queueWaitingHandler = new QueueWaitingHandler();
 
         sessionFactory = locator.createSessionFactory();
         clientSession = sessionFactory.createSession();
-        SimpleString queryReplyQueue = SimpleString.toSimpleString("queryReply-" + UUID.randomUUID());
+        clientSession.addMetaData(ClientSession.JMS_SESSION_IDENTIFIER_PROPERTY, "jms-client-id");
+        clientSession.addMetaData("jms-client-id", "query-consumer");
 
-        ReplyWaitingHandler replyWaitingHandler = new ReplyWaitingHandler();
+        queryReplyQueue = SimpleString.toSimpleString("queryReply-" + UUID.randomUUID());
+
+//        ReplyWaitingHandler replyWaitingHandler = new ReplyWaitingHandler();
+
         mqConsumerUtils.bindConsumer(clientSession, queryReplyQueue, true, message -> {
             byte[] mo = new byte[message.getBodyBuffer().readableBytes()];
             message.getBodyBuffer().readBytes(mo);
-            replyWaitingHandler.handleReply(message.getCorrelationID().toString(), SerializationUtils.deserialize(mo));
+            queueWaitingHandler.handleReply(message.getCorrelationID().toString(), SerializationUtils.deserialize(mo));
         });
 
-        queryServiceRequestProducer = new QueryServiceRequestProducer(mqConsumerUtils, replyWaitingHandler, queryReplyQueue);
-        queryAccountProducer = new QueryAccountProducer(mqConsumerUtils, replyWaitingHandler, queryReplyQueue);
-        queryLoanProducer = new QueryLoanProducer(mqConsumerUtils, replyWaitingHandler, queryReplyQueue);
-        queryStatementProducer = new QueryStatementProducer(mqConsumerUtils, replyWaitingHandler, queryReplyQueue);
-        queryStatementsProducer = new QueryStatementsProducer(mqConsumerUtils, replyWaitingHandler, queryReplyQueue);
-        queryCheckRequestProducer = new QueryCheckRequestProducer(mqConsumerUtils, replyWaitingHandler, queryReplyQueue);
+        queryServiceRequestProducer = new QueryServiceRequestProducer(SimpleString.toSimpleString(mqConsumerUtils.getServicerequestQueryIdQueue()));
+        queryAccountProducer = new QueryAccountProducer(SimpleString.toSimpleString(mqConsumerUtils.getAccountQueryAccountIdQueue()));
+        queryLoanProducer = new QueryLoanProducer(SimpleString.toSimpleString(mqConsumerUtils.getAccountQueryLoanIdQueue()));
+        queryStatementProducer = new QueryStatementProducer(SimpleString.toSimpleString(mqConsumerUtils.getStatementQueryStatementQueue()));
+        queryStatementsProducer = new QueryStatementsProducer(SimpleString.toSimpleString(mqConsumerUtils.getStatementQueryStatementsQueue()));
+        queryCheckRequestProducer = new QueryCheckRequestProducer(SimpleString.toSimpleString(mqConsumerUtils.getServiceRequestCheckRequestQueue()));
 
-        queueMessageService.initialize(locator, "Query");
+        queueMessageService.initialize(locator, "query-producer-", 50);
         clientSession.start();
     }
-
-    private final QueryCheckRequestProducer queryCheckRequestProducer;
 
     @PreDestroy
     public void preDestroy() throws ActiveMQException, InterruptedException {
@@ -70,43 +73,56 @@ public class QueryController {
     @GetMapping(value = "/request/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
     public String queryRequestId(@PathVariable UUID id) throws Exception {
         log.debug("request: {}", id);
-        String responseKey = UUID.randomUUID().toString();
-        queueMessageService.addMessage(queryServiceRequestProducer, Optional.of(responseKey), id);
-        return queueMessageService.getReply(responseKey).toString();
+        return handleStringRequest(queryServiceRequestProducer, id);
     }
+
     @GetMapping(value = "/account/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
     public String queryAccountId(@PathVariable UUID id) throws Exception {
         log.debug("account: {}", id);
-        String responseKey = UUID.randomUUID().toString();
-        queueMessageService.addMessage(queryAccountProducer, Optional.of(responseKey), id);
-        return queueMessageService.getReply(responseKey).toString();
+        return handleStringRequest(queryAccountProducer, id);
     }
+
     @GetMapping(value = "/loan/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
     public String queryLoanId(@PathVariable UUID id) throws Exception {
         log.debug("loan: {}", id);
-        String responseKey = UUID.randomUUID().toString();
-        queueMessageService.addMessage(queryLoanProducer, Optional.of(responseKey), id);
-        return queueMessageService.getReply(responseKey).toString();
+        return handleStringRequest(queryLoanProducer, id);
     }
+
     @GetMapping(value = "/statement/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
     public String queryStatementId(@PathVariable UUID id) throws Exception {
         log.debug("statement: {}", id);
-        String responseKey = UUID.randomUUID().toString();
-        queueMessageService.addMessage(queryStatementProducer, Optional.of(responseKey), id);
-        return queueMessageService.getReply(responseKey).toString();
+        return handleStringRequest(queryStatementProducer, id);
     }
+
     @GetMapping(value = "/statements/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
     public String queryStatementsId(@PathVariable UUID id) throws Exception {
         log.debug("statements: {}", id);
-        String responseKey = UUID.randomUUID().toString();
-        queueMessageService.addMessage(queryStatementsProducer, Optional.of(responseKey), id);
-        return queueMessageService.getReply(responseKey).toString();
+        return handleStringRequest(queryStatementsProducer, id);
     }
+
+    private String handleStringRequest(QueueMessageHandlerProducer producer, UUID id) throws InterruptedException {
+        String responseKey = UUID.randomUUID().toString();
+        queueWaitingHandler.put(responseKey);
+        ClientMessage message = clientSession.createMessage(false);
+        message.setCorrelationID(responseKey);
+        message.setReplyTo(queryReplyQueue);
+        message.getBodyBuffer().writeBytes(SerializationUtils.serialize(id));
+        QueueMessage queueMessage = new QueueMessage(producer, message);
+        queueMessageService.addMessage(queryServiceRequestProducer, queueMessage);
+        return queueWaitingHandler.getReply(responseKey).toString();
+    }
+
     @GetMapping(value = "/checkrequests", produces = MediaType.APPLICATION_JSON_VALUE)
     public Boolean queryCheckRequests() throws Exception {
         log.debug("checkrequests");
         String responseKey = UUID.randomUUID().toString();
-        queueMessageService.addMessage(queryCheckRequestProducer, Optional.of(responseKey), new byte[0]);
-        return (Boolean)queueMessageService.getReply(responseKey);
+        queueWaitingHandler.put(responseKey);
+        ClientMessage message = clientSession.createMessage(false);
+        message.setCorrelationID(responseKey);
+        message.setReplyTo(queryReplyQueue);
+        message.getBodyBuffer().writeBytes(SerializationUtils.serialize(new byte[0]));
+        QueueMessage queueMessage = new QueueMessage(queryAccountProducer, message);
+        queueMessageService.addMessage(queryCheckRequestProducer, queueMessage);
+        return (Boolean) queueWaitingHandler.getReply(responseKey);
     }
 }

@@ -55,7 +55,7 @@ public class ServiceRequestService {
         statementStatementProducer = new StatementStatementProducer(mqConsumerUtils);
         accountCloseLoanProducer = new AccountCloseLoanProducer(mqConsumerUtils);
 
-        queueMessageService.initialize(locator, "ServiceRequest");
+        queueMessageService.initialize(locator, "ServiceRequest", 50);
     }
 
     @PreDestroy
@@ -67,7 +67,7 @@ public class ServiceRequestService {
         try {
             AccountRequest accountRequest = (AccountRequest) serviceRequestMessage;
             UUID id = retry == Boolean.TRUE ? existingId : persistRequest(accountRequest);
-            queueMessageService.addMessage(accountCreateAccountProducer, Optional.empty(), CreateAccount.builder()
+            queueMessageService.addMessage(accountCreateAccountProducer, CreateAccount.builder()
                     .id(id)
                     .customer(accountRequest.getCustomer())
                     .createDate(redisComponent.getBusinessDate())
@@ -86,7 +86,7 @@ public class ServiceRequestService {
         try {
             FundingRequest fundingRequest = (FundingRequest) serviceRequestMessage;
             UUID id = retry == Boolean.TRUE ? existingId : persistRequest(fundingRequest);
-            queueMessageService.addMessage(accountFundingProducer, Optional.empty(),
+            queueMessageService.addMessage(accountFundingProducer,
                     FundLoan.builder()
                             .id(id)
                             .accountId(fundingRequest.getAccountId())
@@ -109,7 +109,7 @@ public class ServiceRequestService {
         try {
             CreditRequest creditRequest = (CreditRequest) serviceRequestMessage;
             UUID id = retry == Boolean.TRUE ? existingId : persistRequest(creditRequest);
-            queueMessageService.addMessage(accountValidateCreditProducer, Optional.empty(),
+            queueMessageService.addMessage(accountValidateCreditProducer,
                     CreditLoan.builder()
                             .id(id)
                             .loanId(creditRequest.getLoanId())
@@ -132,7 +132,7 @@ public class ServiceRequestService {
         try {
             StatementRequest statementRequest = (StatementRequest) serviceRequestMessage;
             UUID id = retry == Boolean.TRUE ? existingId : persistRequest(statementRequest);
-            queueMessageService.addMessage(statementStatementProducer, Optional.empty(),
+            queueMessageService.addMessage(statementStatementProducer,
                     StatementHeaderWork.builder().statementHeader(
                             StatementHeader.builder()
                                     .id(id)
@@ -159,7 +159,7 @@ public class ServiceRequestService {
         try {
             CloseRequest closeRequest = (CloseRequest) serviceRequestMessage;
             UUID id = retry == Boolean.TRUE ? existingId : persistRequest(closeRequest);
-            queueMessageService.addMessage(accountCloseLoanProducer, Optional.empty(),
+            queueMessageService.addMessage(accountCloseLoanProducer,
                     CloseLoan.builder()
                             .id(id)
                             .loanId(closeRequest.getLoanId())
@@ -184,7 +184,7 @@ public class ServiceRequestService {
         try {
             DebitRequest debitRequest = (DebitRequest) serviceRequestMessage;
             UUID id = retry == Boolean.TRUE ? existingId : persistRequest(debitRequest);
-            queueMessageService.addMessage(accountValidateDebitProducer, Optional.empty(),
+            queueMessageService.addMessage(accountValidateDebitProducer,
                     DebitLoan.builder()
                             .id(id)
                             .loanId(debitRequest.getLoanId())

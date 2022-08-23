@@ -21,12 +21,11 @@ public class StatementStatementProducer implements QueueMessageHandlerProducer {
     }
 
     @Override
-    public Object sendMessage(ClientSession clientSession, ClientProducer producer, Object data) throws ActiveMQException {
+    public void sendMessage(ClientSession clientSession, ClientProducer producer, Object data) throws ActiveMQException {
         StatementHeaderWork statementHeaderWork = (StatementHeaderWork) data;
         log.debug("statementStatement: {}", statementHeaderWork);
         ClientMessage message = clientSession.createMessage(false);
         message.getBodyBuffer().writeBytes(SerializationUtils.serialize(statementHeaderWork));
         producer.send(queue, message);
-        return null;
     }
 }

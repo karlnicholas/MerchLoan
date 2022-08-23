@@ -19,12 +19,11 @@ public class AccountValidateCreditProducer implements QueueMessageHandlerProduce
         this.queue = SimpleString.toSimpleString(mqConsumerUtils.getAccountValidateCreditQueue());
     }
     @Override
-    public Object sendMessage(ClientSession clientSession, ClientProducer producer, Object data) throws ActiveMQException {
+    public void sendMessage(ClientSession clientSession, ClientProducer producer, Object data) throws ActiveMQException {
         CreditLoan creditLoan = (CreditLoan) data;
         log.debug("accountValidateCredit: {}", creditLoan);
         ClientMessage message = clientSession.createMessage(false);
         message.getBodyBuffer().writeBytes(SerializationUtils.serialize(creditLoan));
         producer.send(queue, message);
-        return null;
     }
 }
