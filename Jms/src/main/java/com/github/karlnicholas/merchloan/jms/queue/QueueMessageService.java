@@ -35,7 +35,7 @@ public class QueueMessageService {
         }
     }
 
-    public void addMessage(QueueMessageHandlerProducer producer, QueueMessage message) throws InterruptedException {
+    public void addMessage(QueueMessage message) throws InterruptedException {
         synchronized (messsageQueue) {
             while(messsageQueue.size() >= capacity) {
                 messsageQueue.wait();

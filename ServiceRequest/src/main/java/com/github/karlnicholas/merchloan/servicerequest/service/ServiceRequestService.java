@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.karlnicholas.merchloan.apimessage.message.*;
 import com.github.karlnicholas.merchloan.jms.MQConsumerUtils;
+import com.github.karlnicholas.merchloan.jms.queue.QueueMessage;
 import com.github.karlnicholas.merchloan.jms.queue.QueueMessageService;
 import com.github.karlnicholas.merchloan.jmsmessage.*;
 import com.github.karlnicholas.merchloan.redis.component.RedisComponent;
@@ -13,9 +14,13 @@ import com.github.karlnicholas.merchloan.servicerequest.message.*;
 import com.github.karlnicholas.merchloan.servicerequest.model.ServiceRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.activemq.artemis.api.core.ActiveMQException;
+import org.apache.activemq.artemis.api.core.SimpleString;
+import org.apache.activemq.artemis.api.core.client.ClientMessage;
+import org.apache.activemq.artemis.api.core.client.ClientSession;
 import org.apache.activemq.artemis.api.core.client.ServerLocator;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
+import org.springframework.util.SerializationUtils;
 
 import javax.annotation.PreDestroy;
 import javax.sql.DataSource;
@@ -29,6 +34,7 @@ import java.util.UUID;
 @Service
 @Slf4j
 public class ServiceRequestService {
+    private final ClientSession clientSession;
     private final QueueMessageService queueMessageService;
     private final AccountCreateAccountProducer accountCreateAccountProducer;
     private final AccountFundLoanProducer accountFundingProducer;
@@ -48,18 +54,21 @@ public class ServiceRequestService {
         this.redisComponent = redisComponent;
         this.dataSource = dataSource;
 
-        accountCreateAccountProducer = new AccountCreateAccountProducer(mqConsumerUtils);
-        accountFundingProducer = new AccountFundLoanProducer(mqConsumerUtils);
-        accountValidateCreditProducer = new AccountValidateCreditProducer(mqConsumerUtils);
-        accountValidateDebitProducer = new AccountValidateDebitProducer(mqConsumerUtils);
-        statementStatementProducer = new StatementStatementProducer(mqConsumerUtils);
-        accountCloseLoanProducer = new AccountCloseLoanProducer(mqConsumerUtils);
+        accountCreateAccountProducer = new AccountCreateAccountProducer(SimpleString.toSimpleString(mqConsumerUtils.getAccountCreateAccountQueue()));
+        accountFundingProducer = new AccountFundLoanProducer(SimpleString.toSimpleString(mqConsumerUtils.getAccountFundingQueue()));
+        accountValidateCreditProducer = new AccountValidateCreditProducer(SimpleString.toSimpleString(mqConsumerUtils.getAccountValidateCreditQueue()));
+        accountValidateDebitProducer = new AccountValidateDebitProducer(SimpleString.toSimpleString(mqConsumerUtils.getAccountValidateDebitQueue()));
+        statementStatementProducer = new StatementStatementProducer(SimpleString.toSimpleString(mqConsumerUtils.getAccountStatementStatementHeaderQueue()));
+        accountCloseLoanProducer = new AccountCloseLoanProducer(SimpleString.toSimpleString(mqConsumerUtils.getAccountCloseLoanQueue()));
 
+        clientSession = locator.createSessionFactory().createSession();
         queueMessageService.initialize(locator, "ServiceRequest", 50);
+        clientSession.start();
     }
 
     @PreDestroy
     public void preDestroy() throws InterruptedException, ActiveMQException {
+        clientSession.close();
         queueMessageService.close();
     }
 
@@ -67,12 +76,15 @@ public class ServiceRequestService {
         try {
             AccountRequest accountRequest = (AccountRequest) serviceRequestMessage;
             UUID id = retry == Boolean.TRUE ? existingId : persistRequest(accountRequest);
-            queueMessageService.addMessage(accountCreateAccountProducer, CreateAccount.builder()
+            ClientMessage message = clientSession.createMessage(false);
+            message.getBodyBuffer().writeBytes(SerializationUtils.serialize(CreateAccount.builder()
                     .id(id)
                     .customer(accountRequest.getCustomer())
                     .createDate(redisComponent.getBusinessDate())
                     .retry(retry)
-                    .build());
+                    .build()));
+            QueueMessage queueMessage = new QueueMessage(accountCreateAccountProducer, message);
+            queueMessageService.addMessage(queueMessage);
             return id;
         } catch (SQLException | IOException e) {
             throw new ServiceRequestException(e);
@@ -86,16 +98,17 @@ public class ServiceRequestService {
         try {
             FundingRequest fundingRequest = (FundingRequest) serviceRequestMessage;
             UUID id = retry == Boolean.TRUE ? existingId : persistRequest(fundingRequest);
-            queueMessageService.addMessage(accountFundingProducer,
-                    FundLoan.builder()
-                            .id(id)
-                            .accountId(fundingRequest.getAccountId())
-                            .amount(fundingRequest.getAmount())
-                            .startDate(redisComponent.getBusinessDate())
-                            .description(fundingRequest.getDescription())
-                            .retry(retry)
-                            .build()
-            );
+            ClientMessage message = clientSession.createMessage(false);
+            message.getBodyBuffer().writeBytes(SerializationUtils.serialize(FundLoan.builder()
+                    .id(id)
+                    .accountId(fundingRequest.getAccountId())
+                    .amount(fundingRequest.getAmount())
+                    .startDate(redisComponent.getBusinessDate())
+                    .description(fundingRequest.getDescription())
+                    .retry(retry)
+                    .build()));
+            QueueMessage queueMessage = new QueueMessage(accountFundingProducer, message);
+            queueMessageService.addMessage(queueMessage);
             return id;
         } catch (SQLException | IOException e) {
             throw new ServiceRequestException(e);
@@ -109,16 +122,17 @@ public class ServiceRequestService {
         try {
             CreditRequest creditRequest = (CreditRequest) serviceRequestMessage;
             UUID id = retry == Boolean.TRUE ? existingId : persistRequest(creditRequest);
-            queueMessageService.addMessage(accountValidateCreditProducer,
-                    CreditLoan.builder()
+            ClientMessage message = clientSession.createMessage(false);
+            message.getBodyBuffer().writeBytes(SerializationUtils.serialize(CreditLoan.builder()
                             .id(id)
                             .loanId(creditRequest.getLoanId())
                             .date(redisComponent.getBusinessDate())
                             .amount(creditRequest.getAmount())
                             .description(creditRequest.getDescription())
                             .retry(retry)
-                            .build()
-            );
+                            .build()));
+            QueueMessage queueMessage = new QueueMessage(accountValidateCreditProducer, message);
+            queueMessageService.addMessage(queueMessage);
             return id;
         } catch (SQLException | IOException e) {
             throw new ServiceRequestException(e);
@@ -132,8 +146,8 @@ public class ServiceRequestService {
         try {
             StatementRequest statementRequest = (StatementRequest) serviceRequestMessage;
             UUID id = retry == Boolean.TRUE ? existingId : persistRequest(statementRequest);
-            queueMessageService.addMessage(statementStatementProducer,
-                    StatementHeaderWork.builder().statementHeader(
+            ClientMessage message = clientSession.createMessage(false);
+            message.getBodyBuffer().writeBytes(SerializationUtils.serialize(StatementHeaderWork.builder().statementHeader(
                             StatementHeader.builder()
                                     .id(id)
                                     .loanId(statementRequest.getLoanId())
@@ -145,7 +159,9 @@ public class ServiceRequestService {
                                     .retry(retry)
                                     .build()
                     ).build()
-            );
+            ));
+            QueueMessage queueMessage = new QueueMessage(statementStatementProducer, message);
+            queueMessageService.addMessage(queueMessage);
             return id;
         } catch (SQLException | IOException e) {
             throw new ServiceRequestException(e);
@@ -159,8 +175,8 @@ public class ServiceRequestService {
         try {
             CloseRequest closeRequest = (CloseRequest) serviceRequestMessage;
             UUID id = retry == Boolean.TRUE ? existingId : persistRequest(closeRequest);
-            queueMessageService.addMessage(accountCloseLoanProducer,
-                    CloseLoan.builder()
+            ClientMessage message = clientSession.createMessage(false);
+            message.getBodyBuffer().writeBytes(SerializationUtils.serialize(CloseLoan.builder()
                             .id(id)
                             .loanId(closeRequest.getLoanId())
                             .interestChargeId(UUID.randomUUID())
@@ -170,7 +186,9 @@ public class ServiceRequestService {
                             .description(closeRequest.getDescription())
                             .retry(retry)
                             .build()
-            );
+            ));
+            QueueMessage queueMessage = new QueueMessage(accountCloseLoanProducer, message);
+            queueMessageService.addMessage(queueMessage);
             return id;
         } catch (SQLException | IOException e) {
             throw new ServiceRequestException(e);
@@ -184,8 +202,8 @@ public class ServiceRequestService {
         try {
             DebitRequest debitRequest = (DebitRequest) serviceRequestMessage;
             UUID id = retry == Boolean.TRUE ? existingId : persistRequest(debitRequest);
-            queueMessageService.addMessage(accountValidateDebitProducer,
-                    DebitLoan.builder()
+            ClientMessage message = clientSession.createMessage(false);
+            message.getBodyBuffer().writeBytes(SerializationUtils.serialize(DebitLoan.builder()
                             .id(id)
                             .loanId(debitRequest.getLoanId())
                             .date(redisComponent.getBusinessDate())
@@ -193,7 +211,9 @@ public class ServiceRequestService {
                             .description(debitRequest.getDescription())
                             .retry(retry)
                             .build()
-            );
+            ));
+            QueueMessage queueMessage = new QueueMessage(accountValidateDebitProducer, message);
+            queueMessageService.addMessage(queueMessage);
             return id;
         } catch (SQLException | IOException e) {
             throw new ServiceRequestException(e);

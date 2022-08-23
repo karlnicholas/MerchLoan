@@ -15,16 +15,12 @@ import org.springframework.util.SerializationUtils;
 public class AccountFundLoanProducer implements QueueMessageHandlerProducer {
     private final SimpleString queue;
 
-    public AccountFundLoanProducer(MQConsumerUtils mqConsumerUtils) {
-        this.queue = SimpleString.toSimpleString(mqConsumerUtils.getAccountFundingQueue());
+    public AccountFundLoanProducer(SimpleString queue) {
+        this.queue = queue;
     }
 
     @Override
-    public void sendMessage(ClientSession clientSession, ClientProducer producer, Object data) throws ActiveMQException {
-        FundLoan fundLoan = (FundLoan) data;
-        log.debug("accountFundLoan: {}", fundLoan);
-        ClientMessage message = clientSession.createMessage(false);
-        message.getBodyBuffer().writeBytes(SerializationUtils.serialize(fundLoan));
+    public void sendMessage(ClientProducer producer, ClientMessage message) throws ActiveMQException {
         producer.send(queue, message);
     }
 }

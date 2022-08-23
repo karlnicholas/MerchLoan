@@ -21,7 +21,6 @@ import java.util.UUID;
 @RequestMapping(value = "/api/query")
 @Slf4j
 public class QueryController {
-    private final ClientSessionFactory sessionFactory;
     private final ClientSession clientSession;
     private final SimpleString queryReplyQueue;
     private final QueueMessageService queueMessageService;
@@ -37,8 +36,7 @@ public class QueryController {
         this.queueMessageService = queueMessageService;
         queueWaitingHandler = new QueueWaitingHandler();
 
-        sessionFactory = locator.createSessionFactory();
-        clientSession = sessionFactory.createSession();
+        clientSession = locator.createSessionFactory().createSession();
         clientSession.addMetaData(ClientSession.JMS_SESSION_IDENTIFIER_PROPERTY, "jms-client-id");
         clientSession.addMetaData("jms-client-id", "query-consumer");
 
@@ -67,7 +65,6 @@ public class QueryController {
     public void preDestroy() throws ActiveMQException, InterruptedException {
         queueMessageService.close();
         clientSession.close();
-        sessionFactory.close();
     }
 
     @GetMapping(value = "/request/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -108,7 +105,7 @@ public class QueryController {
         message.setReplyTo(queryReplyQueue);
         message.getBodyBuffer().writeBytes(SerializationUtils.serialize(id));
         QueueMessage queueMessage = new QueueMessage(producer, message);
-        queueMessageService.addMessage(queryServiceRequestProducer, queueMessage);
+        queueMessageService.addMessage(queueMessage);
         return queueWaitingHandler.getReply(responseKey).toString();
     }
 
@@ -121,8 +118,8 @@ public class QueryController {
         message.setCorrelationID(responseKey);
         message.setReplyTo(queryReplyQueue);
         message.getBodyBuffer().writeBytes(SerializationUtils.serialize(new byte[0]));
-        QueueMessage queueMessage = new QueueMessage(queryAccountProducer, message);
-        queueMessageService.addMessage(queryCheckRequestProducer, queueMessage);
+        QueueMessage queueMessage = new QueueMessage(queryCheckRequestProducer, message);
+        queueMessageService.addMessage(queueMessage);
         return (Boolean) queueWaitingHandler.getReply(responseKey);
     }
 }

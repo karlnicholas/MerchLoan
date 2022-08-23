@@ -1,29 +1,21 @@
 package com.github.karlnicholas.merchloan.servicerequest.message;
 
-import com.github.karlnicholas.merchloan.jms.MQConsumerUtils;
 import com.github.karlnicholas.merchloan.jms.queue.QueueMessageHandlerProducer;
-import com.github.karlnicholas.merchloan.jmsmessage.CreateAccount;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.activemq.artemis.api.core.ActiveMQException;
 import org.apache.activemq.artemis.api.core.SimpleString;
 import org.apache.activemq.artemis.api.core.client.ClientMessage;
 import org.apache.activemq.artemis.api.core.client.ClientProducer;
-import org.apache.activemq.artemis.api.core.client.ClientSession;
-import org.springframework.util.SerializationUtils;
 
 @Slf4j
 public class AccountCreateAccountProducer implements QueueMessageHandlerProducer {
     private final SimpleString queue;
 
-    public AccountCreateAccountProducer(MQConsumerUtils mqConsumerUtils) {
-        this.queue = SimpleString.toSimpleString(mqConsumerUtils.getAccountCreateAccountQueue());
+    public AccountCreateAccountProducer(SimpleString queue) {
+        this.queue = queue;
     }
     @Override
-    public void sendMessage(ClientSession clientSession, ClientProducer producer, Object data) throws ActiveMQException {
-        CreateAccount createAccount = (CreateAccount) data;
-        log.debug("accountCreateAccount: {}", createAccount);
-        ClientMessage message = clientSession.createMessage(false);
-        message.getBodyBuffer().writeBytes(SerializationUtils.serialize(createAccount));
+    public void sendMessage(ClientProducer producer, ClientMessage message) throws ActiveMQException {
         producer.send(queue, message);
     }
 
