@@ -21,7 +21,8 @@ import java.util.UUID;
 @RequestMapping(value = "/api/query")
 @Slf4j
 public class QueryController {
-    private final ClientSession clientSession;
+    private final ClientSession consumerSession;
+    private final ClientSession producerSession;
     private final SimpleString queryReplyQueue;
     private final QueueMessageService queueMessageService;
     private final QueryServiceRequestProducer queryServiceRequestProducer;
@@ -36,19 +37,18 @@ public class QueryController {
         this.queueMessageService = queueMessageService;
         queueWaitingHandler = new QueueWaitingHandler();
 
-        clientSession = locator.createSessionFactory().createSession();
-        clientSession.addMetaData(ClientSession.JMS_SESSION_IDENTIFIER_PROPERTY, "jms-client-id");
-        clientSession.addMetaData("jms-client-id", "query-consumer");
+        consumerSession = locator.createSessionFactory().createSession();
+        consumerSession.addMetaData(ClientSession.JMS_SESSION_IDENTIFIER_PROPERTY, "jms-client-id");
+        consumerSession.addMetaData("jms-client-id", "query-consumer");
 
         queryReplyQueue = SimpleString.toSimpleString("queryReply-" + UUID.randomUUID());
 
-//        ReplyWaitingHandler replyWaitingHandler = new ReplyWaitingHandler();
-
-        mqConsumerUtils.bindConsumer(clientSession, queryReplyQueue, true, message -> {
+        mqConsumerUtils.bindConsumer(consumerSession, queryReplyQueue, true, message -> {
             byte[] mo = new byte[message.getBodyBuffer().readableBytes()];
             message.getBodyBuffer().readBytes(mo);
             queueWaitingHandler.handleReply(message.getCorrelationID().toString(), SerializationUtils.deserialize(mo));
         });
+        consumerSession.start();
 
         queryServiceRequestProducer = new QueryServiceRequestProducer(SimpleString.toSimpleString(mqConsumerUtils.getServicerequestQueryIdQueue()));
         queryAccountProducer = new QueryAccountProducer(SimpleString.toSimpleString(mqConsumerUtils.getAccountQueryAccountIdQueue()));
@@ -57,14 +57,14 @@ public class QueryController {
         queryStatementsProducer = new QueryStatementsProducer(SimpleString.toSimpleString(mqConsumerUtils.getStatementQueryStatementsQueue()));
         queryCheckRequestProducer = new QueryCheckRequestProducer(SimpleString.toSimpleString(mqConsumerUtils.getServiceRequestCheckRequestQueue()));
 
-        queueMessageService.initialize(locator, "query-producer-", 50);
-        clientSession.start();
+        producerSession = queueMessageService.initialize(locator, "query-producer-", 50).createSession();
     }
 
     @PreDestroy
     public void preDestroy() throws ActiveMQException, InterruptedException {
         queueMessageService.close();
-        clientSession.close();
+        consumerSession.close();
+        producerSession.close();
     }
 
     @GetMapping(value = "/request/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -100,7 +100,7 @@ public class QueryController {
     private String handleStringRequest(QueueMessageHandlerProducer producer, UUID id) throws InterruptedException {
         String responseKey = UUID.randomUUID().toString();
         queueWaitingHandler.put(responseKey);
-        ClientMessage message = clientSession.createMessage(false);
+        ClientMessage message = producerSession.createMessage(false);
         message.setCorrelationID(responseKey);
         message.setReplyTo(queryReplyQueue);
         message.getBodyBuffer().writeBytes(SerializationUtils.serialize(id));
@@ -114,7 +114,7 @@ public class QueryController {
         log.debug("checkrequests");
         String responseKey = UUID.randomUUID().toString();
         queueWaitingHandler.put(responseKey);
-        ClientMessage message = clientSession.createMessage(false);
+        ClientMessage message = producerSession.createMessage(false);
         message.setCorrelationID(responseKey);
         message.setReplyTo(queryReplyQueue);
         message.getBodyBuffer().writeBytes(SerializationUtils.serialize(new byte[0]));

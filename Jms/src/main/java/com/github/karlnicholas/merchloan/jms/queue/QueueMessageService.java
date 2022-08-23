@@ -16,7 +16,7 @@ public class QueueMessageService {
     private List<QueueMessageHandler> handlers;
     private int capacity;
 
-    public void initialize(ServerLocator locator, String queueName, int capacity) throws Exception {
+    public ClientSessionFactory initialize(ServerLocator locator, String queueName, int capacity) throws Exception {
         this.capacity = capacity;
         messsageQueue = new ArrayList<>();
         ClientSessionFactory clientSessionFactory = locator.createSessionFactory();
@@ -26,6 +26,7 @@ public class QueueMessageService {
             handlers.add(queueMessageHandler);
             queueMessageHandler.start();
         }
+        return clientSessionFactory;
     }
     public void close() throws InterruptedException, ActiveMQException {
         for ( QueueMessageHandler queueMessageHandler: handlers) {

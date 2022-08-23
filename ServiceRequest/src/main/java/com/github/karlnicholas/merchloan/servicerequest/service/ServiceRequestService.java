@@ -34,7 +34,7 @@ import java.util.UUID;
 @Service
 @Slf4j
 public class ServiceRequestService {
-    private final ClientSession clientSession;
+    private final ClientSession producerSession;
     private final QueueMessageService queueMessageService;
     private final AccountCreateAccountProducer accountCreateAccountProducer;
     private final AccountFundLoanProducer accountFundingProducer;
@@ -61,14 +61,13 @@ public class ServiceRequestService {
         statementStatementProducer = new StatementStatementProducer(SimpleString.toSimpleString(mqConsumerUtils.getAccountStatementStatementHeaderQueue()));
         accountCloseLoanProducer = new AccountCloseLoanProducer(SimpleString.toSimpleString(mqConsumerUtils.getAccountCloseLoanQueue()));
 
-        clientSession = locator.createSessionFactory().createSession();
-        queueMessageService.initialize(locator, "ServiceRequest", 50);
-        clientSession.start();
+        producerSession = queueMessageService.initialize(locator, "servicerequest-producer-", 50).createSession();
+
     }
 
     @PreDestroy
     public void preDestroy() throws InterruptedException, ActiveMQException {
-        clientSession.close();
+        producerSession.close();
         queueMessageService.close();
     }
 
@@ -76,7 +75,7 @@ public class ServiceRequestService {
         try {
             AccountRequest accountRequest = (AccountRequest) serviceRequestMessage;
             UUID id = retry == Boolean.TRUE ? existingId : persistRequest(accountRequest);
-            ClientMessage message = clientSession.createMessage(false);
+            ClientMessage message = producerSession.createMessage(false);
             message.getBodyBuffer().writeBytes(SerializationUtils.serialize(CreateAccount.builder()
                     .id(id)
                     .customer(accountRequest.getCustomer())
@@ -98,7 +97,7 @@ public class ServiceRequestService {
         try {
             FundingRequest fundingRequest = (FundingRequest) serviceRequestMessage;
             UUID id = retry == Boolean.TRUE ? existingId : persistRequest(fundingRequest);
-            ClientMessage message = clientSession.createMessage(false);
+            ClientMessage message = producerSession.createMessage(false);
             message.getBodyBuffer().writeBytes(SerializationUtils.serialize(FundLoan.builder()
                     .id(id)
                     .accountId(fundingRequest.getAccountId())
@@ -122,7 +121,7 @@ public class ServiceRequestService {
         try {
             CreditRequest creditRequest = (CreditRequest) serviceRequestMessage;
             UUID id = retry == Boolean.TRUE ? existingId : persistRequest(creditRequest);
-            ClientMessage message = clientSession.createMessage(false);
+            ClientMessage message = producerSession.createMessage(false);
             message.getBodyBuffer().writeBytes(SerializationUtils.serialize(CreditLoan.builder()
                             .id(id)
                             .loanId(creditRequest.getLoanId())
@@ -146,7 +145,7 @@ public class ServiceRequestService {
         try {
             StatementRequest statementRequest = (StatementRequest) serviceRequestMessage;
             UUID id = retry == Boolean.TRUE ? existingId : persistRequest(statementRequest);
-            ClientMessage message = clientSession.createMessage(false);
+            ClientMessage message = producerSession.createMessage(false);
             message.getBodyBuffer().writeBytes(SerializationUtils.serialize(StatementHeaderWork.builder().statementHeader(
                             StatementHeader.builder()
                                     .id(id)
@@ -175,7 +174,7 @@ public class ServiceRequestService {
         try {
             CloseRequest closeRequest = (CloseRequest) serviceRequestMessage;
             UUID id = retry == Boolean.TRUE ? existingId : persistRequest(closeRequest);
-            ClientMessage message = clientSession.createMessage(false);
+            ClientMessage message = producerSession.createMessage(false);
             message.getBodyBuffer().writeBytes(SerializationUtils.serialize(CloseLoan.builder()
                             .id(id)
                             .loanId(closeRequest.getLoanId())
@@ -202,7 +201,7 @@ public class ServiceRequestService {
         try {
             DebitRequest debitRequest = (DebitRequest) serviceRequestMessage;
             UUID id = retry == Boolean.TRUE ? existingId : persistRequest(debitRequest);
-            ClientMessage message = clientSession.createMessage(false);
+            ClientMessage message = producerSession.createMessage(false);
             message.getBodyBuffer().writeBytes(SerializationUtils.serialize(DebitLoan.builder()
                             .id(id)
                             .loanId(debitRequest.getLoanId())

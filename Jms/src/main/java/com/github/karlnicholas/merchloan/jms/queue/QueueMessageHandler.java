@@ -21,7 +21,6 @@ class QueueMessageHandler extends Thread implements Runnable {
         clientSession.addMetaData(ClientSession.JMS_SESSION_IDENTIFIER_PROPERTY, "jms-client-id");
         clientSession.addMetaData("jms-client-id", sessionId);
         producer = clientSession.createProducer();
-        clientSession.start();
     }
 
     public void stopHandler() {
