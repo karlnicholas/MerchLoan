@@ -8,7 +8,7 @@ import java.util.concurrent.ConcurrentMap;
 @Slf4j
 public class QueueWaitingHandler {
     public static final int RESPONSE_TIMEOUT = 3000;
-    public static final long TIMEOUT_MAX = 30_000_000_000L;
+    public static final long TIMEOUT_MAX = 9_000_000_000L;
     private final ConcurrentMap<String, QueueWaiting> repliesWaiting;
 
     public QueueWaitingHandler() {
