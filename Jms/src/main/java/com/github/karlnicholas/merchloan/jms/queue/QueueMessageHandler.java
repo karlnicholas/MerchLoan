@@ -44,15 +44,6 @@ class QueueMessageHandler extends Thread implements Runnable {
                     QueueMessage message = messsageQueue.remove(0);
                     messsageQueue.notifyAll();
                     message.getProducer().sendMessage(producer, message.getMessage());
-                    message.getReplyHandler().ifPresent(h->{
-                        Object ci = message.getMessage().getCorrelationID();
-                        Object r = h.apply(ci.toString());
-                        synchronized (message) {
-                            message.setReply(r);
-                            message.setReplySet(true);
-                            message.notify();
-                        }
-                    });
                 }
             } catch (InterruptedException ex) {
                 if ( run ) ex.printStackTrace();

@@ -48,7 +48,7 @@ public class QueryController {
 
         queryReplyQueue = SimpleString.toSimpleString("queryReply-" + UUID.randomUUID());
 
-        ClientConsumer c = mqConsumerUtils.bindConsumer(consumerSession, queryReplyQueue, true, message -> {
+        mqConsumerUtils.bindConsumer(consumerSession, queryReplyQueue, true, message -> {
             byte[] mo = new byte[message.getBodyBuffer().readableBytes()];
             message.getBodyBuffer().readBytes(mo);
             queueWaitingHandler.handleReply(message.getCorrelationID().toString(), SerializationUtils.deserialize(mo));
@@ -131,10 +131,9 @@ public class QueryController {
         message.setCorrelationID(responseKey);
         message.setReplyTo(queryReplyQueue);
         message.getBodyBuffer().writeBytes(SerializationUtils.serialize(id));
-        QueueMessage queueMessage = new QueueMessage(producer, message, queueWaitingHandler::getReply);
+        QueueMessage queueMessage = new QueueMessage(producer, message);
         queueMessageService.addMessage(queueMessage);
-//        return queueWaitingHandler.getReply(responseKey).toString();
-        return queueMessage.getReply().toString();
+        return queueWaitingHandler.getReply(responseKey).toString();
     }
 
     @GetMapping(value = "/checkrequests", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -146,9 +145,8 @@ public class QueryController {
         message.setCorrelationID(responseKey);
         message.setReplyTo(queryReplyQueue);
         message.getBodyBuffer().writeBytes(SerializationUtils.serialize(new byte[0]));
-        QueueMessage queueMessage = new QueueMessage(queryCheckRequestProducer, message, queueWaitingHandler::getReply);
+        QueueMessage queueMessage = new QueueMessage(queryCheckRequestProducer, message);
         queueMessageService.addMessage(queueMessage);
-        return (Boolean) queueMessage.getReply();
-//        return (Boolean) queueWaitingHandler.getReply(responseKey);
+        return (Boolean) queueWaitingHandler.getReply(responseKey);
     }
 }

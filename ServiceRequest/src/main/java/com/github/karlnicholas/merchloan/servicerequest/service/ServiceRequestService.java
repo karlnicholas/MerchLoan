@@ -82,7 +82,7 @@ public class ServiceRequestService {
                     .createDate(redisComponent.getBusinessDate())
                     .retry(retry)
                     .build()));
-            QueueMessage queueMessage = new QueueMessage(accountCreateAccountProducer, message, null);
+            QueueMessage queueMessage = new QueueMessage(accountCreateAccountProducer, message);
             queueMessageService.addMessage(queueMessage);
             return id;
         } catch (SQLException | IOException e) {
@@ -106,7 +106,7 @@ public class ServiceRequestService {
                     .description(fundingRequest.getDescription())
                     .retry(retry)
                     .build()));
-            QueueMessage queueMessage = new QueueMessage(accountFundingProducer, message, null);
+            QueueMessage queueMessage = new QueueMessage(accountFundingProducer, message);
             queueMessageService.addMessage(queueMessage);
             return id;
         } catch (SQLException | IOException e) {
@@ -130,7 +130,7 @@ public class ServiceRequestService {
                             .description(creditRequest.getDescription())
                             .retry(retry)
                             .build()));
-            QueueMessage queueMessage = new QueueMessage(accountValidateCreditProducer, message, null);
+            QueueMessage queueMessage = new QueueMessage(accountValidateCreditProducer, message);
             queueMessageService.addMessage(queueMessage);
             return id;
         } catch (SQLException | IOException e) {
@@ -159,7 +159,7 @@ public class ServiceRequestService {
                                     .build()
                     ).build()
             ));
-            QueueMessage queueMessage = new QueueMessage(statementStatementProducer, message, null);
+            QueueMessage queueMessage = new QueueMessage(statementStatementProducer, message);
             queueMessageService.addMessage(queueMessage);
             return id;
         } catch (SQLException | IOException e) {
@@ -186,7 +186,7 @@ public class ServiceRequestService {
                             .retry(retry)
                             .build()
             ));
-            QueueMessage queueMessage = new QueueMessage(accountCloseLoanProducer, message, null);
+            QueueMessage queueMessage = new QueueMessage(accountCloseLoanProducer, message);
             queueMessageService.addMessage(queueMessage);
             return id;
         } catch (SQLException | IOException e) {
@@ -211,7 +211,7 @@ public class ServiceRequestService {
                             .retry(retry)
                             .build()
             ));
-            QueueMessage queueMessage = new QueueMessage(accountValidateDebitProducer, message, null);
+            QueueMessage queueMessage = new QueueMessage(accountValidateDebitProducer, message);
             queueMessageService.addMessage(queueMessage);
             return id;
         } catch (SQLException | IOException e) {
