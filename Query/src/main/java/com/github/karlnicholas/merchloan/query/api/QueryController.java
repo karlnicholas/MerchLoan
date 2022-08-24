@@ -23,8 +23,7 @@ import java.util.UUID;
 @RequestMapping(value = "/api/query")
 @Slf4j
 public class QueryController {
-    private final ClientSession consumerSession;
-    private final List<Thread> threads;
+    private final List<ClientSession> consumerSessions;
     private final ClientSession producerSession;
     private final SimpleString queryReplyQueue;
     private final QueueMessageService queueMessageService;
@@ -40,25 +39,25 @@ public class QueryController {
         this.queueMessageService = queueMessageService;
         queueWaitingHandler = new QueueWaitingHandler();
 
-        threads = new ArrayList<>();
+        consumerSessions = new ArrayList<>();
         ClientSessionFactory consumerSessionFactory = locator.createSessionFactory();
-        consumerSession = consumerSessionFactory.createSession();
-        consumerSession.addMetaData(ClientSession.JMS_SESSION_IDENTIFIER_PROPERTY, "jms-client-id");
-        consumerSession.addMetaData("jms-client-id", "query-consumer");
-
         queryReplyQueue = SimpleString.toSimpleString("queryReply-" + UUID.randomUUID());
 
-        mqConsumerUtils.bindConsumer(consumerSession, queryReplyQueue, true, message -> {
-            byte[] mo = new byte[message.getBodyBuffer().readableBytes()];
-            message.getBodyBuffer().readBytes(mo);
-            queueWaitingHandler.handleReply(message.getCorrelationID().toString(), SerializationUtils.deserialize(mo));
-            try {
-                message.acknowledge();
-            } catch (ActiveMQException e) {
-                throw new RuntimeException(e);
-            }
-        });
-        consumerSession.start();
+
+        // does this make a difference?
+//        for (int i=0; i < 100; ++i) {
+            ClientSession consumerSession = consumerSessionFactory.createSession();
+            consumerSessions.add(consumerSession);
+            consumerSession.addMetaData(ClientSession.JMS_SESSION_IDENTIFIER_PROPERTY, "jms-client-id");
+            consumerSession.addMetaData("jms-client-id", "query-consumer");
+
+            mqConsumerUtils.bindConsumer(consumerSession, queryReplyQueue, true, message -> {
+                byte[] mo = new byte[message.getBodyBuffer().readableBytes()];
+                message.getBodyBuffer().readBytes(mo);
+                queueWaitingHandler.handleReply(message.getCorrelationID().toString(), SerializationUtils.deserialize(mo));
+            });
+            consumerSession.start();
+//        }
 
         queryServiceRequestProducer = new QueryServiceRequestProducer(SimpleString.toSimpleString(mqConsumerUtils.getServicerequestQueryIdQueue()));
         queryAccountProducer = new QueryAccountProducer(SimpleString.toSimpleString(mqConsumerUtils.getAccountQueryAccountIdQueue()));
@@ -67,14 +66,19 @@ public class QueryController {
         queryStatementsProducer = new QueryStatementsProducer(SimpleString.toSimpleString(mqConsumerUtils.getStatementQueryStatementsQueue()));
         queryCheckRequestProducer = new QueryCheckRequestProducer(SimpleString.toSimpleString(mqConsumerUtils.getServiceRequestCheckRequestQueue()));
 
-        producerSession = queueMessageService.initialize(locator, "query-producer-", 5).createSession();
+        producerSession = queueMessageService.initialize(locator, "query-producer-", 100).createSession();
     }
 
     @PreDestroy
     public void preDestroy() throws ActiveMQException, InterruptedException {
         queueMessageService.close();
-        threads.forEach(mc->mc.interrupt());
-        consumerSession.close();
+        consumerSessions.forEach(s-> {
+            try {
+                s.close();
+            } catch (ActiveMQException e) {
+                throw new RuntimeException(e);
+            }
+        });
         producerSession.close();
     }
 
