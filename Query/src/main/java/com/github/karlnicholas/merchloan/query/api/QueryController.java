@@ -15,14 +15,16 @@ import org.springframework.util.SerializationUtils;
 import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.PreDestroy;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.ThreadLocalRandom;
 
 @RestController
 @RequestMapping(value = "/api/query")
 @Slf4j
 public class QueryController {
     private final ClientSession consumerSession;
+    private final List<Thread> threads;
     private final ClientSession producerSession;
     private final SimpleString queryReplyQueue;
     private final QueueMessageService queueMessageService;
@@ -38,16 +40,23 @@ public class QueryController {
         this.queueMessageService = queueMessageService;
         queueWaitingHandler = new QueueWaitingHandler();
 
-        consumerSession = locator.createSessionFactory().createSession();
+        threads = new ArrayList<>();
+        ClientSessionFactory consumerSessionFactory = locator.createSessionFactory();
+        consumerSession = consumerSessionFactory.createSession();
         consumerSession.addMetaData(ClientSession.JMS_SESSION_IDENTIFIER_PROPERTY, "jms-client-id");
         consumerSession.addMetaData("jms-client-id", "query-consumer");
 
         queryReplyQueue = SimpleString.toSimpleString("queryReply-" + UUID.randomUUID());
 
-        mqConsumerUtils.bindConsumer(consumerSession, queryReplyQueue, true, message -> {
+        ClientConsumer c = mqConsumerUtils.bindConsumer(consumerSession, queryReplyQueue, true, message -> {
             byte[] mo = new byte[message.getBodyBuffer().readableBytes()];
             message.getBodyBuffer().readBytes(mo);
             queueWaitingHandler.handleReply(message.getCorrelationID().toString(), SerializationUtils.deserialize(mo));
+            try {
+                message.acknowledge();
+            } catch (ActiveMQException e) {
+                throw new RuntimeException(e);
+            }
         });
         consumerSession.start();
 
@@ -58,12 +67,13 @@ public class QueryController {
         queryStatementsProducer = new QueryStatementsProducer(SimpleString.toSimpleString(mqConsumerUtils.getStatementQueryStatementsQueue()));
         queryCheckRequestProducer = new QueryCheckRequestProducer(SimpleString.toSimpleString(mqConsumerUtils.getServiceRequestCheckRequestQueue()));
 
-        producerSession = queueMessageService.initialize(locator, "query-producer-", 10).createSession();
+        producerSession = queueMessageService.initialize(locator, "query-producer-", 5).createSession();
     }
 
     @PreDestroy
     public void preDestroy() throws ActiveMQException, InterruptedException {
         queueMessageService.close();
+        threads.forEach(mc->mc.interrupt());
         consumerSession.close();
         producerSession.close();
     }
@@ -121,9 +131,10 @@ public class QueryController {
         message.setCorrelationID(responseKey);
         message.setReplyTo(queryReplyQueue);
         message.getBodyBuffer().writeBytes(SerializationUtils.serialize(id));
-        QueueMessage queueMessage = new QueueMessage(producer, message);
+        QueueMessage queueMessage = new QueueMessage(producer, message, queueWaitingHandler::getReply);
         queueMessageService.addMessage(queueMessage);
-        return queueWaitingHandler.getReply(responseKey).toString();
+//        return queueWaitingHandler.getReply(responseKey).toString();
+        return queueMessage.getReply().toString();
     }
 
     @GetMapping(value = "/checkrequests", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -135,8 +146,9 @@ public class QueryController {
         message.setCorrelationID(responseKey);
         message.setReplyTo(queryReplyQueue);
         message.getBodyBuffer().writeBytes(SerializationUtils.serialize(new byte[0]));
-        QueueMessage queueMessage = new QueueMessage(queryCheckRequestProducer, message);
+        QueueMessage queueMessage = new QueueMessage(queryCheckRequestProducer, message, queueWaitingHandler::getReply);
         queueMessageService.addMessage(queueMessage);
-        return (Boolean) queueWaitingHandler.getReply(responseKey);
+        return (Boolean) queueMessage.getReply();
+//        return (Boolean) queueWaitingHandler.getReply(responseKey);
     }
 }

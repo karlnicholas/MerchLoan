@@ -19,10 +19,15 @@ public class QueueWaitingHandler {
         repliesWaiting.put(responseKey, QueueWaiting.builder().nanoTime(System.nanoTime()).reply(null).build());
     }
 
-    public Object getReply(String responseKey) throws InterruptedException {
+    public Object getReply(String responseKey) {
         synchronized (repliesWaiting) {
             while (repliesWaiting.containsKey(responseKey) && repliesWaiting.get(responseKey).checkReply().isEmpty()) {
-                repliesWaiting.wait(RESPONSE_TIMEOUT);
+                try {
+                    repliesWaiting.wait(RESPONSE_TIMEOUT);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new RuntimeException(e);
+                }
                 if (System.nanoTime() - repliesWaiting.get(responseKey).getNanoTime() > TIMEOUT_MAX) {
                     log.error("getReply timeout {}, {}", repliesWaiting, responseKey);
                     break;
