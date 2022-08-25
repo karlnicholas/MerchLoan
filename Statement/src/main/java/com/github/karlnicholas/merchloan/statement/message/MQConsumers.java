@@ -142,7 +142,6 @@ public class MQConsumers {
             message.getBodyBuffer().readBytes(mo);
             UUID id = (UUID) SerializationUtils.deserialize(mo);
             log.debug("receivedQueryStatementsMessage Received {}", id);
-//            reply(message, objectMapper.writeValueAsString(queryService.findByLoanId(id)));
             ClientMessage replyMessage = producerSession.createMessage(false);
             replyMessage.getBodyBuffer().writeBytes(SerializationUtils.serialize(queryService.findByLoanId(id)));
             replyMessage.setCorrelationID(message.getCorrelationID());
@@ -151,40 +150,6 @@ public class MQConsumers {
             log.error("receivedQueryStatementsMessage exception", ex);
         }
     }
-
-//    public void receivedStatementStatementMessage(ClientMessage message) {
-//        byte[] mo = new byte[message.getBodyBuffer().readableBytes()];
-//        message.getBodyBuffer().readBytes(mo);
-//        StatementHeader statementHeader = (StatementHeader) SerializationUtils.deserialize(mo);
-//        if (statementHeader == null) {
-//            throw new IllegalStateException("Message body null");
-//        }
-//        StatementCompleteResponse requestResponse = StatementCompleteResponse.builder()
-//                .id(statementHeader.getId())
-//                .statementDate(statementHeader.getStatementDate())
-//                .loanId(statementHeader.getLoanId())
-//                .build();
-//        boolean loanClosed = false;
-//        try {
-//            log.debug("receivedStatementMessage: loanId: {}", statementHeader.getLoanId());
-//            statementHeader = (StatementHeader) mqProducers.accountQueryStatementHeader(statementHeader);
-//            log.debug("receivedStatementMessage: statementHeader: {}", statementHeader);
-//        } catch (InterruptedException iex) {
-//            log.error("receivedStatementMessage", iex);
-//            Thread.currentThread().interrupt();
-//        } catch (Exception ex) {
-//            log.error("receivedStatementMessage", ex);
-//            requestResponse.setError(ex.getMessage());
-//        } finally {
-//            if (!loanClosed) {
-//                try {
-//                    mqProducers.serviceRequestStatementComplete(requestResponse);
-//                } catch (ActiveMQException innerEx) {
-//                    log.error("ERROR SENDING ERROR", innerEx);
-//                }
-//            }
-//        }
-//    }
 
     public void receivedStatementContinueMessage(ClientMessage message) {
         byte[] mo = new byte[message.getBodyBuffer().readableBytes()];
@@ -226,7 +191,6 @@ public class MQConsumers {
                 feeMessage.setCorrelationID(message.getCorrelationID());
                 feeMessage.getBodyBuffer().writeBytes(SerializationUtils.serialize(statementHeaderWork));
                 statementContinueProducer.send(mqConsumerUtils.getAccountFeeChargeQueue(), feeMessage);
-//                statementHeader.getRegisterEntries().add(feeRegisterEntry);
             } else {
                 ClientMessage feeMessage = producerSession.createMessage(false);
                 feeMessage.setReplyTo(message.getReplyTo());
@@ -379,68 +343,5 @@ public class MQConsumers {
         message.getBodyBuffer().writeBytes(SerializationUtils.serialize(serviceRequest));
         producer.send(mqConsumerUtils.getServicerequestQueue(), message);
     }
-
-//    private void receiveStatementLoadIdMessage(ClientMessage message) throws SQLException, ActiveMQException, InterruptedException {
-//        // get most recent statement
-//        MostRecentStatement mostRecentStatement = (MostRecentStatement) mqProducers.queryMostRecentStatement(loanDto.getLoanId());
-//        // generate a simulated new statement for current period
-//        StatementHeader statementHeader = StatementHeader.builder().build();
-//        statementHeader.setLoanId(loanDto.getLoanId());
-//        List<RegisterEntry> registerEntries;
-//        if (mostRecentStatement.getStatementDate() == null) {
-//            statementHeader.setEndDate(loanDto.getStatementDates().get(0));
-//            statementHeader.setStartDate(loanDto.getStartDate());
-//            registerEntries = registerEntryDao.findByLoanIdAndDateBetweenOrderByTimestamp(con, statementHeader.getLoanId(), statementHeader.getStartDate(), statementHeader.getEndDate());
-//        } else {
-//            int index = loanDto.getStatementDates().indexOf(mostRecentStatement.getStatementDate());
-//            if (index + 1 < loanDto.getStatementDates().size()) {
-//                statementHeader.setEndDate(loanDto.getStatementDates().get(index + 1));
-//                statementHeader.setStartDate(loanDto.getStatementDates().get(index).plusDays(1));
-//                registerEntries = registerEntryDao.findByLoanIdAndDateBetweenOrderByTimestamp(con, statementHeader.getLoanId(), statementHeader.getStartDate(), statementHeader.getEndDate());
-//            } else {
-//                registerEntries = new ArrayList<>();
-//            }
-//        }
-//        // determine current balance, payoff amount
-//        BigDecimal startingBalance;
-//        BigDecimal interestBalance;
-//        if (mostRecentStatement.getStatementDate() == null) {
-//            startingBalance = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_EVEN);
-//            interestBalance = loanDto.getFunding();
-//        } else {
-//            startingBalance = mostRecentStatement.getEndingBalance();
-//            interestBalance = mostRecentStatement.getEndingBalance();
-//        }
-//        BigDecimal currentBalance = startingBalance;
-//        // determine current payoff amount
-//        BigDecimal currentInterest = interestBalance.multiply(loanDto.getInterestRate()).divide(BigDecimal.valueOf(loanDto.getMonths()), RoundingMode.HALF_EVEN);
-//        for (RegisterEntry re : registerEntries) {
-//            if (re.getDebit() != null) {
-//                currentBalance = currentBalance.add(re.getDebit());
-//            } else if (re.getCredit() != null) {
-//                currentBalance = currentBalance.subtract(re.getCredit());
-//            }
-//        }
-//        BigDecimal payoffAmount = currentInterest.add(currentBalance).setScale(2, RoundingMode.HALF_EVEN);
-//        // compute current Payment
-//        // must first compute expected balance
-//        // what is number of months?
-//        int nMonths = loanDto.getStatementDates().indexOf(statementHeader.getEndDate()) + 1;
-//        BigDecimal computeAmount = loanDto.getFunding();
-//        for (int i = 0; i < nMonths; ++i) {
-//            BigDecimal computeInterest = computeAmount.multiply(loanDto.getInterestRate()).divide(BigDecimal.valueOf(loanDto.getMonths()), RoundingMode.HALF_EVEN);
-//            computeAmount = computeAmount.add(computeInterest).subtract(loanDto.getMonthlyPayments()).setScale(2, RoundingMode.HALF_EVEN);
-//        }
-//        // fill out additional response
-//        BigDecimal currentPayment = currentBalance.add(currentInterest).setScale(2, RoundingMode.HALF_EVEN).subtract(computeAmount);
-//        loanDto.setCurrentPayment(currentPayment.compareTo(payoffAmount) < 0 ? currentPayment : payoffAmount);
-//        loanDto.setCurrentInterest(currentInterest.setScale(2, RoundingMode.HALF_EVEN));
-//        loanDto.setPayoffAmount(payoffAmount);
-//        loanDto.setCurrentBalance(currentBalance);
-//        if (mostRecentStatement.getStatementDate() != null) {
-//            loanDto.setLastStatementDate(mostRecentStatement.getStatementDate());
-//            loanDto.setLastStatementBalance(mostRecentStatement.getEndingBalance());
-//        }
-//    }
 
 }

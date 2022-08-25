@@ -9,10 +9,16 @@ import com.github.karlnicholas.merchloan.query.message.*;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.activemq.artemis.api.core.ActiveMQException;
 import org.apache.activemq.artemis.api.core.SimpleString;
-import org.apache.activemq.artemis.api.core.client.*;
+import org.apache.activemq.artemis.api.core.client.ClientMessage;
+import org.apache.activemq.artemis.api.core.client.ClientSession;
+import org.apache.activemq.artemis.api.core.client.ClientSessionFactory;
+import org.apache.activemq.artemis.api.core.client.ServerLocator;
 import org.springframework.http.MediaType;
 import org.springframework.util.SerializationUtils;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import javax.annotation.PreDestroy;
 import java.util.ArrayList;
@@ -40,24 +46,20 @@ public class QueryController {
         queueWaitingHandler = new QueueWaitingHandler();
 
         consumerSessions = new ArrayList<>();
-        ClientSessionFactory consumerSessionFactory = locator.createSessionFactory();
         queryReplyQueue = SimpleString.toSimpleString("queryReply-" + UUID.randomUUID());
 
+        ClientSessionFactory consumerSessionFactory = locator.createSessionFactory();
+        ClientSession consumerSession = consumerSessionFactory.createSession();
+        consumerSessions.add(consumerSession);
+        consumerSession.addMetaData(ClientSession.JMS_SESSION_IDENTIFIER_PROPERTY, "jms-client-id");
+        consumerSession.addMetaData("jms-client-id", "query-consumer");
 
-        // does this make a difference?
-//        for (int i=0; i < 100; ++i) {
-            ClientSession consumerSession = consumerSessionFactory.createSession();
-            consumerSessions.add(consumerSession);
-            consumerSession.addMetaData(ClientSession.JMS_SESSION_IDENTIFIER_PROPERTY, "jms-client-id");
-            consumerSession.addMetaData("jms-client-id", "query-consumer");
-
-            mqConsumerUtils.bindConsumer(consumerSession, queryReplyQueue, true, message -> {
-                byte[] mo = new byte[message.getBodyBuffer().readableBytes()];
-                message.getBodyBuffer().readBytes(mo);
-                queueWaitingHandler.handleReply(message.getCorrelationID().toString(), SerializationUtils.deserialize(mo));
-            });
-            consumerSession.start();
-//        }
+        mqConsumerUtils.bindConsumer(consumerSession, queryReplyQueue, true, message -> {
+            byte[] mo = new byte[message.getBodyBuffer().readableBytes()];
+            message.getBodyBuffer().readBytes(mo);
+            queueWaitingHandler.handleReply(message.getCorrelationID().toString(), SerializationUtils.deserialize(mo));
+        });
+        consumerSession.start();
 
         queryServiceRequestProducer = new QueryServiceRequestProducer(SimpleString.toSimpleString(mqConsumerUtils.getServicerequestQueryIdQueue()));
         queryAccountProducer = new QueryAccountProducer(SimpleString.toSimpleString(mqConsumerUtils.getAccountQueryAccountIdQueue()));

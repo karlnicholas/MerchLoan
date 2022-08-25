@@ -91,10 +91,6 @@ public class MQProducers {
         message.getBodyBuffer().writeBytes(SerializationUtils.serialize(new byte[0]));
         serviceRequestCheckRequestProducer.send(message);
         return checkRequestReplyHandler.getReply(responseKey);
-//        ClientMessage reply = checkRequestReplyConsumer.receive();
-//        byte[] mo = new byte[reply.getBodyBuffer().readableBytes()];
-//        reply.getBodyBuffer().readBytes(mo);
-//        return SerializationUtils.deserialize(mo);
     }
 
     public Object acccountQueryLoansToCycle(LocalDate businessDate) throws ActiveMQException, InterruptedException {
@@ -107,10 +103,6 @@ public class MQProducers {
         message.getBodyBuffer().writeBytes(SerializationUtils.serialize(businessDate));
         accountQueryLoansToCycleProducer.send(message);
         return loansToCycleReplyHandler.getReply(responseKey);
-//        ClientMessage reply = loansToCycleConsumer.receive();
-//        byte[] mo = new byte[reply.getBodyBuffer().readableBytes()];
-//        reply.getBodyBuffer().readBytes(mo);
-//        return SerializationUtils.deserialize(mo);
     }
 
     public void serviceRequestBillLoan(BillingCycle billingCycle) throws ActiveMQException {

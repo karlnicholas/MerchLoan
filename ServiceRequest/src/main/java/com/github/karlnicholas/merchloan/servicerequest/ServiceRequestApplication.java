@@ -28,7 +28,7 @@ public class ServiceRequestApplication {
     private DataSource dataSource;
 
     @EventListener(ApplicationReadyEvent.class)
-    public void initialize() throws SQLException, IOException, ActiveMQException {
+    public void initialize() throws SQLException, IOException {
         try(Connection con = dataSource.getConnection()) {
             SqlInitialization.initialize(con, ServiceRequestApplication.class.getResourceAsStream("/sql/schema.sql"));
         }

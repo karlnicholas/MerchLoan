@@ -2,11 +2,11 @@ package com.github.karlnicholas.merchloan.jms.queue;
 
 import lombok.extern.slf4j.Slf4j;
 import org.apache.activemq.artemis.api.core.ActiveMQException;
-import org.apache.activemq.artemis.api.core.client.*;
+import org.apache.activemq.artemis.api.core.client.ClientProducer;
+import org.apache.activemq.artemis.api.core.client.ClientSession;
+import org.apache.activemq.artemis.api.core.client.ClientSessionFactory;
 
 import java.util.List;
-import java.util.function.Consumer;
-import java.util.function.Function;
 
 @Slf4j
 class QueueMessageHandler extends Thread implements Runnable {

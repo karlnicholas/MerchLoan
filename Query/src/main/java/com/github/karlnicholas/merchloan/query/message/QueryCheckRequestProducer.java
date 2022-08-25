@@ -4,7 +4,8 @@ import com.github.karlnicholas.merchloan.jms.queue.QueueMessageHandlerProducer;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.activemq.artemis.api.core.ActiveMQException;
 import org.apache.activemq.artemis.api.core.SimpleString;
-import org.apache.activemq.artemis.api.core.client.*;
+import org.apache.activemq.artemis.api.core.client.ClientMessage;
+import org.apache.activemq.artemis.api.core.client.ClientProducer;
 
 @Slf4j
 public class QueryCheckRequestProducer implements QueueMessageHandlerProducer {
