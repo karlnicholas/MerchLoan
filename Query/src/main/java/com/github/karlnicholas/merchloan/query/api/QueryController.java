@@ -87,72 +87,50 @@ public class QueryController {
     @GetMapping(value = "/request/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
     public String queryRequestId(@PathVariable UUID id) throws Exception {
         log.debug("request: {}", id);
-        return handleStringRequest(queryServiceRequestProducer, id);
+        return handleRequest(queryServiceRequestProducer, id).toString();
     }
 
     @GetMapping(value = "/account/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
     public String queryAccountId(@PathVariable UUID id) throws Exception {
         log.debug("account: {}", id);
-        return handleStringRequest(queryAccountProducer, id);
+        return handleRequest(queryAccountProducer, id).toString();
     }
 
     int max = 0;
     @GetMapping(value = "/loan/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
     public String queryLoanId(@PathVariable UUID id) throws Exception {
         log.debug("loan: {}", id);
-//        String responseKey = UUID.randomUUID().toString();
-//        queueWaitingHandler.put(responseKey);
-//        ClientMessage message = producerSession.createMessage(false);
-//        message.setCorrelationID(responseKey);
-//        message.setReplyTo(queryReplyQueue);
-//        message.getBodyBuffer().writeBytes(SerializationUtils.serialize(id));
-//        QueueMessage queueMessage = new QueueMessage(queryLoanProducer, message);
-//        queueMessageService.addMessage(queueMessage);
-//        Object result = queueWaitingHandler.getReply(responseKey).toString();
-//        int s = queueWaitingHandler.getRepliesWaitingSize();
-//        if ( s > max) max = s;
-//        if (ThreadLocalRandom.current().nextInt(50) == 0 ) {
-//            log.info("queryLoanId repliesWaitingSize: {} {}", max, s);
-//        }
-//        return (String) result;
-        return handleStringRequest(queryLoanProducer, id);
+        return handleRequest(queryLoanProducer, id).toString();
     }
 
     @GetMapping(value = "/statement/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
     public String queryStatementId(@PathVariable UUID id) throws Exception {
         log.debug("statement: {}", id);
-        return handleStringRequest(queryStatementProducer, id);
+        return handleRequest(queryStatementProducer, id).toString();
     }
 
     @GetMapping(value = "/statements/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
     public String queryStatementsId(@PathVariable UUID id) throws Exception {
         log.debug("statements: {}", id);
-        return handleStringRequest(queryStatementsProducer, id);
-    }
-
-    private String handleStringRequest(QueueMessageHandlerProducer producer, UUID id) throws InterruptedException {
-        String responseKey = UUID.randomUUID().toString();
-        queueWaitingHandler.put(responseKey);
-        ClientMessage message = producerSession.createMessage(false);
-        message.setCorrelationID(responseKey);
-        message.setReplyTo(queryReplyQueue);
-        message.getBodyBuffer().writeBytes(SerializationUtils.serialize(id));
-        QueueMessage queueMessage = new QueueMessage(producer, message);
-        queueMessageService.addMessage(queueMessage);
-        return queueWaitingHandler.getReply(responseKey).toString();
+        return handleRequest(queryStatementsProducer, id).toString();
     }
 
     @GetMapping(value = "/checkrequests", produces = MediaType.APPLICATION_JSON_VALUE)
     public Boolean queryCheckRequests() throws Exception {
         log.debug("checkrequests");
+        return (Boolean) handleRequest(queryCheckRequestProducer, new byte[0]);
+    }
+
+    private Object handleRequest(QueueMessageHandlerProducer producer, Object data) throws InterruptedException {
         String responseKey = UUID.randomUUID().toString();
         queueWaitingHandler.put(responseKey);
         ClientMessage message = producerSession.createMessage(false);
         message.setCorrelationID(responseKey);
         message.setReplyTo(queryReplyQueue);
-        message.getBodyBuffer().writeBytes(SerializationUtils.serialize(new byte[0]));
-        QueueMessage queueMessage = new QueueMessage(queryCheckRequestProducer, message);
+        message.getBodyBuffer().writeBytes(SerializationUtils.serialize(data));
+        QueueMessage queueMessage = new QueueMessage(producer, message);
         queueMessageService.addMessage(queueMessage);
-        return (Boolean) queueWaitingHandler.getReply(responseKey);
+        return queueWaitingHandler.getReply(responseKey);
     }
+
 }
