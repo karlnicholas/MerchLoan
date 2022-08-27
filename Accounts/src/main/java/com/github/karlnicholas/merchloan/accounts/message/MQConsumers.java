@@ -350,7 +350,7 @@ public class MQConsumers {
             log.debug("receivedStatementHeaderMessage serviceRequestResponse: {}", requestResponse);
             if (requestResponse.isSuccess()) {
                 registerManagementService.setStatementHeaderRegisterEntryies(statementHeaderWork.getStatementHeader());
-                statementStatementHeaderProducer.basicPublish(mqConsumerUtils.getExchange(), mqConsumerUtils.getStatementContinueQueue(), message.getProperties(), SerializationUtils.serialize(accountManagementService.loansToCycle(statementHeaderWork)));
+                statementStatementHeaderProducer.basicPublish(mqConsumerUtils.getExchange(), mqConsumerUtils.getStatementContinueQueue(), message.getProperties(), SerializationUtils.serialize(statementHeaderWork));
             } else {
                 statementStatementHeaderProducer.basicPublish(mqConsumerUtils.getExchange(), mqConsumerUtils.getServicerequestQueue(), message.getProperties(), SerializationUtils.serialize(requestResponse));
             }
@@ -361,9 +361,9 @@ public class MQConsumers {
 
     public void accountBillingFeeChargeMessage(String consumerTag, Delivery message) {
         try {
-            ClientMessage replyMessage = persistBillingCycleCharge(message);
+            StatementHeaderWork statementHeaderWork = persistBillingCycleCharge(message);
             log.debug("accountBillingFeeChargeMessage");
-            accountBillingFeeChargeProducer.send(mqConsumerUtils.getStatementContinue2Queue(), replyMessage);
+            accountBillingFeeChargeProducer.basicPublish(mqConsumerUtils.getExchange(), mqConsumerUtils.getStatementContinue2Queue(), message.getProperties(), SerializationUtils.serialize(statementHeaderWork));
         } catch (Exception ex) {
             log.error("receivedBillingCycleChargeMessage exception", ex);
         }
@@ -371,15 +371,15 @@ public class MQConsumers {
 
     public void accountBillingInterestChargeMessage(String consumerTag, Delivery message) {
         try {
-            ClientMessage replyMessage = persistBillingCycleCharge(message);
+            StatementHeaderWork statementHeaderWork = persistBillingCycleCharge(message);
             log.debug("accountBillingInterestChargeMessage");
-            accountBillingInterestChargeProducer.send(mqConsumerUtils.getStatementContinue3Queue(), replyMessage);
+            accountBillingInterestChargeProducer.basicPublish(mqConsumerUtils.getExchange(), mqConsumerUtils.getStatementContinue2Queue(), message.getProperties(), SerializationUtils.serialize(statementHeaderWork));
         } catch (Exception ex) {
             log.error("receivedBillingCycleChargeMessage exception", ex);
         }
     }
 
-    private ClientMessage persistBillingCycleCharge(Delivery message) throws SQLException {
+    private StatementHeaderWork persistBillingCycleCharge(Delivery message) throws SQLException {
         StatementHeaderWork statementHeaderWork = (StatementHeaderWork)  SerializationUtils.deserialize(message.getBody());
         log.debug("receivedBillingCycleChargeMessage: loanId: {}", statementHeaderWork.getBillingCycleCharge().getLoanId());
         RegisterEntry re = registerManagementService.billingCycleCharge(statementHeaderWork.getBillingCycleCharge());
@@ -391,10 +391,7 @@ public class MQConsumers {
                 .timeStamp(re.getTimeStamp())
                 .build();
         statementHeaderWork.getStatementHeader().getRegisterEntries().add(registerEntryMessage);
-        ClientMessage replyMessage = producerConnection.createMessage(false);
-        replyMessage.getBodyBuffer().writeBytes(SerializationUtils.serialize(statementHeaderWork));
-        replyMessage.setCorrelationID(message.getCorrelationID());
-        return replyMessage;
+        return statementHeaderWork;
     }
 
     public void loanClosedMessage(String consumerTag, Delivery message) {
@@ -412,10 +409,8 @@ public class MQConsumers {
             requestResponse.setError("receivedLoanClosedMessage exception: " + e.getMessage());
         } finally {
             try {
-                ClientMessage responseMessage = producerConnection.createMessage(false);
-                responseMessage.getBodyBuffer().writeBytes(SerializationUtils.serialize(requestResponse));
-                loadClosedProducer.send(mqConsumerUtils.getServicerequestQueue(), responseMessage);
-            } catch (ActiveMQException e) {
+                loadClosedProducer.basicPublish(mqConsumerUtils.getExchange(), mqConsumerUtils.getServicerequestQueue(), message.getProperties(), SerializationUtils.serialize(requestResponse));
+            } catch (IOException e) {
                 log.error("createAccountMessage", e);
             }
         }
