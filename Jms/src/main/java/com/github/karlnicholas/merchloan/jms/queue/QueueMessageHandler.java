@@ -1,6 +1,7 @@
 package com.github.karlnicholas.merchloan.jms.queue;
 
 import com.rabbitmq.client.Channel;
+import com.rabbitmq.client.Connection;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
@@ -12,10 +13,10 @@ class QueueMessageHandler extends Thread implements Runnable {
     private boolean run;
 
 
-    public QueueMessageHandler(Channel producer, List<QueueMessage> messsageQueue) throws Exception {
+    public QueueMessageHandler(Connection connection, List<QueueMessage> messsageQueue) throws Exception {
         run = true;
         this.messsageQueue = messsageQueue;
-        this.producer = producer;
+        this.producer = connection.createChannel();
     }
 
     public void stopHandler() {
