@@ -1,10 +1,9 @@
 package com.github.karlnicholas.merchloan.jms.queue;
 
-import org.apache.activemq.artemis.api.core.ActiveMQException;
-import org.apache.activemq.artemis.api.core.client.ClientSessionFactory;
-import org.apache.activemq.artemis.api.core.client.ServerLocator;
+import com.rabbitmq.client.ConnectionFactory;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -14,19 +13,17 @@ public class QueueMessageService {
     private List<QueueMessageHandler> handlers;
     private int capacity;
 
-    public ClientSessionFactory initialize(ServerLocator locator, String queueName, int capacity) throws Exception {
+    public void initialize(ConnectionFactory connectionFactory, String queueName, int capacity) throws Exception {
         this.capacity = capacity;
         messsageQueue = new ArrayList<>();
-        ClientSessionFactory clientSessionFactory = locator.createSessionFactory();
         handlers = new ArrayList<>();
         for ( int i = 0 ; i < capacity; ++i) {
-            QueueMessageHandler queueMessageHandler = new QueueMessageHandler(clientSessionFactory, messsageQueue, queueName+(i+1));
+            QueueMessageHandler queueMessageHandler = new QueueMessageHandler(connectionFactory, messsageQueue, queueName+(i+1));
             handlers.add(queueMessageHandler);
             queueMessageHandler.start();
         }
-        return clientSessionFactory;
     }
-    public void close() throws InterruptedException, ActiveMQException {
+    public void close() throws InterruptedException, IOException {
         for ( QueueMessageHandler queueMessageHandler: handlers) {
             queueMessageHandler.stopHandler();
             queueMessageHandler.join();

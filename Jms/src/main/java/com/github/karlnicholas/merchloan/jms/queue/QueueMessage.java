@@ -1,17 +1,18 @@
 package com.github.karlnicholas.merchloan.jms.queue;
 
-import org.apache.activemq.artemis.api.core.client.ClientMessage;
+
+import com.rabbitmq.client.Delivery;
 
 public class QueueMessage {
-    private final ClientMessage message;
+    private final Delivery message;
     private final QueueMessageHandlerProducer producer;
 
-    public QueueMessage(QueueMessageHandlerProducer producer, ClientMessage message) {
+    public QueueMessage(QueueMessageHandlerProducer producer, Delivery message) {
         this.message = message;
         this.producer = producer;
     }
 
-    public ClientMessage getMessage() {
+    public Delivery getMessage() {
         return message;
     }
     public QueueMessageHandlerProducer getProducer() {

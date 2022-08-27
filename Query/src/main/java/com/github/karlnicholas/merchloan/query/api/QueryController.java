@@ -6,13 +6,10 @@ import com.github.karlnicholas.merchloan.jms.queue.QueueMessageHandlerProducer;
 import com.github.karlnicholas.merchloan.jms.queue.QueueMessageService;
 import com.github.karlnicholas.merchloan.query.jms.QueueWaitingHandler;
 import com.github.karlnicholas.merchloan.query.message.*;
+import com.rabbitmq.client.Channel;
+import com.rabbitmq.client.Connection;
+import com.rabbitmq.client.ConnectionFactory;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.activemq.artemis.api.core.ActiveMQException;
-import org.apache.activemq.artemis.api.core.SimpleString;
-import org.apache.activemq.artemis.api.core.client.ClientMessage;
-import org.apache.activemq.artemis.api.core.client.ClientSession;
-import org.apache.activemq.artemis.api.core.client.ClientSessionFactory;
-import org.apache.activemq.artemis.api.core.client.ServerLocator;
 import org.springframework.http.MediaType;
 import org.springframework.util.SerializationUtils;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -29,9 +26,9 @@ import java.util.UUID;
 @RequestMapping(value = "/api/query")
 @Slf4j
 public class QueryController {
-    private final List<ClientSession> consumerSessions;
-    private final ClientSession producerSession;
-    private final SimpleString queryReplyQueue;
+    private final List<Channel> consumerSessions;
+    private final Channel producerSession;
+    private final String queryReplyQueue;
     private final QueueMessageService queueMessageService;
     private final QueryServiceRequestProducer queryServiceRequestProducer;
     private final QueryAccountProducer queryAccountProducer;
@@ -41,34 +38,30 @@ public class QueryController {
     private final QueryCheckRequestProducer queryCheckRequestProducer;
     private final QueueWaitingHandler queueWaitingHandler;
 
-    public QueryController(ServerLocator locator, MQConsumerUtils mqConsumerUtils, QueueMessageService queueMessageService) throws Exception {
+    public QueryController(ConnectionFactory connectionFactory, MQConsumerUtils mqConsumerUtils, QueueMessageService queueMessageService) throws Exception {
         this.queueMessageService = queueMessageService;
         queueWaitingHandler = new QueueWaitingHandler();
 
         consumerSessions = new ArrayList<>();
-        queryReplyQueue = SimpleString.toSimpleString("queryReply-" + UUID.randomUUID());
+        queryReplyQueue = "queryReply-" + UUID.randomUUID();
 
-        ClientSessionFactory consumerSessionFactory = locator.createSessionFactory();
-        ClientSession consumerSession = consumerSessionFactory.createSession();
+        Connection connection = connectionFactory.newConnection();
+        Channel consumerSession = connection.createChannel();
         consumerSessions.add(consumerSession);
-        consumerSession.addMetaData(ClientSession.JMS_SESSION_IDENTIFIER_PROPERTY, "jms-client-id");
-        consumerSession.addMetaData("jms-client-id", "query-consumer");
 
-        mqConsumerUtils.bindConsumer(consumerSession, queryReplyQueue, true, message -> {
-            byte[] mo = new byte[message.getBodyBuffer().readableBytes()];
-            message.getBodyBuffer().readBytes(mo);
-            queueWaitingHandler.handleReply(message.getCorrelationID().toString(), SerializationUtils.deserialize(mo));
+        // Connection connection, String exchange, String queueName, boolean exclusive, DeliverCallback deliverCallback
+        mqConsumerUtils.bindConsumer(consumerSession, mqConsumerUtils.getExchange(), queryReplyQueue, true, (consumerTag, message) -> {
+            queueWaitingHandler.handleReply(message.getProperties().getCorrelationId(), SerializationUtils.deserialize(message.getBody()));
         });
-        consumerSession.start();
 
-        queryServiceRequestProducer = new QueryServiceRequestProducer(SimpleString.toSimpleString(mqConsumerUtils.getServicerequestQueryIdQueue()));
-        queryAccountProducer = new QueryAccountProducer(SimpleString.toSimpleString(mqConsumerUtils.getAccountQueryAccountIdQueue()));
-        queryLoanProducer = new QueryLoanProducer(SimpleString.toSimpleString(mqConsumerUtils.getAccountQueryLoanIdQueue()));
-        queryStatementProducer = new QueryStatementProducer(SimpleString.toSimpleString(mqConsumerUtils.getStatementQueryStatementQueue()));
-        queryStatementsProducer = new QueryStatementsProducer(SimpleString.toSimpleString(mqConsumerUtils.getStatementQueryStatementsQueue()));
-        queryCheckRequestProducer = new QueryCheckRequestProducer(SimpleString.toSimpleString(mqConsumerUtils.getServiceRequestCheckRequestQueue()));
+        queryServiceRequestProducer = new QueryServiceRequestProducer(mqConsumerUtils.getExchange(), mqConsumerUtils.getServicerequestQueryIdQueue());
+        queryAccountProducer = new QueryAccountProducer(mqConsumerUtils.getExchange(), mqConsumerUtils.getAccountQueryAccountIdQueue());
+        queryLoanProducer = new QueryLoanProducer(mqConsumerUtils.getExchange(), mqConsumerUtils.getAccountQueryLoanIdQueue());
+        queryStatementProducer = new QueryStatementProducer(mqConsumerUtils.getExchange(), mqConsumerUtils.getStatementQueryStatementQueue()));
+        queryStatementsProducer = new QueryStatementsProducer(mqConsumerUtils.getExchange(), mqConsumerUtils.getStatementQueryStatementsQueue());
+        queryCheckRequestProducer = new QueryCheckRequestProducer(mqConsumerUtils.getExchange(), mqConsumerUtils.getServiceRequestCheckRequestQueue());
 
-        producerSession = queueMessageService.initialize(locator, "query-producer-", 100).createSession();
+        producerSession = queueMessageService.initialize(connectionFactory, "query-producer-", 100).createSession();
     }
 
     @PreDestroy

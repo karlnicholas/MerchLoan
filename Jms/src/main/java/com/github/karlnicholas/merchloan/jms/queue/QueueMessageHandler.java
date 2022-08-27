@@ -1,36 +1,26 @@
 package com.github.karlnicholas.merchloan.jms.queue;
 
+import com.rabbitmq.client.Channel;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.activemq.artemis.api.core.ActiveMQException;
-import org.apache.activemq.artemis.api.core.client.ClientProducer;
-import org.apache.activemq.artemis.api.core.client.ClientSession;
-import org.apache.activemq.artemis.api.core.client.ClientSessionFactory;
 
 import java.util.List;
 
 @Slf4j
 class QueueMessageHandler extends Thread implements Runnable {
     private final List<QueueMessage> messsageQueue;
-    private final ClientSession clientSession;
-    private final ClientProducer producer;
+    private final Channel producer;
     private boolean run;
 
 
-    public QueueMessageHandler(ClientSessionFactory clientSessionFactory, List<QueueMessage> messsageQueue, String sessionId) throws Exception {
+    public QueueMessageHandler(Channel producer, List<QueueMessage> messsageQueue) throws Exception {
         run = true;
         this.messsageQueue = messsageQueue;
-        clientSession = clientSessionFactory.createSession();
-        clientSession.addMetaData(ClientSession.JMS_SESSION_IDENTIFIER_PROPERTY, "jms-client-id");
-        clientSession.addMetaData("jms-client-id", sessionId);
-        producer = clientSession.createProducer();
+        this.producer = producer;
     }
 
     public void stopHandler() {
         run = false;
         this.interrupt();
-    }
-    public void close() throws ActiveMQException {
-        clientSession.close();
     }
 
     @Override
@@ -48,8 +38,6 @@ class QueueMessageHandler extends Thread implements Runnable {
             } catch (InterruptedException ex) {
                 if ( run ) ex.printStackTrace();
                 Thread.currentThread().interrupt();
-            } catch (ActiveMQException e) {
-                log.error("QueueMessageHandler::run ", e);
             }
         }
     }

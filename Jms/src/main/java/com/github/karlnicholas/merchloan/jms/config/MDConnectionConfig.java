@@ -1,8 +1,7 @@
 package com.github.karlnicholas.merchloan.jms.config;
 
+import com.rabbitmq.client.ConnectionFactory;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.activemq.artemis.api.core.client.ActiveMQClient;
-import org.apache.activemq.artemis.api.core.client.ServerLocator;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -22,10 +21,13 @@ public class MDConnectionConfig {
     private String virtualHost;
 
     @Bean
-    public ServerLocator getServerLocator() throws Exception {
-        ServerLocator locator = ActiveMQClient.createServerLocator("tcp://localhost:61616?preAcknowledge=true");
-//        locator.setUseGlobalPools(false);
-//        locator.setThreadPoolMaxSize(100);
-        return locator;
+    public ConnectionFactory getConnectionFactory() {
+        ConnectionFactory factory = new ConnectionFactory();
+        factory.setPassword(password);
+        factory.setUsername(username);
+        factory.setVirtualHost(virtualHost);
+        factory.setHost(host);
+        factory.setPort(port);
+        return factory;
     }
 }
