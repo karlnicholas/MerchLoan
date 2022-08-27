@@ -4,7 +4,9 @@ import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.IOException;
 import java.util.List;
+import java.util.concurrent.TimeoutException;
 
 @Slf4j
 class QueueMessageHandler extends Thread implements Runnable {
@@ -24,6 +26,9 @@ class QueueMessageHandler extends Thread implements Runnable {
         this.interrupt();
     }
 
+    public void close() throws IOException, TimeoutException {
+        producer.close();
+    }
     @Override
     public void run() {
         while (run) {
@@ -34,11 +39,13 @@ class QueueMessageHandler extends Thread implements Runnable {
                     }
                     QueueMessage message = messsageQueue.remove(0);
                     messsageQueue.notifyAll();
-                    message.getProducer().sendMessage(producer, message.getMessage());
+                    message.getProducer().sendMessage(producer, message.getProperties(), message.getMessage());
                 }
             } catch (InterruptedException ex) {
                 if ( run ) ex.printStackTrace();
                 Thread.currentThread().interrupt();
+            } catch (IOException e) {
+                if ( run ) e.printStackTrace();
             }
         }
     }

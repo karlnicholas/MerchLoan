@@ -1,11 +1,13 @@
 package com.github.karlnicholas.merchloan.jms.queue;
 
+import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeoutException;
 
 @Service
 public class QueueMessageService {
@@ -13,17 +15,17 @@ public class QueueMessageService {
     private List<QueueMessageHandler> handlers;
     private int capacity;
 
-    public void initialize(ConnectionFactory connectionFactory, String queueName, int capacity) throws Exception {
+    public void initialize(Connection connection, String queueName, int capacity) throws Exception {
         this.capacity = capacity;
         messsageQueue = new ArrayList<>();
         handlers = new ArrayList<>();
         for ( int i = 0 ; i < capacity; ++i) {
-            QueueMessageHandler queueMessageHandler = new QueueMessageHandler(connectionFactory, messsageQueue, queueName+(i+1));
+            QueueMessageHandler queueMessageHandler = new QueueMessageHandler(connection, messsageQueue);
             handlers.add(queueMessageHandler);
             queueMessageHandler.start();
         }
     }
-    public void close() throws InterruptedException, IOException {
+    public void close() throws InterruptedException, IOException, TimeoutException {
         for ( QueueMessageHandler queueMessageHandler: handlers) {
             queueMessageHandler.stopHandler();
             queueMessageHandler.join();

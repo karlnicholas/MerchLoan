@@ -6,7 +6,7 @@ import com.github.karlnicholas.merchloan.jms.queue.QueueMessageHandlerProducer;
 import com.github.karlnicholas.merchloan.jms.queue.QueueMessageService;
 import com.github.karlnicholas.merchloan.query.jms.QueueWaitingHandler;
 import com.github.karlnicholas.merchloan.query.message.*;
-import com.rabbitmq.client.Channel;
+import com.rabbitmq.client.AMQP;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
 import lombok.extern.slf4j.Slf4j;
@@ -18,16 +18,15 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import javax.annotation.PreDestroy;
-import java.util.ArrayList;
-import java.util.List;
+import java.io.IOException;
 import java.util.UUID;
 
 @RestController
 @RequestMapping(value = "/api/query")
 @Slf4j
 public class QueryController {
-    private final List<Channel> consumerSessions;
-    private final Channel producerSession;
+    private final Connection consumerConnection;
+    private final Connection producerConnection;
     private final String queryReplyQueue;
     private final QueueMessageService queueMessageService;
     private final QueryServiceRequestProducer queryServiceRequestProducer;
@@ -42,39 +41,29 @@ public class QueryController {
         this.queueMessageService = queueMessageService;
         queueWaitingHandler = new QueueWaitingHandler();
 
-        consumerSessions = new ArrayList<>();
         queryReplyQueue = "queryReply-" + UUID.randomUUID();
 
-        Connection connection = connectionFactory.newConnection();
-        Channel consumerSession = connection.createChannel();
-        consumerSessions.add(consumerSession);
+        consumerConnection = connectionFactory.newConnection();
 
-        // Connection connection, String exchange, String queueName, boolean exclusive, DeliverCallback deliverCallback
-        mqConsumerUtils.bindConsumer(consumerSession, mqConsumerUtils.getExchange(), queryReplyQueue, true, (consumerTag, message) -> {
+        mqConsumerUtils.bindConsumer(consumerConnection.createChannel(), mqConsumerUtils.getExchange(), queryReplyQueue, true, (consumerTag, message) -> {
             queueWaitingHandler.handleReply(message.getProperties().getCorrelationId(), SerializationUtils.deserialize(message.getBody()));
         });
 
         queryServiceRequestProducer = new QueryServiceRequestProducer(mqConsumerUtils.getExchange(), mqConsumerUtils.getServicerequestQueryIdQueue());
         queryAccountProducer = new QueryAccountProducer(mqConsumerUtils.getExchange(), mqConsumerUtils.getAccountQueryAccountIdQueue());
         queryLoanProducer = new QueryLoanProducer(mqConsumerUtils.getExchange(), mqConsumerUtils.getAccountQueryLoanIdQueue());
-        queryStatementProducer = new QueryStatementProducer(mqConsumerUtils.getExchange(), mqConsumerUtils.getStatementQueryStatementQueue()));
+        queryStatementProducer = new QueryStatementProducer(mqConsumerUtils.getExchange(), mqConsumerUtils.getStatementQueryStatementQueue());
         queryStatementsProducer = new QueryStatementsProducer(mqConsumerUtils.getExchange(), mqConsumerUtils.getStatementQueryStatementsQueue());
         queryCheckRequestProducer = new QueryCheckRequestProducer(mqConsumerUtils.getExchange(), mqConsumerUtils.getServiceRequestCheckRequestQueue());
 
-        producerSession = queueMessageService.initialize(connectionFactory, "query-producer-", 100).createSession();
+        producerConnection = connectionFactory.newConnection();
+        queueMessageService.initialize(producerConnection, "query-producer-", 100);
     }
 
     @PreDestroy
-    public void preDestroy() throws ActiveMQException, InterruptedException {
-        queueMessageService.close();
-        consumerSessions.forEach(s-> {
-            try {
-                s.close();
-            } catch (ActiveMQException e) {
-                throw new RuntimeException(e);
-            }
-        });
-        producerSession.close();
+    public void preDestroy() throws IOException {
+        consumerConnection.close();
+        producerConnection.close();
     }
 
     @GetMapping(value = "/request/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -117,11 +106,8 @@ public class QueryController {
     private Object handleRequest(QueueMessageHandlerProducer producer, Object data) throws InterruptedException {
         String responseKey = UUID.randomUUID().toString();
         queueWaitingHandler.put(responseKey);
-        ClientMessage message = producerSession.createMessage(false);
-        message.setCorrelationID(responseKey);
-        message.setReplyTo(queryReplyQueue);
-        message.getBodyBuffer().writeBytes(SerializationUtils.serialize(data));
-        QueueMessage queueMessage = new QueueMessage(producer, message);
+        AMQP.BasicProperties properties = new AMQP.BasicProperties.Builder().correlationId(responseKey).replyTo(queryReplyQueue).build();
+        QueueMessage queueMessage = new QueueMessage(producer, properties, data);
         queueMessageService.addMessage(queueMessage);
         return queueWaitingHandler.getReply(responseKey);
     }
