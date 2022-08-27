@@ -452,7 +452,7 @@ public class MQConsumers {
                 ClientMessage replyMessage = producerSession.createMessage(false);
                 replyMessage.getBodyBuffer().writeBytes(SerializationUtils.serialize(requestResponse));
                 replyMessage.setCorrelationID(message.getCorrelationID());
-                statementStatementHeaderProducer.send(message.getReplyTo(), replyMessage);
+                statementStatementHeaderProducer.send(mqConsumerUtils.getServicerequestQueue(), replyMessage);
             }
         } catch (Exception ex) {
             log.error("receivedStatementHeaderMessage exception", ex);
