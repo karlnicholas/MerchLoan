@@ -15,7 +15,7 @@ public class MDConnectionConfig {
     private String password;
     @Value("${rabbitmq.host:localhost}")
     private String host;
-    @Value("${rabbitmq.port:61616}")
+    @Value("${rabbitmq.port:5672}")
     private Integer port;
     @Value("${rabbitmq.virtual-host:/}")
     private String virtualHost;
