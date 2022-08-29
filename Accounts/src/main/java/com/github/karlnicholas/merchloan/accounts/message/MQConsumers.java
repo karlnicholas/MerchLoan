@@ -373,7 +373,7 @@ public class MQConsumers {
         try {
             StatementHeaderWork statementHeaderWork = persistBillingCycleCharge(message);
             log.debug("accountBillingInterestChargeMessage");
-            accountBillingInterestChargeProducer.basicPublish(mqConsumerUtils.getExchange(), mqConsumerUtils.getStatementContinue2Queue(), message.getProperties(), SerializationUtils.serialize(statementHeaderWork));
+            accountBillingInterestChargeProducer.basicPublish(mqConsumerUtils.getExchange(), mqConsumerUtils.getStatementContinue3Queue(), message.getProperties(), SerializationUtils.serialize(statementHeaderWork));
         } catch (Exception ex) {
             log.error("receivedBillingCycleChargeMessage exception", ex);
         }
