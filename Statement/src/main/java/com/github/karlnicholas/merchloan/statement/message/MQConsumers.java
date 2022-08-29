@@ -230,7 +230,7 @@ public class MQConsumers {
     }
 
     private void sendAccountLoanClosed(StatementHeader statementHeader, Channel producer) throws IOException {
-        producer.basicPublish(mqConsumerUtils.getExchange(), mqConsumerUtils.getAccountLoanClosedQueue(), new AMQP.BasicProperties().builder().build(), SerializationUtils.serialize(statementHeader));
+        producer.basicPublish(mqConsumerUtils.getExchange(), mqConsumerUtils.getAccountLoanClosedQueue(), new AMQP.BasicProperties.Builder().build(), SerializationUtils.serialize(statementHeader));
     }
 
     public void receivedCloseStatementMessage(String consumerTag, Delivery message) {

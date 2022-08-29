@@ -9,7 +9,6 @@ import com.github.karlnicholas.merchloan.accounts.model.RegisterEntry;
 import com.github.karlnicholas.merchloan.dto.LoanDto;
 import com.github.karlnicholas.merchloan.jmsmessage.StatementHeader;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.activemq.artemis.api.core.ActiveMQException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -45,7 +44,7 @@ public class QueryService {
         }
     }
 
-    public Optional<LoanDto> queryLoanId(UUID loanId) throws InterruptedException, SQLException, ActiveMQException {
+    public Optional<LoanDto> queryLoanId(UUID loanId) throws InterruptedException, SQLException {
         // get last statement
         // get register entries
         // return last statement date

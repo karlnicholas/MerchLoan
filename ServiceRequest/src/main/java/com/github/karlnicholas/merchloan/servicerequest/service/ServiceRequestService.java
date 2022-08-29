@@ -12,6 +12,8 @@ import com.github.karlnicholas.merchloan.servicerequest.component.ServiceRequest
 import com.github.karlnicholas.merchloan.servicerequest.dao.ServiceRequestDao;
 import com.github.karlnicholas.merchloan.servicerequest.message.*;
 import com.github.karlnicholas.merchloan.servicerequest.model.ServiceRequest;
+import com.rabbitmq.client.AMQP;
+import com.rabbitmq.client.ConnectionFactory;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
@@ -26,10 +28,12 @@ import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.UUID;
 
+import static io.lettuce.core.pubsub.PubSubOutput.Type.message;
+
 @Service
 @Slf4j
 public class ServiceRequestService {
-    private final ClientSession producerSession;
+    private final com.rabbitmq.client.Connection producerConnection;
     private final QueueMessageService queueMessageService;
     private final AccountCreateAccountProducer accountCreateAccountProducer;
     private final AccountFundLoanProducer accountFundingProducer;
@@ -42,42 +46,41 @@ public class ServiceRequestService {
     private final RedisComponent redisComponent;
     private final DataSource dataSource;
 
-    public ServiceRequestService(ServerLocator locator, QueueMessageService queueMessageService, MQConsumerUtils mqConsumerUtils, ServiceRequestDao serviceRequestDao, ObjectMapper objectMapper, RedisComponent redisComponent, DataSource dataSource) throws Exception {
+    public ServiceRequestService(ConnectionFactory connectionFactory, QueueMessageService queueMessageService, MQConsumerUtils mqConsumerUtils, ServiceRequestDao serviceRequestDao, ObjectMapper objectMapper, RedisComponent redisComponent, DataSource dataSource) throws Exception {
         this.queueMessageService = queueMessageService;
         this.serviceRequestDao = serviceRequestDao;
         this.objectMapper = objectMapper;
         this.redisComponent = redisComponent;
         this.dataSource = dataSource;
 
-        accountCreateAccountProducer = new AccountCreateAccountProducer(SimpleString.toSimpleString(mqConsumerUtils.getAccountCreateAccountQueue()));
-        accountFundingProducer = new AccountFundLoanProducer(SimpleString.toSimpleString(mqConsumerUtils.getAccountFundingQueue()));
-        accountValidateCreditProducer = new AccountValidateCreditProducer(SimpleString.toSimpleString(mqConsumerUtils.getAccountValidateCreditQueue()));
-        accountValidateDebitProducer = new AccountValidateDebitProducer(SimpleString.toSimpleString(mqConsumerUtils.getAccountValidateDebitQueue()));
-        statementStatementProducer = new StatementStatementProducer(SimpleString.toSimpleString(mqConsumerUtils.getAccountStatementStatementHeaderQueue()));
-        accountCloseLoanProducer = new AccountCloseLoanProducer(SimpleString.toSimpleString(mqConsumerUtils.getAccountCloseLoanQueue()));
+        accountCreateAccountProducer = new AccountCreateAccountProducer(mqConsumerUtils.getExchange(), mqConsumerUtils.getAccountCreateAccountQueue());
+        accountFundingProducer = new AccountFundLoanProducer(mqConsumerUtils.getExchange(), mqConsumerUtils.getAccountFundingQueue());
+        accountValidateCreditProducer = new AccountValidateCreditProducer(mqConsumerUtils.getExchange(), mqConsumerUtils.getAccountValidateCreditQueue());
+        accountValidateDebitProducer = new AccountValidateDebitProducer(mqConsumerUtils.getExchange(), mqConsumerUtils.getAccountValidateDebitQueue());
+        statementStatementProducer = new StatementStatementProducer(mqConsumerUtils.getExchange(), mqConsumerUtils.getAccountStatementStatementHeaderQueue());
+        accountCloseLoanProducer = new AccountCloseLoanProducer(mqConsumerUtils.getExchange(), mqConsumerUtils.getAccountCloseLoanQueue());
 
-        producerSession = queueMessageService.initialize(locator, "servicerequest-producer-", 100).createSession();
+        producerConnection = connectionFactory.newConnection();
+        queueMessageService.initialize(producerConnection, "servicerequest-producer-", 100);
 
     }
 
     @PreDestroy
-    public void preDestroy() throws InterruptedException, ActiveMQException {
-        producerSession.close();
-        queueMessageService.close();
+    public void preDestroy() throws IOException {
+        producerConnection.close();
     }
 
     public UUID accountRequest(ServiceRequestMessage serviceRequestMessage, Boolean retry, UUID existingId) throws ServiceRequestException {
         try {
             AccountRequest accountRequest = (AccountRequest) serviceRequestMessage;
             UUID id = retry == Boolean.TRUE ? existingId : persistRequest(accountRequest);
-            ClientMessage message = producerSession.createMessage(false);
-            message.getBodyBuffer().writeBytes(SerializationUtils.serialize(CreateAccount.builder()
+            CreateAccount message = CreateAccount.builder()
                     .id(id)
                     .customer(accountRequest.getCustomer())
                     .createDate(redisComponent.getBusinessDate())
                     .retry(retry)
-                    .build()));
-            QueueMessage queueMessage = new QueueMessage(accountCreateAccountProducer, message);
+                    .build();
+            QueueMessage queueMessage = new QueueMessage(accountCreateAccountProducer, new AMQP.BasicProperties.Builder().build(), message);
             queueMessageService.addMessage(queueMessage);
             return id;
         } catch (SQLException | IOException e) {
@@ -92,16 +95,15 @@ public class ServiceRequestService {
         try {
             FundingRequest fundingRequest = (FundingRequest) serviceRequestMessage;
             UUID id = retry == Boolean.TRUE ? existingId : persistRequest(fundingRequest);
-            ClientMessage message = producerSession.createMessage(false);
-            message.getBodyBuffer().writeBytes(SerializationUtils.serialize(FundLoan.builder()
+            FundLoan message = FundLoan.builder()
                     .id(id)
                     .accountId(fundingRequest.getAccountId())
                     .amount(fundingRequest.getAmount())
                     .startDate(redisComponent.getBusinessDate())
                     .description(fundingRequest.getDescription())
                     .retry(retry)
-                    .build()));
-            QueueMessage queueMessage = new QueueMessage(accountFundingProducer, message);
+                    .build();
+            QueueMessage queueMessage = new QueueMessage(accountFundingProducer, new AMQP.BasicProperties.Builder().build(), message);
             queueMessageService.addMessage(queueMessage);
             return id;
         } catch (SQLException | IOException e) {
@@ -116,16 +118,15 @@ public class ServiceRequestService {
         try {
             CreditRequest creditRequest = (CreditRequest) serviceRequestMessage;
             UUID id = retry == Boolean.TRUE ? existingId : persistRequest(creditRequest);
-            ClientMessage message = producerSession.createMessage(false);
-            message.getBodyBuffer().writeBytes(SerializationUtils.serialize(CreditLoan.builder()
+            CreditLoan message = CreditLoan.builder()
                             .id(id)
                             .loanId(creditRequest.getLoanId())
                             .date(redisComponent.getBusinessDate())
                             .amount(creditRequest.getAmount())
                             .description(creditRequest.getDescription())
                             .retry(retry)
-                            .build()));
-            QueueMessage queueMessage = new QueueMessage(accountValidateCreditProducer, message);
+                            .build();
+            QueueMessage queueMessage = new QueueMessage(accountValidateCreditProducer, new AMQP.BasicProperties.Builder().build(), message);
             queueMessageService.addMessage(queueMessage);
             return id;
         } catch (SQLException | IOException e) {
@@ -140,8 +141,7 @@ public class ServiceRequestService {
         try {
             StatementRequest statementRequest = (StatementRequest) serviceRequestMessage;
             UUID id = retry == Boolean.TRUE ? existingId : persistRequest(statementRequest);
-            ClientMessage message = producerSession.createMessage(false);
-            message.getBodyBuffer().writeBytes(SerializationUtils.serialize(StatementHeaderWork.builder().statementHeader(
+            StatementHeaderWork message = StatementHeaderWork.builder().statementHeader(
                             StatementHeader.builder()
                                     .id(id)
                                     .loanId(statementRequest.getLoanId())
@@ -152,9 +152,8 @@ public class ServiceRequestService {
                                     .endDate(statementRequest.getEndDate())
                                     .retry(retry)
                                     .build()
-                    ).build()
-            ));
-            QueueMessage queueMessage = new QueueMessage(statementStatementProducer, message);
+                    ).build();
+            QueueMessage queueMessage = new QueueMessage(statementStatementProducer, new AMQP.BasicProperties.Builder().build(), message);
             queueMessageService.addMessage(queueMessage);
             return id;
         } catch (SQLException | IOException e) {
@@ -169,8 +168,7 @@ public class ServiceRequestService {
         try {
             CloseRequest closeRequest = (CloseRequest) serviceRequestMessage;
             UUID id = retry == Boolean.TRUE ? existingId : persistRequest(closeRequest);
-            ClientMessage message = producerSession.createMessage(false);
-            message.getBodyBuffer().writeBytes(SerializationUtils.serialize(CloseLoan.builder()
+            CloseLoan message = CloseLoan.builder()
                             .id(id)
                             .loanId(closeRequest.getLoanId())
                             .interestChargeId(UUID.randomUUID())
@@ -179,9 +177,8 @@ public class ServiceRequestService {
                             .amount(closeRequest.getAmount())
                             .description(closeRequest.getDescription())
                             .retry(retry)
-                            .build()
-            ));
-            QueueMessage queueMessage = new QueueMessage(accountCloseLoanProducer, message);
+                            .build();
+            QueueMessage queueMessage = new QueueMessage(accountCloseLoanProducer, new AMQP.BasicProperties.Builder().build(), message);
             queueMessageService.addMessage(queueMessage);
             return id;
         } catch (SQLException | IOException e) {
@@ -196,17 +193,15 @@ public class ServiceRequestService {
         try {
             DebitRequest debitRequest = (DebitRequest) serviceRequestMessage;
             UUID id = retry == Boolean.TRUE ? existingId : persistRequest(debitRequest);
-            ClientMessage message = producerSession.createMessage(false);
-            message.getBodyBuffer().writeBytes(SerializationUtils.serialize(DebitLoan.builder()
+            DebitLoan message = DebitLoan.builder()
                             .id(id)
                             .loanId(debitRequest.getLoanId())
                             .date(redisComponent.getBusinessDate())
                             .amount(debitRequest.getAmount())
                             .description(debitRequest.getDescription())
                             .retry(retry)
-                            .build()
-            ));
-            QueueMessage queueMessage = new QueueMessage(accountValidateDebitProducer, message);
+                            .build();
+            QueueMessage queueMessage = new QueueMessage(accountValidateDebitProducer, new AMQP.BasicProperties.Builder().build(), message);
             queueMessageService.addMessage(queueMessage);
             return id;
         } catch (SQLException | IOException e) {
