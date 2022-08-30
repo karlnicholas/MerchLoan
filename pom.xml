@@ -11,7 +11,7 @@
     <groupId>com.github.karlnicholas.merchloan</groupId>
     <artifactId>merchloan</artifactId>
     <packaging>pom</packaging>
-    <version>1.0.3-SNAPSHOT</version>
+    <version>1.0.2-SNAPSHOT</version>
     <modules>
         <module>ApiMessage</module>
         <module>JmsMessage</module>
