@@ -60,7 +60,7 @@ public class MQProducers {
     public Object servicerequestCheckRequest() throws InterruptedException, IOException {
         log.debug("servicerequestCheckRequest:");
         String responseKey = UUID.randomUUID().toString();
-        checkRequestReplyHandler.put(responseKey, null);
+        checkRequestReplyHandler.put(responseKey);
         AMQP.BasicProperties properties = new AMQP.BasicProperties.Builder().correlationId(responseKey).replyTo(checkRequestReplyQueueName).build();
         serviceRequestCheckRequestProducer.basicPublish(mqConsumerUtils.getExchange(), mqConsumerUtils.getServiceRequestCheckRequestQueue(), properties, SerializationUtils.serialize(new byte[0]));
         return checkRequestReplyHandler.getReply(responseKey);
@@ -69,7 +69,7 @@ public class MQProducers {
     public Object acccountQueryLoansToCycle(LocalDate businessDate) throws InterruptedException, IOException {
         log.debug("acccountQueryLoansToCycle: {}", businessDate);
         String responseKey = UUID.randomUUID().toString();
-        loansToCycleReplyHandler.put(responseKey, null);
+        loansToCycleReplyHandler.put(responseKey);
         AMQP.BasicProperties properties = new AMQP.BasicProperties.Builder().correlationId(responseKey).replyTo(loansToCycleQueueName).build();
         accountQueryLoansToCycleProducer.basicPublish(mqConsumerUtils.getExchange(), mqConsumerUtils.getAccountQueryLoansToCycleQueue(), properties, SerializationUtils.serialize(businessDate));
         return loansToCycleReplyHandler.getReply(responseKey);

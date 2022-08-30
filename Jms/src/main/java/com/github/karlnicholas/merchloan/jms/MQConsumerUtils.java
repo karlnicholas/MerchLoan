@@ -1,7 +1,9 @@
 package com.github.karlnicholas.merchloan.jms;
 
 
-import com.rabbitmq.client.*;
+import com.rabbitmq.client.BuiltinExchangeType;
+import com.rabbitmq.client.Channel;
+import com.rabbitmq.client.DeliverCallback;
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
