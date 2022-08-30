@@ -4,7 +4,7 @@
     <parent>
         <artifactId>merchloan</artifactId>
         <groupId>com.github.karlnicholas.merchloan</groupId>
-        <version>1.0.2-SNAPSHOT</version>
+        <version>1.0.2</version>
     </parent>
     <artifactId>dto</artifactId>
     <name>Dto</name>
