@@ -4,15 +4,13 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.karlnicholas.merchloan.apimessage.message.*;
 import com.github.karlnicholas.merchloan.jms.MQConsumerUtils;
-import com.github.karlnicholas.merchloan.jms.queue.QueueMessage;
-import com.github.karlnicholas.merchloan.jms.queue.QueueMessageService;
 import com.github.karlnicholas.merchloan.jmsmessage.*;
 import com.github.karlnicholas.merchloan.redis.component.RedisComponent;
 import com.github.karlnicholas.merchloan.servicerequest.component.ServiceRequestException;
 import com.github.karlnicholas.merchloan.servicerequest.dao.ServiceRequestDao;
-import com.github.karlnicholas.merchloan.servicerequest.message.*;
 import com.github.karlnicholas.merchloan.servicerequest.model.ServiceRequest;
 import com.rabbitmq.client.AMQP;
+import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.ConnectionFactory;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DuplicateKeyException;
@@ -28,41 +26,36 @@ import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.UUID;
 
-import static io.lettuce.core.pubsub.PubSubOutput.Type.message;
-
 @Service
 @Slf4j
 public class ServiceRequestService {
     private final com.rabbitmq.client.Connection producerConnection;
-    private final QueueMessageService queueMessageService;
-    private final AccountCreateAccountProducer accountCreateAccountProducer;
-    private final AccountFundLoanProducer accountFundingProducer;
-    private final AccountValidateCreditProducer accountValidateCreditProducer;
-    private final AccountValidateDebitProducer accountValidateDebitProducer;
-    private final StatementStatementProducer statementStatementProducer;
-    private final AccountCloseLoanProducer accountCloseLoanProducer;
+    private final MQConsumerUtils mqConsumerUtils;
+    private final Channel accountCreateAccountProducer;
+    private final Channel accountFundingProducer;
+    private final Channel accountValidateCreditProducer;
+    private final Channel accountValidateDebitProducer;
+    private final Channel statementStatementProducer;
+    private final Channel accountCloseLoanProducer;
     private final ServiceRequestDao serviceRequestDao;
     private final ObjectMapper objectMapper;
     private final RedisComponent redisComponent;
     private final DataSource dataSource;
 
-    public ServiceRequestService(ConnectionFactory connectionFactory, QueueMessageService queueMessageService, MQConsumerUtils mqConsumerUtils, ServiceRequestDao serviceRequestDao, ObjectMapper objectMapper, RedisComponent redisComponent, DataSource dataSource) throws Exception {
-        this.queueMessageService = queueMessageService;
+    public ServiceRequestService(ConnectionFactory connectionFactory, MQConsumerUtils mqConsumerUtils, ServiceRequestDao serviceRequestDao, ObjectMapper objectMapper, RedisComponent redisComponent, DataSource dataSource) throws Exception {
         this.serviceRequestDao = serviceRequestDao;
         this.objectMapper = objectMapper;
         this.redisComponent = redisComponent;
         this.dataSource = dataSource;
-
-        accountCreateAccountProducer = new AccountCreateAccountProducer(mqConsumerUtils.getExchange(), mqConsumerUtils.getAccountCreateAccountQueue());
-        accountFundingProducer = new AccountFundLoanProducer(mqConsumerUtils.getExchange(), mqConsumerUtils.getAccountFundingQueue());
-        accountValidateCreditProducer = new AccountValidateCreditProducer(mqConsumerUtils.getExchange(), mqConsumerUtils.getAccountValidateCreditQueue());
-        accountValidateDebitProducer = new AccountValidateDebitProducer(mqConsumerUtils.getExchange(), mqConsumerUtils.getAccountValidateDebitQueue());
-        statementStatementProducer = new StatementStatementProducer(mqConsumerUtils.getExchange(), mqConsumerUtils.getAccountStatementStatementHeaderQueue());
-        accountCloseLoanProducer = new AccountCloseLoanProducer(mqConsumerUtils.getExchange(), mqConsumerUtils.getAccountCloseLoanQueue());
+        this.mqConsumerUtils = mqConsumerUtils;
 
         producerConnection = connectionFactory.newConnection();
-        queueMessageService.initialize(producerConnection, "servicerequest-producer-", 100);
-
+        accountCreateAccountProducer = producerConnection.createChannel();
+        accountFundingProducer = producerConnection.createChannel();
+        accountValidateCreditProducer = producerConnection.createChannel();
+        accountValidateDebitProducer = producerConnection.createChannel();
+        statementStatementProducer = producerConnection.createChannel();
+        accountCloseLoanProducer = producerConnection.createChannel();
     }
 
     @PreDestroy
@@ -80,13 +73,9 @@ public class ServiceRequestService {
                     .createDate(redisComponent.getBusinessDate())
                     .retry(retry)
                     .build();
-            QueueMessage queueMessage = new QueueMessage(accountCreateAccountProducer, new AMQP.BasicProperties.Builder().build(), message);
-            queueMessageService.addMessage(queueMessage);
+            accountCreateAccountProducer.basicPublish(mqConsumerUtils.getExchange(), mqConsumerUtils.getAccountCreateAccountQueue(), new AMQP.BasicProperties.Builder().build(), SerializationUtils.serialize(message));
             return id;
         } catch (SQLException | IOException e) {
-            throw new ServiceRequestException(e);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
             throw new ServiceRequestException(e);
         }
     }
@@ -103,13 +92,9 @@ public class ServiceRequestService {
                     .description(fundingRequest.getDescription())
                     .retry(retry)
                     .build();
-            QueueMessage queueMessage = new QueueMessage(accountFundingProducer, new AMQP.BasicProperties.Builder().build(), message);
-            queueMessageService.addMessage(queueMessage);
+            accountFundingProducer.basicPublish(mqConsumerUtils.getExchange(), mqConsumerUtils.getAccountFundingQueue(), new AMQP.BasicProperties.Builder().build(), SerializationUtils.serialize(message));
             return id;
         } catch (SQLException | IOException e) {
-            throw new ServiceRequestException(e);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
             throw new ServiceRequestException(e);
         }
     }
@@ -126,13 +111,9 @@ public class ServiceRequestService {
                             .description(creditRequest.getDescription())
                             .retry(retry)
                             .build();
-            QueueMessage queueMessage = new QueueMessage(accountValidateCreditProducer, new AMQP.BasicProperties.Builder().build(), message);
-            queueMessageService.addMessage(queueMessage);
+            accountValidateCreditProducer.basicPublish(mqConsumerUtils.getExchange(), mqConsumerUtils.getAccountValidateCreditQueue(), new AMQP.BasicProperties.Builder().build(), SerializationUtils.serialize(message));
             return id;
         } catch (SQLException | IOException e) {
-            throw new ServiceRequestException(e);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
             throw new ServiceRequestException(e);
         }
     }
@@ -153,13 +134,9 @@ public class ServiceRequestService {
                                     .retry(retry)
                                     .build()
                     ).build();
-            QueueMessage queueMessage = new QueueMessage(statementStatementProducer, new AMQP.BasicProperties.Builder().build(), message);
-            queueMessageService.addMessage(queueMessage);
+            statementStatementProducer.basicPublish(mqConsumerUtils.getExchange(), mqConsumerUtils.getAccountStatementStatementHeaderQueue(), new AMQP.BasicProperties.Builder().build(), SerializationUtils.serialize(message));
             return id;
         } catch (SQLException | IOException e) {
-            throw new ServiceRequestException(e);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
             throw new ServiceRequestException(e);
         }
     }
@@ -178,13 +155,9 @@ public class ServiceRequestService {
                             .description(closeRequest.getDescription())
                             .retry(retry)
                             .build();
-            QueueMessage queueMessage = new QueueMessage(accountCloseLoanProducer, new AMQP.BasicProperties.Builder().build(), message);
-            queueMessageService.addMessage(queueMessage);
+            statementStatementProducer.basicPublish(mqConsumerUtils.getExchange(), mqConsumerUtils.getAccountCloseLoanQueue(), new AMQP.BasicProperties.Builder().build(), SerializationUtils.serialize(message));
             return id;
         } catch (SQLException | IOException e) {
-            throw new ServiceRequestException(e);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
             throw new ServiceRequestException(e);
         }
     }
@@ -201,13 +174,9 @@ public class ServiceRequestService {
                             .description(debitRequest.getDescription())
                             .retry(retry)
                             .build();
-            QueueMessage queueMessage = new QueueMessage(accountValidateDebitProducer, new AMQP.BasicProperties.Builder().build(), message);
-            queueMessageService.addMessage(queueMessage);
+            accountValidateDebitProducer.basicPublish(mqConsumerUtils.getExchange(), mqConsumerUtils.getAccountValidateDebitQueue(), new AMQP.BasicProperties.Builder().build(), SerializationUtils.serialize(message));
             return id;
         } catch (SQLException | IOException e) {
-            throw new ServiceRequestException(e);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
             throw new ServiceRequestException(e);
         }
     }

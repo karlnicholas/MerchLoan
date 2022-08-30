@@ -1,12 +1,9 @@
 package com.github.karlnicholas.merchloan.query.api;
 
 import com.github.karlnicholas.merchloan.jms.MQConsumerUtils;
-import com.github.karlnicholas.merchloan.jms.queue.QueueMessage;
-import com.github.karlnicholas.merchloan.jms.queue.QueueMessageHandlerProducer;
-import com.github.karlnicholas.merchloan.jms.queue.QueueMessageService;
-import com.github.karlnicholas.merchloan.query.jms.QueueWaitingHandler;
-import com.github.karlnicholas.merchloan.query.message.*;
+import com.github.karlnicholas.merchloan.jms.ReplyWaitingHandler;
 import com.rabbitmq.client.AMQP;
+import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
 import lombok.extern.slf4j.Slf4j;
@@ -27,37 +24,35 @@ import java.util.UUID;
 public class QueryController {
     private final Connection consumerConnection;
     private final Connection producerConnection;
+    private final MQConsumerUtils mqConsumerUtils;
     private final String queryReplyQueue;
-    private final QueueMessageService queueMessageService;
-    private final QueryServiceRequestProducer queryServiceRequestProducer;
-    private final QueryAccountProducer queryAccountProducer;
-    private final QueryLoanProducer queryLoanProducer;
-    private final QueryStatementProducer queryStatementProducer;
-    private final QueryStatementsProducer queryStatementsProducer;
-    private final QueryCheckRequestProducer queryCheckRequestProducer;
-    private final QueueWaitingHandler queueWaitingHandler;
+    private final Channel queryServiceRequestProducer;
+    private final Channel queryAccountProducer;
+    private final Channel queryLoanProducer;
+    private final Channel queryStatementProducer;
+    private final Channel queryStatementsProducer;
+    private final Channel queryCheckRequestProducer;
+    private final ReplyWaitingHandler replyWaitingHandler;
 
-    public QueryController(ConnectionFactory connectionFactory, MQConsumerUtils mqConsumerUtils, QueueMessageService queueMessageService) throws Exception {
-        this.queueMessageService = queueMessageService;
-        queueWaitingHandler = new QueueWaitingHandler();
+    public QueryController(ConnectionFactory connectionFactory, MQConsumerUtils mqConsumerUtils) throws Exception {
+        this.mqConsumerUtils = mqConsumerUtils;
+        replyWaitingHandler = new ReplyWaitingHandler();
 
         queryReplyQueue = "queryReply-" + UUID.randomUUID();
 
         consumerConnection = connectionFactory.newConnection();
 
         mqConsumerUtils.bindConsumer(consumerConnection.createChannel(), mqConsumerUtils.getExchange(), queryReplyQueue, true, (consumerTag, message) -> {
-            queueWaitingHandler.handleReply(message.getProperties().getCorrelationId(), SerializationUtils.deserialize(message.getBody()));
+            replyWaitingHandler.handleReply(message.getProperties().getCorrelationId(), SerializationUtils.deserialize(message.getBody()));
         });
 
-        queryServiceRequestProducer = new QueryServiceRequestProducer(mqConsumerUtils.getExchange(), mqConsumerUtils.getServicerequestQueryIdQueue());
-        queryAccountProducer = new QueryAccountProducer(mqConsumerUtils.getExchange(), mqConsumerUtils.getAccountQueryAccountIdQueue());
-        queryLoanProducer = new QueryLoanProducer(mqConsumerUtils.getExchange(), mqConsumerUtils.getAccountQueryLoanIdQueue());
-        queryStatementProducer = new QueryStatementProducer(mqConsumerUtils.getExchange(), mqConsumerUtils.getStatementQueryStatementQueue());
-        queryStatementsProducer = new QueryStatementsProducer(mqConsumerUtils.getExchange(), mqConsumerUtils.getStatementQueryStatementsQueue());
-        queryCheckRequestProducer = new QueryCheckRequestProducer(mqConsumerUtils.getExchange(), mqConsumerUtils.getServiceRequestCheckRequestQueue());
-
         producerConnection = connectionFactory.newConnection();
-        queueMessageService.initialize(producerConnection, "query-producer-", 100);
+        queryServiceRequestProducer = producerConnection.createChannel();
+        queryAccountProducer = producerConnection.createChannel();
+        queryLoanProducer = producerConnection.createChannel();
+        queryStatementProducer = producerConnection.createChannel();
+        queryStatementsProducer = producerConnection.createChannel();
+        queryCheckRequestProducer = producerConnection.createChannel();
     }
 
     @PreDestroy
@@ -69,47 +64,46 @@ public class QueryController {
     @GetMapping(value = "/request/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
     public String queryRequestId(@PathVariable UUID id) throws Exception {
         log.debug("request: {}", id);
-        return handleRequest(queryServiceRequestProducer, id).toString();
+        return handleRequest(queryServiceRequestProducer, mqConsumerUtils.getServicerequestQueryIdQueue(), id).toString();
     }
 
     @GetMapping(value = "/account/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
     public String queryAccountId(@PathVariable UUID id) throws Exception {
         log.debug("account: {}", id);
-        return handleRequest(queryAccountProducer, id).toString();
+        return handleRequest(queryAccountProducer, mqConsumerUtils.getAccountQueryAccountIdQueue(), id).toString();
     }
 
     int max = 0;
     @GetMapping(value = "/loan/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
     public String queryLoanId(@PathVariable UUID id) throws Exception {
         log.debug("loan: {}", id);
-        return handleRequest(queryLoanProducer, id).toString();
+        return handleRequest(queryLoanProducer, mqConsumerUtils.getAccountQueryLoanIdQueue(), id).toString();
     }
 
     @GetMapping(value = "/statement/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
     public String queryStatementId(@PathVariable UUID id) throws Exception {
         log.debug("statement: {}", id);
-        return handleRequest(queryStatementProducer, id).toString();
+        return handleRequest(queryStatementProducer, mqConsumerUtils.getStatementQueryStatementQueue(), id).toString();
     }
 
     @GetMapping(value = "/statements/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
     public String queryStatementsId(@PathVariable UUID id) throws Exception {
         log.debug("statements: {}", id);
-        return handleRequest(queryStatementsProducer, id).toString();
+        return handleRequest(queryStatementsProducer, mqConsumerUtils.getStatementQueryStatementsQueue(), id).toString();
     }
 
     @GetMapping(value = "/checkrequests", produces = MediaType.APPLICATION_JSON_VALUE)
     public Boolean queryCheckRequests() throws Exception {
         log.debug("checkrequests");
-        return (Boolean) handleRequest(queryCheckRequestProducer, new byte[0]);
+        return (Boolean) handleRequest(queryCheckRequestProducer, mqConsumerUtils.getServiceRequestCheckRequestQueue(), new byte[0]);
     }
 
-    private Object handleRequest(QueueMessageHandlerProducer producer, Object data) throws InterruptedException {
+    private Object handleRequest(Channel producer, String queue, Object data) throws IOException, InterruptedException {
         String responseKey = UUID.randomUUID().toString();
-        queueWaitingHandler.put(responseKey);
+        replyWaitingHandler.put(responseKey);
         AMQP.BasicProperties properties = new AMQP.BasicProperties.Builder().correlationId(responseKey).replyTo(queryReplyQueue).build();
-        QueueMessage queueMessage = new QueueMessage(producer, properties, data);
-        queueMessageService.addMessage(queueMessage);
-        return queueWaitingHandler.getReply(responseKey);
+        producer.basicPublish(mqConsumerUtils.getExchange(), queue, properties, SerializationUtils.serialize(data));
+        return replyWaitingHandler.getReply(responseKey);
     }
 
 }
