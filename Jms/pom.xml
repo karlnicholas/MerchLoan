@@ -22,9 +22,8 @@
             <artifactId>spring-boot-configuration-processor</artifactId>
         </dependency>
         <dependency>
-            <groupId>org.apache.activemq</groupId>
-            <artifactId>artemis-core-client-all</artifactId>
-            <version>2.23.0</version>
+            <groupId>com.rabbitmq</groupId>
+            <artifactId>amqp-client</artifactId>
         </dependency>
         <dependency>
             <groupId>com.github.karlnicholas.merchloan</groupId>

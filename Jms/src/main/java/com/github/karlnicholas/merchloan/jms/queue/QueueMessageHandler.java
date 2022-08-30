@@ -1,38 +1,34 @@
 package com.github.karlnicholas.merchloan.jms.queue;
 
+import com.rabbitmq.client.Channel;
+import com.rabbitmq.client.Connection;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.activemq.artemis.api.core.ActiveMQException;
-import org.apache.activemq.artemis.api.core.client.ClientProducer;
-import org.apache.activemq.artemis.api.core.client.ClientSession;
-import org.apache.activemq.artemis.api.core.client.ClientSessionFactory;
 
+import java.io.IOException;
 import java.util.List;
+import java.util.concurrent.TimeoutException;
 
 @Slf4j
 class QueueMessageHandler extends Thread implements Runnable {
     private final List<QueueMessage> messsageQueue;
-    private final ClientSession clientSession;
-    private final ClientProducer producer;
+    private final Channel producer;
     private boolean run;
 
 
-    public QueueMessageHandler(ClientSessionFactory clientSessionFactory, List<QueueMessage> messsageQueue, String sessionId) throws Exception {
+    public QueueMessageHandler(Connection connection, List<QueueMessage> messsageQueue) throws Exception {
         run = true;
         this.messsageQueue = messsageQueue;
-        clientSession = clientSessionFactory.createSession();
-        clientSession.addMetaData(ClientSession.JMS_SESSION_IDENTIFIER_PROPERTY, "jms-client-id");
-        clientSession.addMetaData("jms-client-id", sessionId);
-        producer = clientSession.createProducer();
+        this.producer = connection.createChannel();
     }
 
     public void stopHandler() {
         run = false;
         this.interrupt();
     }
-    public void close() throws ActiveMQException {
-        clientSession.close();
-    }
 
+    public void close() throws IOException, TimeoutException {
+        producer.close();
+    }
     @Override
     public void run() {
         while (run) {
@@ -43,13 +39,13 @@ class QueueMessageHandler extends Thread implements Runnable {
                     }
                     QueueMessage message = messsageQueue.remove(0);
                     messsageQueue.notifyAll();
-                    message.getProducer().sendMessage(producer, message.getMessage());
+                    message.getProducer().sendMessage(producer, message.getProperties(), message.getMessage());
                 }
             } catch (InterruptedException ex) {
                 if ( run ) ex.printStackTrace();
                 Thread.currentThread().interrupt();
-            } catch (ActiveMQException e) {
-                log.error("QueueMessageHandler::run ", e);
+            } catch (IOException e) {
+                if ( run ) e.printStackTrace();
             }
         }
     }

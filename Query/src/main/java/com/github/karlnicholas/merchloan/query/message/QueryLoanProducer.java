@@ -1,22 +1,25 @@
 package com.github.karlnicholas.merchloan.query.message;
 
 import com.github.karlnicholas.merchloan.jms.queue.QueueMessageHandlerProducer;
+import com.rabbitmq.client.AMQP;
+import com.rabbitmq.client.Channel;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.activemq.artemis.api.core.ActiveMQException;
-import org.apache.activemq.artemis.api.core.SimpleString;
-import org.apache.activemq.artemis.api.core.client.ClientMessage;
-import org.apache.activemq.artemis.api.core.client.ClientProducer;
+import org.springframework.util.SerializationUtils;
+
+import java.io.IOException;
 
 @Slf4j
 public class QueryLoanProducer implements QueueMessageHandlerProducer {
-    private final SimpleString queue;
+    private final String exchange;
+    private final String queue;
 
-    public QueryLoanProducer(SimpleString queue) {
+    public QueryLoanProducer(String exchange, String queue) {
+        this.exchange = exchange;
         this.queue = queue;
     }
     @Override
-    public void sendMessage(ClientProducer producer, ClientMessage message) throws ActiveMQException{
-        producer.send(queue, message);
+    public void sendMessage(Channel producer, AMQP.BasicProperties properties, Object message) throws IOException {
+        producer.basicPublish(exchange, queue, properties, SerializationUtils.serialize(message));
     }
 
 }

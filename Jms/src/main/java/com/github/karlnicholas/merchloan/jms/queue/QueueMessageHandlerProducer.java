@@ -1,9 +1,10 @@
 package com.github.karlnicholas.merchloan.jms.queue;
 
-import org.apache.activemq.artemis.api.core.ActiveMQException;
-import org.apache.activemq.artemis.api.core.client.ClientMessage;
-import org.apache.activemq.artemis.api.core.client.ClientProducer;
+import com.rabbitmq.client.AMQP.BasicProperties;
+import com.rabbitmq.client.Channel;
+
+import java.io.IOException;
 
 public interface QueueMessageHandlerProducer {
-    void sendMessage(ClientProducer producer, ClientMessage message) throws ActiveMQException, InterruptedException;
+    void sendMessage(Channel producer, BasicProperties properties, Object message) throws InterruptedException, IOException;
 }

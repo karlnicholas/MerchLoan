@@ -1,17 +1,13 @@
 package com.github.karlnicholas.merchloan.jms;
 
 
+import com.rabbitmq.client.*;
 import lombok.Data;
-import org.apache.activemq.artemis.api.core.ActiveMQException;
-import org.apache.activemq.artemis.api.core.QueueConfiguration;
-import org.apache.activemq.artemis.api.core.RoutingType;
-import org.apache.activemq.artemis.api.core.SimpleString;
-import org.apache.activemq.artemis.api.core.client.ClientConsumer;
-import org.apache.activemq.artemis.api.core.client.ClientSession;
-import org.apache.activemq.artemis.api.core.client.MessageHandler;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.PropertySource;
+
+import java.io.IOException;
 
 @Configuration
 @ConfigurationProperties(prefix = "rabbitmq")
@@ -19,29 +15,11 @@ import org.springframework.context.annotation.PropertySource;
 @Data
 public class MQConsumerUtils {
 
-    public ClientConsumer bindConsumer(ClientSession clientSession, SimpleString queueName, boolean temporary, MessageHandler messageHandler) throws ActiveMQException {
-        ClientSession.QueueQuery query = clientSession.queueQuery(queueName);
-        if (!query.isExists()) {
-            QueueConfiguration queueConfiguration = new QueueConfiguration(queueName);
-            queueConfiguration.setDurable(false);
-            queueConfiguration.setAutoDelete(true);
-            queueConfiguration.setTemporary(temporary);
-            queueConfiguration.setRoutingType(RoutingType.ANYCAST);
-            clientSession.createQueue(queueConfiguration);
-        }
-        ClientConsumer clientConsumer = clientSession.createConsumer(queueName);
-        clientConsumer.setMessageHandler(messageHandler);
-        return clientConsumer;
-    }
-
-    public static ClientConsumer createTemporaryQueue(ClientSession clientSession, SimpleString replyQueueName) throws ActiveMQException {
-        QueueConfiguration queueConfiguration = new QueueConfiguration(replyQueueName);
-        queueConfiguration.setDurable(false);
-        queueConfiguration.setAutoDelete(true);
-        queueConfiguration.setTemporary(true);
-        queueConfiguration.setRoutingType(RoutingType.ANYCAST);
-        clientSession.createQueue(queueConfiguration);
-        return clientSession.createConsumer(replyQueueName);
+    public void bindConsumer(Channel channel, String exchange, String queueName, boolean exclusive, DeliverCallback deliverCallback) throws IOException {
+        channel.exchangeDeclare(exchange, BuiltinExchangeType.DIRECT, false, true, null);
+        channel.queueDeclare(queueName, false, exclusive, true, null);
+        channel.queueBind(queueName, exchange, queueName);
+        channel.basicConsume(queueName, true, deliverCallback, consumerTag -> {});
     }
 
     private String exchange;
